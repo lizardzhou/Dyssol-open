@@ -44,15 +44,9 @@ public:
 	// Basics for DAESolver
 	void CalculateResiduals(double _time, double* _vars, double* _ders, double* _res, void* _unit) override;
 	void ResultsHandler(double _time, double* _vars, double* _ders, void* _unit) override;
-
-	/**	Initialize the variables for debugging
+	/**	Initialize the varialbes used for debugging
 	 *	\return None*/
-	void InitCounterVaraibles() 
-	{ 
-		progressCounter = 1; 
-		progressCounterTotal = 0;
-	};
-
+	void InitCounterVaraibles() { progressCounter = 1; progressCounterTotal = 0;};
 	/**	Calculates average for the variable with the variable key between the start and end index
 	 *	\param variables
 	 *  \param key for variable
@@ -60,18 +54,15 @@ public:
 	 *  \param start index for variable of key
 	 *	\return average of variable in unit of variable*/
 	double CalculateAverage(double* _vars, size_t variableKey, int64_t end, int64_t start =0) const;
-	
 	/**	 Calculates heat loss over the entire chamber split up by layer
 	 *	\param 
 	 *	\return pair of heat loss through particles and vector for heat loss through gas all in watts*/
 	std::pair<double, std::vector<double>> CalculateChamberHeatLoss(double _time, void* _unit, double* _vars);
-	
-	/**	Calculates heat loss of each chamber section
+	/**	
 	 *	\param 
 	 *	\return */
 	double CalculateSectionHeatLoss(double _time, void* _unit, double* _vars, size_t section, std::vector<double>* Q_GW, double heightUsage = 1);
-
-	/**	Calculates heat loss of top section
+	/**	
 	 *	\param 
 	 *	\return */
 	double CalculateTopPlateHeatLoss(double _time, void* _unit, double* _vars);
@@ -134,7 +125,7 @@ public:
 		double heighestFlowTimepoint = 0;
 	// Settings
 		double SmallBiotNumber = 0.1;
-		double f_alpha = 1; // ratio alpha_PF / alpha_AP
+		double f_a = 1;
 		double phiCuttOff = 0.999;
 	// REA function parameters
 		double REA1 = 0.96;
@@ -148,15 +139,16 @@ public:
 	size_t N_particle = 1; // Number of hight discretization layers of all sections containing particles
 	size_t N_total = 1;// Total number of hight discretization layers
 
-	CHoldup* m_holdup{}; // Holdup
-	CMaterialStream* m_inLiquidStream{}; // Input of water stream
-	CMaterialStream* m_inNozzleAirStream{}; // Input nozzle air
-	CMaterialStream* m_inGasStream{}; // Input gas (fluidization air) stream
+	CHoldup* m_holdup{};				// Holdup
+	CMaterialStream* m_inSuspensionStream{};	// Input of water stream
+	CMaterialStream* m_inSuspensionSupplimentStream{};
+	CMaterialStream* m_inGasStream{};	// Input gas stream
 	CMaterialStream* m_outExhaustGasStream{};	// Output of exhaust gas
 
 	CStream* m_VaporStream{};
 	//CHoldup* m_Expander{}; //ToDo - check usage
 	//CHoldup* workingHoldup{}; //ToDo - check usage
+
 	
 
 	// String keys of compounds for material database
@@ -169,7 +161,7 @@ public:
 	temperature TempGasOld = T_ref;
 	temperature TempSolidOld = T_ref;
 	moistureContent YavgOld = Y_in;
-	int DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
+	int64_t DiffKoeff = 0;
 
 	double EnergyLiquidPhaseOld = 0;
 	double EnergySolidPhaseOld = 0;
@@ -210,33 +202,27 @@ public:
 	 *	\param film temperature
 	 *	\param system pressure
 	 *	\return diffusion coefficient in meter squared per second*/
-	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
+	double CalculateDiffusionCoefficient(double _time, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
 	/**	
 	 *	\param 
 	 *	\return */
 	double GetRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P);// const;
-
-	double REA(double deltaX) const 
-	{ 
-		if (deltaX > 0) 
-			return REA1 * exp(REA2 * pow(deltaX, REA3)); 
-		else 
-			return 1;
-	};
-
-	double REAinv(double Xeq, double y) const 
-	{ 
-		if (REA1 == 0 || REA2 == 0) 
-			return 0; 
-		else
-			return pow(log(y / REA1) / REA2, 1. / REA3) + Xeq;
-	};
-
+	/**	
+	 *	\param 
+	 *	\return */
+	double REA(double deltaX) const { if (deltaX > 0) return REA1 * exp(REA2 * pow(deltaX, REA3)); else return 1;};
+	/**	
+	 *	\param 
+	 *	\return */
+	double REAinv(double Xeq, double y) const { if (REA1 == 0 || REA2 == 0) return 0; return pow(log(y / REA1) / REA2, 1. / REA3) + Xeq;};
+	/**	
+	 *	\param 
+	 *	\return */
 	double GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const;
 	/**	
 	 *	\param 
 	 *	\return */
-	double GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties property, double temperature, double pressure = STANDARD_CONDITION_P) const;
+	double GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties  property, double temperature, double pressure = STANDARD_CONDITION_P) const;
 	/**	
 	 *	\param 
 	 *	\return */
@@ -300,7 +286,7 @@ public:
 	/**	
 	 *	\param 
 	 *	\return */
-	double CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature, double D) const;
+	double CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature) const;
 
 	double GetParticleEquilibriumMoistureContent(double temperature, double RH) const;
 	/**	Initializes variables containing equilibirum moisture content date
