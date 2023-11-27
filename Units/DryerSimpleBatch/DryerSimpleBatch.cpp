@@ -19,7 +19,7 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 void CDryerSimpleBatch::CreateBasicInfo()
 {
 	/// Set basic unit info ///
-	SetUnitName("Dryer simple batch (without heat transfer)");
+	SetUnitName("Dryer (batch without heat transfer)");
 	SetAuthorName("Xiye Zhou");
 	SetUniqueID("003B3DA4-702F-4647-BD90-7F9A5FDD5E1C");
 }
@@ -73,6 +73,7 @@ void CDryerSimpleBatch::Initialize(double _time)
 	/// Read input parameters ///
 	const double Y_in = GetConstRealParameterValue("Y_in");
 	
+	/// Information of PSD, currently not necessary ///
 	/*
 	/// Get number of classes for PSD ///
 	m_classesNum = GetClassesNumber(DISTR_SIZE); //n
@@ -155,7 +156,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double Delta_f = unit->GetConstRealParameterValue("Delta_f") * 1e-6; // convert in [m]
 
 	/// DAE system ///
-	// Values in _vars: should not be changed
+	// Values in _vars: should not be changed !!!
 	const double varMFlowVapor = _vars[m_iMFlowVapor]; 
 	const double varEtaPFTR = _vars[m_iEtaPFTR];
 	const double varNTU = _vars[m_iNTU];
@@ -184,7 +185,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varYOutFormula = varMFlowVapor / mFlowGas + Y_in;
 	_res[m_iYOut] = varYOut - varYOutFormula;
 
-	// Codes for checking _vars, _ders and _res
+	// Codes for checking _vars, _ders and _res, only turn on if needed
 	///*
 	#ifdef _DEBUG
 		std::vector vars(_vars, _vars + GetVariablesNumber());
