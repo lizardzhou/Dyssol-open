@@ -1,7 +1,7 @@
 /* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #define DLL_EXPORT
-#include "DryerBatch.h"
+#include "DryerBatchAlex.h"
 #include <sstream>
 #include <set>
 #include <iostream>
@@ -20,55 +20,52 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 /// - With heat transfer based on model from Maksym + Soeren (1st and 2nd drying stages)
 /// - Mass transfer of water from particle to fluidization gas
 /// - Mass transfer is treated as ideal plug flow reactor and heat exchanger with phase change -> consider the efficiency during mass transfer
+/// - With sorption isotherms???
 
 void CDryerBatch::CreateBasicInfo()
 {
 	/// Set basic unit info ///
-	SetUnitName("Dryer (batch with heat and mass transfer)");
+	SetUnitName("Dryer batch (recent version Alex)");
 	SetAuthorName("Alexander Hanke, Xiye Zhou");
-	SetUniqueID("E458E673-D296-4CC0-9084-69381811A0A1");
+	SetUniqueID("8CA9B8E5-8418-4EB5-8070-AA9C157A3167");
 }
 
 void CDryerBatch::CreateStructure()
 {
 	/// Add ports ///
-	AddPort("InletLiquid", EUnitPort::INPUT);
+	AddPort("InletSuspension", EUnitPort::INPUT);
 	AddPort("InletFluidizationGas", EUnitPort::INPUT);
-	AddPort("InletNozzleAir", EUnitPort::INPUT); 
+	AddPort("InletSuspensionSuppliment", EUnitPort::INPUT);
 	AddPort("OutletExhaustGas", EUnitPort::OUTPUT);
 
 	/// Add unit parameters ///
-	/// Input properties
-	AddStringParameter("Input properties", ""				, "");
-	AddConstRealParameter("Delta_f"	, 40	, "mum"			, "Thickness of the water film on particles in micrometer"	, 1);
-	AddConstRealParameter("Y_in"	, 5		, "g/kg dry gas", "Moisture content of the fluidization gas"				, 0);
-	AddConstRealParameter("RH_in"	, 48.99	, "%"			, "Relativ humidity of the fluidization gas"				, 0, 100);
-	AddConstRealParameter("Y_sat"	, 0		, "g/kg dry gas", "Saturation moisture content of the fluidization gas\nWill be cacluated using material database values if 0.", 0);
-	AddConstRealParameter("A_P"		, 0		, "m2"			, "Surface area of all particles in the granulator\nIf left at 0 PSD is used to calculate surface area", 0);
+	AddConstRealParameter("Delta_f", 40, "mum", "Thickness of the water film on particles in micrometer", 1);
+	AddConstRealParameter("Y_in", 5, "g/kg dry gas", "Moisture content of the fluidization gas", 0);
+	AddConstRealParameter("RH_in", 48.99, "%", "Relativ humidity of the fluidization gas", 0, 100);
+	AddConstRealParameter("Y_sat",0, "g/kg dry gas", "Saturation moisture content of the fluidization gas\nWill be cacluated using material database values if 0.", 0);
+	AddConstRealParameter("A_P", 0, "m2", "Surface area of all particles in the granulator\nIf left at 0 PSD is used to calculate surface area", 0);
 	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
-	AddConstRealParameter("k_dc"	, 3.5	, "-"			, "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", -10000, 10000); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
-	AddConstRealParameter("X_cr"	, 0.025	, "kg/kg"		, "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
-	AddConstRealParameter("T_env"	, 20	, "deg C"		, "Temperature of the environment, assumed to be constant"									, -273.15);
+	AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", -10000, 10000); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
+	AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
+	AddConstRealParameter("T_env", 20, "deg C", "Temperature of the environment, assumed to be constant", -273.15);
+	// Bed properties, use for development of further complexer models
+	AddStringParameter("Bed properties", "", "Currently not in use, designed for further development");
+	//AddConstRealParameter("d_bed", 0.2, "m", "Bed diameter", 0.001);
+	//AddConstRealParameter("H_bed", 0.106, "m", "Bed height without fluidization", 0.001);
+	//AddConstRealParameter("H_chamber", 0.25, "m", "Process chamber height", 0.001);
+	AddConstRealParameter("eps_0", 0.4, "-", "Bed porosity without fluidization", 0, 1);
+	AddConstRealParameter("u_mf", 0, "m/s", "Minimal fluidization velocity\nIf zero, calculate use Wen&Yu correlation", 0, 1);
+	AddConstRealParameter("beta_GP", -1, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf <0 calculated using correlation from Gnielinski");
+	AddConstIntParameter("N_el", 1, "", "Number of hight discretization layers", 1);
+	// Usage of inputed or calculated values
+	AddStringParameter("Settings", "", "Check if values should be calculated.");
+	//AddCheckBoxParameter("calcBeta", true, "beta");
+	//AddCheckBoxParameter("calcY_sat", false, "Y_sat");
 
-	/// Bed properties, use for development of further complexer models
-	AddStringParameter	 ("Bed properties"	, ""			, "Currently not in use, designed for further development");
-	//AddConstRealParameter("d_bed"			, 0.2			, "m", "Bed diameter", 0.001);
-	//AddConstRealParameter("H_bed"			, 0.106			, "m", "Bed height without fluidization", 0.001);
-	//AddConstRealParameter("H_chamber"		, 0.25			, "m", "Process chamber height", 0.001);
-	AddConstRealParameter("eps_0"	, 0.4	, "-"	, "Bed porosity without fluidization"										, 0, 1);
-	AddConstRealParameter("u_mf"	, 0		, "m/s"	, "Minimal fluidization velocity\nIf zero, calculate use Wen&Yu correlation", 0, 1);
-	AddConstRealParameter("beta_GP"	, -1	, "m/s"	, "Mass transfer coefficient for liquid from gas to particle\nIf <0, calculated using correlation from Gnielinski");
-	AddConstIntParameter ("N_el"	, 1		, ""	, "Number of hight discretization layers"									, 1);
-
-	/// Usage of input or calculated values
-	AddStringParameter	 ("Settings" , ""	, "Check if values should be calculated.");
-	AddCheckBoxParameter ("updateA"  , true	, "Calculate particel surface from PSD and mass.");
-	AddCheckBoxParameter ("calcBeta" , true	, "beta");
-	AddCheckBoxParameter ("calcY_sat", true	, "Y_sat");
-	
-	std::vector<size_t>	items{ 0, 1, 2 };
-	std::vector<std::string> itemNames{"Dosta", "Tsotsas", "Poos"};
-	AddComboParameter("Diff_coeff", 0, items, itemNames, "Correlation for diffusion coefficient from water vapor to air"); // by default use correlation from Dosta (2010)
+	//AddCheckBoxParameter("updateA", false, "Calculate particel surface from PSD and mass.");
+	std::vector<size_t> items{ 0, 1, 2 };
+	std::vector<std::string> itemNames{"Poos","Dosta","Tsotsa"};
+	AddComboParameter("Diff_coeff", 0, items,itemNames, "Correlation for diffusion coefficient");
 	itemNames = {"RH_in","Y_in","Input stream"};
 	AddComboParameter("Y_inSet", 0, items, itemNames, "How Y_in should be determined.");
 	itemNames = { "REA","Normalized drying curve","No curve" };
@@ -140,9 +137,9 @@ void CDryerBatch::Initialize(double _time)
 	TempGasOld = m_holdup->GetTemperature(_time);
 
 	/// Get pointers to streams ///
-	m_inLiquidStream = GetPortStream("InletLiquid");
+	m_inSuspensionStream = GetPortStream("InletSuspension");
 	m_inGasStream = GetPortStream("InletFluidizationGas");
-	m_inNozzleAirStream = GetPortStream("InletNozzleAir");
+	m_inSuspensionSupplimentStream = GetPortStream("InletSuspensionSuppliment");
 	m_outExhaustGasStream = GetPortStream("OutletExhaustGas");
 
 	// Pull compound data
@@ -190,8 +187,8 @@ void CDryerBatch::Initialize(double _time)
 	X_cr = GetConstRealParameterValue("X_cr");
 	m_model.Y_eq = GetCheckboxParameterValue("Y_eq");
 
-	double RH_in = GetConstRealParameterValue("RH_in") / 100;
-	DiffCoeff = GetComboParameterValue("Diff_coeff");
+	double RH_in = GetConstRealParameterValue("RH_in")/100;
+	DiffKoeff = GetComboParameterValue("Diff_coeff");
 	size_t Y_inSet = GetComboParameterValue("Y_inSet");
 
 	Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
@@ -380,8 +377,8 @@ void CDryerBatch::Initialize(double _time)
 	temperature InitTemperatureLiquid;
 	if (particlesGlobal)
 	{
-		if (m_holdup->GetTemperature(_time) > m_inLiquidStream->GetTemperature(_time) && phiInit == 0)
-			InitTemperatureLiquid = m_inLiquidStream->GetTemperature(_time);
+		if (m_holdup->GetTemperature(_time) > m_inSuspensionStream->GetTemperature(_time) && phiInit == 0)
+			InitTemperatureLiquid = m_inSuspensionStream->GetTemperature(_time);
 		else
 			InitTemperatureLiquid = m_holdup->GetTemperature(_time);
 		m_model.m_iTempFilm = m_model.AddDAEVariable(true, InitTemperatureLiquid, 0, 1.0); // Temperature of liquid film in [K]
@@ -570,10 +567,10 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 	beta_GP = this->GetConstRealParameterValue("beta_GP");
 
 	/// Properties of liquids
-	if (m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID) == 0)
+	if (m_inSuspensionStream->GetPhaseFraction(_time, EPhase::LIQUID) == 0)
 		RaiseWarning("Port: InletSuspension contains no liquid.");
 
-	std::vector<massFraction> LiqudCompoundsDistribution = m_inLiquidStream->GetPhase(EPhase::LIQUID)->GetCompoundsDistribution(_time);
+	std::vector<massFraction> LiqudCompoundsDistribution = m_inSuspensionStream->GetPhase(EPhase::LIQUID)->GetCompoundsDistribution(_time);
 
 	density tempRhoLiquid = 0;
 	heatCapacity tempHeatCapacityLiquid = 0;
@@ -1075,57 +1072,42 @@ double CDryerBatch::CalcAlphaParticleGas(double _time) const
 }
 
 /// Mass transfer ///
-double CDryerBatch::CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure) const
+double CDryerBatch::CalculateDiffusionCoefficient(double _time, double filmTemperature, double pressure) const
 {
-	switch (DiffCoeff)
-	{
+	const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE);
+	const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE);
 
-		case 0: // Dosta (2010): https://doi.org/10.1016/j.powtec.2010.07.018
-			return (23e-5) * pow(avgGasTemperature / T_ref, 1.81); 
-			break;
-	
-		case 1: // Tsotsas
-			return 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
-			break;
+	const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS)/ GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
+	const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS)/ GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01)*1e6;
 
-		case 2: // correlation Poos & Varju (2020): https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-			const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE); // critical temperature air
-			const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE); // critical temperature of liquid on particle (water)
-			const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS) / GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
-			const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS) / GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01) * 1e6;
-			return (1.498e-6 * pow(filmTemperature, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
-				/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
-			break;
-	}
-	
-	
+	return (1.498e-6 * pow(filmTemperature, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
+		/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
 }
-
-double CDryerBatch::CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature, double D) const
+double CDryerBatch::CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature) const
 {
 	if (avgGasTemperature != avgGasTemperature || filmTemperature != filmTemperature || avgGasTemperature < 0 || filmTemperature < 0)
 		return -1;
 	if (beta_GP >= 0)
 		return beta_GP;
 
-	//// VDI M5.2
-	//const double D_Dosta = (23e-5) * pow(avgGasTemperature / T_ref, 1.81); // Diffustion coefficient water vapor in air
-	//// Dosta 2010 A.3
-	//const double D_Poos = CalculateDiffusionCoefficient(_time,filmTemperature);
-	//// https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-	//const double D_Tsotsas = 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
-	//double D = 1;
-	//switch (DiffCoeff) {
-	//case 1:
-	//	D = D_Dosta;
-	//	break;
-	//case 2:
-	//	D = D_Tsotsas;
-	//	break;
-	//default:
-	//	D = D_Poos;
-	//	break;
-	//}
+	// VDI M5.2
+	const double D_Dosta = (23e-5) * pow(avgGasTemperature / T_ref, 1.81); // Diffustion coefficient water vapor in air
+	// Dosta 2010 A.3
+	const double D_Poos = CalculateDiffusionCoefficient(_time,filmTemperature);
+	// https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
+	const double D_Tsotsas = 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
+	double D = 1;
+	switch (DiffKoeff) {
+	case 1:
+		D = D_Dosta;
+		break;
+	case 2:
+		D = D_Tsotsas;
+		break;
+	default:
+		D = D_Poos;
+		break;
+	}
 	const double Sc = etaGas / (D * rhoGas);
 	const double Re = CalculateReynolds(_time);
 	const double eps = CalculateBedPorosity(_time); // Bed porosity
@@ -1820,10 +1802,10 @@ if (debugToggle){
 
 	/// Read input parameters ///
 	const pressure mPressure = unit->m_holdup->GetPressure(_time); // Pressure holdup [Pa]
-	const massFlow mFlowSuspension = unit->m_inLiquidStream->GetMassFlow(_time);
-	const massFlow mFlowSuspensionLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID); // Suspension mass flow [kg/s]
-	const massFlow mFlowSuspensionSolid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID);
-	const massFlow mFlowSuspensionGas = unit->m_inNozzleAirStream->GetPhaseMassFlow(_time, EPhase::GAS);
+	const massFlow mFlowSuspension = unit->m_inSuspensionStream->GetMassFlow(_time);
+	const massFlow mFlowSuspensionLiquid = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::LIQUID); // Suspension mass flow [kg/s]
+	const massFlow mFlowSuspensionSolid = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::SOLID);
+	const massFlow mFlowSuspensionGas = unit->m_inSuspensionSupplimentStream->GetPhaseMassFlow(_time, EPhase::GAS);
 	//const double mFlowGasSupplemental = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::GAS); [kg/s]
 	const massFlow mFlowGas = unit->m_inGasStream->GetPhaseMassFlow(_time, EPhase::GAS); // Gas mass flow [kg/s]
 	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID); // Solid mass holdup [kg]
@@ -1839,10 +1821,10 @@ if (debugToggle){
 		phi, d/dt particle temperature, A_P, d/dt A_P
 	*/
 	const length Delta_f = unit->Delta_f; // Max. liquid film thickness [m]
-	const massFraction w_l = unit->m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);// unit->w_l; // Liquid mass fraction suspension [kg/kg]
+	const massFraction w_l = unit->m_inSuspensionStream->GetPhaseFraction(_time, EPhase::LIQUID);// unit->w_l; // Liquid mass fraction suspension [kg/kg]
 
 	const temperature mGasInTemperature = unit->m_inGasStream->GetTemperature(_time); // Temperature of inGasStream general [K]
-	const temperature mSuspensionTemperature = unit->m_inLiquidStream->GetTemperature(_time);
+	const temperature mSuspensionTemperature = unit->m_inSuspensionStream->GetTemperature(_time);
 
 	/// DAE system ///
 	// Values in _vars: determined by the solver & should not be changed, set as const!
@@ -1865,7 +1847,7 @@ if (debugToggle){
 	// Calculate other coefficients
 	const double alpha_GP = unit->CalcAlphaParticleGas(_time); // Heat transfer coefficient gas to particle
 	const double alpha_GF = alpha_GP; // Heat transfer coefficient gas to film
-	const double alpha_PF = alpha_GP * unit->f_alpha;//unit->CalculateAlphaPF(_time); // Heat transfer coefficient particle to film
+	const double alpha_PF = alpha_GP * unit->f_a;//unit->CalculateAlphaPF(_time); // Heat transfer coefficient particle to film
 
 
 	// Model according to Dosta 2010
@@ -1890,8 +1872,7 @@ if (debugToggle){
 	double cPSolid = unit->C_PParticle;
 	cPSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::HEAT_CAPACITY_CP, varTempParticle2, mPressure);
 
-	const double D = unit->CalculateDiffusionCoefficient(_time, varAvTempGas, varTempFilm2, mPressure);
-	const double beta = !unit->particlesGlobal? 0: unit->CalculateBetaPA(_time, varAvTempGas, varTempParticle2, D); // Mass transfer coefficient for film to gas [m/s]
+	const double beta = !unit->particlesGlobal? 0: unit->CalculateBetaPA(_time, varAvTempGas,varTempParticle2); // Mass transfer coefficient for film to gas [m/s]
 	if (beta == -1)
 		unit2->RaiseError("Mass transfer coefficient calculation error. Provided temperature = nan or < 0 K");
 
@@ -1954,7 +1935,7 @@ if (debugToggle){
 
 	if (liquidFilm)
 	{
-		unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
+		unit->m_holdup->AddStream(prevTime, _time, unit->m_inSuspensionStream);
 		varPhi2 = (unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - XCutt * mHoldupSolid - ((_time - prevTime) * MFlowVapor)) / (rhoLiquid * Delta_f * unit->A_P);
 		unit->m_holdup->SetPhaseMass(_time, EPhase::LIQUID, mHoldupLiquid);
 		unit->m_holdup->SetPhaseMass(_time, EPhase::SOLID, mHoldupSolid);
@@ -2135,7 +2116,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->m_holdup->AddTimePoint(_time);
 
 	massFlow mFlowInGas = unit->m_inGasStream->GetMassFlow(_time);
-	const massFlow mFlowInLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
+	const massFlow mFlowInLiquid = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
 	const mass mHoldup = unit->m_holdup->GetMass(0);
 	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 	const mass mHoldupGas = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS);
@@ -2156,7 +2137,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const mass mWaterAirIn = (_time - prevTime) * mFlowInGas * Y_in;
 	const mass mVapor = (_time - prevTime) * mFlowVapor;
 
-	unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
+	unit->m_holdup->AddStream(prevTime, _time, unit->m_inSuspensionStream);
 	//mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
 
 	unit->m_holdup->RemoveTimePointsAfter(_time);
@@ -2170,7 +2151,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->m_outExhaustGasStream->CopyFromStream(_time, unit->m_inGasStream);
 	unit->m_VaporStream->SetMassFlow(_time, mFlowVapor);
 	unit->m_outExhaustGasStream->AddStream(_time, unit->m_VaporStream);
-	unit->m_outExhaustGasStream->AddStream(_time, unit->m_inNozzleAirStream);
+	unit->m_outExhaustGasStream->AddStream(_time, unit->m_inSuspensionSupplimentStream);
 	unit->m_outExhaustGasStream->SetTemperature(_time, mTempGasOut);
 	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::SOLID, 0);
 	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::LIQUID, 0);
@@ -2229,7 +2210,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		});
 
 if (debugToggle){
-		unit->SetStateVariable("Mass balance", (_time - prevTime==0?0:( - unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime)) / (_time - prevTime)) + ((unit->m_inGasStream->GetMassFlow(_time)+unit->m_inNozzleAirStream->GetMassFlow(_time))*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inLiquidStream->GetMassFlow(_time)), _time);
+		unit->SetStateVariable("Mass balance", (_time - prevTime==0?0:( - unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime)) / (_time - prevTime)) + ((unit->m_inGasStream->GetMassFlow(_time)+unit->m_inSuspensionSupplimentStream->GetMassFlow(_time))*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inSuspensionStream->GetMassFlow(_time)), _time);
 		//unit->SetStateVariable("Energy balance", unit->m_inGasStream->GetMassFlow(_time) - unit->m_outExhaustGasStream->GetMassFlow(_time),_time);
 		//unit->SetStateVariable("Mass balance new", -unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime) + (_time - prevTime) * (unit->m_inGasStream->GetMassFlow(_time)*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inSuspensionStream->GetMassFlow(_time)), _time);
 
@@ -2238,7 +2219,7 @@ if (debugToggle){
 		double EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * (unit->YavgOld - avY)) * avVarTempGas/* + unit->Delta_h0 * (unit->YavgOld - Y_av)*/);
 
 		double EnergyInputGas = (_time - prevTime) * unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time)/* + unit->Y_in * unit->Delta_h0*/);
-		double EnergyInputLiquid = (_time - prevTime) * (unit->m_inLiquidStream->GetPhaseMassFlow(_time,EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
+		double EnergyInputLiquid = (_time - prevTime) * (unit->m_inSuspensionStream->GetPhaseMassFlow(_time,EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inSuspensionStream->GetTemperature(_time);
 		double EnergyOutputGas = (_time - prevTime) * (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut/* + mY_out * unit->Delta_h0*/));
 
 		double HeatLoss = heatLossTransfer;
@@ -2270,7 +2251,7 @@ if (debugToggle){
 		unit->SetStateVariable("Energy balance new", EnergyBalance, _time);*/
 		EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * avY) * avVarTempGas + unit->Delta_h0 * avY);
 		EnergyInputGas = unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time)+ unit->Y_in * unit->Delta_h0);
-		EnergyInputLiquid = (unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
+		EnergyInputLiquid = (unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inSuspensionStream->GetTemperature(_time);
 		EnergyOutputGas = (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut + mY_gOut * unit->Delta_h0));
 		EnergyBalance = (_time - prevTime == 0 ? 0 : -(EnergyGasPhase + EnergyLiquidPhase + EnergySolidPhase) + (unit->EnergyGasPhaseOld + unit->EnergyLiquidPhaseOld + unit->EnergySolidPhaseOld) / (_time - prevTime)) + EnergyInputGas+EnergyInputLiquid-EnergyOutputGas-unit->HeatLossOld;
 		unit->SetStateVariable("Energy balance", EnergyBalance, _time);

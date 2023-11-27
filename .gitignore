@@ -240,3 +240,6 @@ Dyssol.VC.VC.opendb
 /Documentation/conf.py
 /install/
 /DyssolInstallers/Scripts/UnitsList.iss
+
+# Visual Studio user-specific files
+*.vcxproj.user
