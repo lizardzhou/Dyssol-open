@@ -10,7 +10,7 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 
 //////////////////////////////////////////////////////////////////////////
 /// Batch dryer with a water inlet and a fluidization gas inlet, and an outlet for exhaust gas
-/// - Base on Simplified Model proposed by Peglow 202205
+/// - Base on Simplified Model proposed by Peglow in 202205
 /// - Without heat transfer
 /// - Mass transfer of water from particle to fluidization gas
 /// - Mass transfer is treated as ideal plug flow reactor and heat exchanger with phase change -> consider the efficiency during mass transfer
@@ -19,7 +19,7 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 void CDryerSimpleBatch::CreateBasicInfo()
 {
 	/// Set basic unit info ///
-	SetUnitName("Dryer simple batch");
+	SetUnitName("Dryer simple batch (without heat transfer)");
 	SetAuthorName("Xiye Zhou");
 	SetUniqueID("003B3DA4-702F-4647-BD90-7F9A5FDD5E1C");
 }
