@@ -107,7 +107,7 @@ public:
 		heatCapacity C_PGas = 1200; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
-		moistureContent Y_in = 0.005; // Moisture content of input gas stream [kg/kg]
+		moistureContent Y_in; // Moisture content of input gas stream [kg/kg]
 		moistureContent Y_sat = 0.020; // Saturation moisture content of gas [kg/kg]
 	// Liquid
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
@@ -118,7 +118,7 @@ public:
 		massFraction w_l = 1; // Liquid mass fraction of suspenstion [kg/kg] - default: 1
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	// Particle
-		density rhoParticle = 2500; // Particle density
+		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
 		double k_dc = 3.5; // k for normalized drying curve
 		moistureContent X_cr = 0.025; // Critical moisture content [kg/kg]
