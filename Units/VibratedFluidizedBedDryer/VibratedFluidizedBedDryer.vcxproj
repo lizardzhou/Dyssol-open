@@ -19,10 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{6528B962-04FF-4621-99CE-2EC7874E5DBF}</ProjectGuid>
-    <RootNamespace>simpleDryerWithThermo</RootNamespace>
-    <ProjectName>Unit_DryerBatchAlex</ProjectName>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <ProjectGuid>{1181131A-2939-4D49-B826-79F4FEC3C400}</ProjectGuid>
+    <RootNamespace>VibratedFluidizedBedDryer</RootNamespace>
+    <ProjectName>Unit_VibratedFluidizedBedDryer</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -58,24 +57,28 @@
     <Import Project="$(SolutionDir)PropertySheets\Common.props" />
     <Import Project="$(SolutionDir)PropertySheets\Common32.props" />
     <Import Project="$(SolutionDir)PropertySheets\CommonDebug.props" />
+    <Import Project="$(SolutionDir)PropertySheets\CommonDebugSDK.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="PropertySheets">
     <Import Project="$(SolutionDir)PropertySheets\Common.props" />
     <Import Project="$(SolutionDir)PropertySheets\Common64.props" />
     <Import Project="$(SolutionDir)PropertySheets\CommonDebug.props" />
+    <Import Project="$(SolutionDir)PropertySheets\CommonDebugSDK.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(SolutionDir)PropertySheets\Common.props" />
     <Import Project="$(SolutionDir)PropertySheets\Common32.props" />
     <Import Project="$(SolutionDir)PropertySheets\CommonRelease.props" />
+    <Import Project="$(SolutionDir)PropertySheets\CommonReleaseSDK.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
     <Import Project="$(SolutionDir)PropertySheets\Common.props" />
     <Import Project="$(SolutionDir)PropertySheets\Common64.props" />
     <Import Project="$(SolutionDir)PropertySheets\CommonRelease.props" />
+    <Import Project="$(SolutionDir)PropertySheets\CommonReleaseSDK.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -94,9 +97,6 @@
     <Link />
     <Link />
     <ClCompile />
-    <ClCompile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile />
@@ -113,16 +113,14 @@
       </HeapReserveSize>
     </Link>
     <ProjectReference />
-    <ClCompile>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DryerBatchAlex.cpp" />
+    <ClCompile Include="VibratedFluidizedBedDryer.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DryerBatchAlex.h" />
-    <ClInclude Include="unitDeclarations.h" />
+    <ClInclude Include="VibratedFluidizedBedDryer.h" />
+    <ClInclude Include="Helpers.h" />
+    <ClInclude Include="Types.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(SolutionDir)ModelsAPI\ModelsAPI.vcxproj">

@@ -133,6 +133,10 @@ public:
 		double heightOfChamberTemperatureProbe = 0.070;
 		double heighestFlowTimepoint = 0;
 	// Settings
+		bool calcBeta = GetCheckboxParameterValue("calcBeta");
+		bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
+		bool calcNdc = GetCheckboxParameterValue("calcNdc");
+		bool dryingCurveSetting = GetComboParameterValue("DryingCurve");
 		double SmallBiotNumber = 0.1;
 		double f_alpha = 1; // ratio alpha_PF / alpha_AP
 		double phiCuttOff = 0.999;
