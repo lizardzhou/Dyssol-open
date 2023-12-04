@@ -122,6 +122,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DryerBatch.h" />
+    <ClInclude Include="unitDeclarations.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="$(SolutionDir)ModelsAPI\ModelsAPI.vcxproj">

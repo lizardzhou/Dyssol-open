@@ -123,18 +123,19 @@ void CDryerBatch::Initialize(double _time)
 	debugToggle = m_model.debugToggle = GetCheckboxParameterValue("Toggle debug mode");
 
 	// Settings
-	bool calcBeta = GetCheckboxParameterValue("calcBeta");
+	/*bool calcBeta = GetCheckboxParameterValue("calcBeta");
 	bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
-	bool calcNdc = GetCheckboxParameterValue("calcNdc");
+	bool calcNdc = GetCheckboxParameterValue("calcNdc");*/
 	////ignoreVaporInput = GetCheckboxParameterValue("ignoreVaporInput");
 	//useREA = GetCheckboxParameterValue("useREA");
-	dryingCurveSetting = GetComboParameterValue("DryingCurve");
+	//dryingCurveSetting = GetComboParameterValue("DryingCurve");
 
 
 	/// Get holdup ///
 	m_holdup = GetHoldup("Holdup");
 	const double M_tot = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-	if (M_tot == 0) {
+	if (M_tot == 0) 
+	{
 		particlesGlobal = false;
 		RaiseWarning("No particles in system.\nSolids and liquids will be ignored.");
 	}
@@ -150,7 +151,7 @@ void CDryerBatch::Initialize(double _time)
 	m_inNozzleAirStream = GetPortStream("InletNozzleAir");
 	m_outExhaustGasStream = GetPortStream("OutletExhaustGas");
 
-	// Pull compound data
+	/// Pull compound data ///
 	this->PullCompoundDataFromDatabase(_time);
 
 	// Setup vapor stream //
@@ -177,31 +178,32 @@ void CDryerBatch::Initialize(double _time)
 	//workingHoldup->SetCompoundsFractions(_time, m_inSuspensionStream->GetCompoundsFractions(_time));
 	//workingHoldup->SetMass(_time, 0);
 	
-
-	//H_bed = GetConstRealParameterValue("H_bed");
-	//H_chamber = GetConstRealParameterValue("H_chamber");
-	//d_bed = GetConstRealParameterValue("d_bed");
-	T_inf = T_ref+GetConstRealParameterValue("T_env");
+	double H_bed = GetConstRealParameterValue("H_bed");
+	double H_chamber = GetConstRealParameterValue("H_chamber");
+	double d_bed = GetConstRealParameterValue("d_bed");
+	T_inf = T_ref + GetConstRealParameterValue("T_env");
 	eps_0 = GetConstRealParameterValue("eps_0");
 	u_mf = GetConstRealParameterValue("u_mf");
-	double H_susp = GetConstRealParameterValue("SuspNozzleHeight")/100;
+	double H_susp = GetConstRealParameterValue("SuspNozzleHeight") / 100;
 	SetupChamber();
 	eqData.compoundKey = GetCompoundParameterValue("Xeq compound");
 	if (particlesGlobal)
+	{
 		InitializeMoistureContentDatabase(GetStringParameterValue("Path Xeq"));//"E:\\Dyssol\\Xeq.csv"
+	}
 
 	//phi_eq = GetConstRealParameterValue("phi_eq");
 	k_dc = GetConstRealParameterValue("k_dc");
 	X_cr = GetConstRealParameterValue("X_cr");
 	m_model.Y_eq = GetCheckboxParameterValue("Y_eq");
 
-	double RH_in = GetConstRealParameterValue("RH_in") / 100;
+	double RH_in = GetConstRealParameterValue("RH_in") / 100; 
 	DiffCoeff = GetComboParameterValue("Diff_coeff");
 	size_t Y_in_Value = GetComboParameterValue("Y_in_Value");
 
 	Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
 	Delta_f = GetConstRealParameterValue("Delta_f") * 1e-6; // convert into [m]
-	heightOfChamberTemperatureProbe = GetConstRealParameterValue("T-Probe height") * 1e-2;
+	heightOfChamberTemperatureProbe = GetConstRealParameterValue("T-Probe height") * 1e-2; // convert into  [m]
 	std::ostringstream  os;
 
 	/// Read input parameters ///
@@ -774,27 +776,25 @@ bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform te
 /// Functions to calculate/return moisture related properties ///
 moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas)
 {
-	if (Y_sat > 0)
-		return Y_sat;
-	// Moisture content calculation
-	// Assumption: ideal gas law
-
-	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa]					// Equilibrium partial pressure [Pa]
-
-	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-
-	bool pressureReductionWarning = false;
-	int i = 0;
-	while (pressureGas - P_sat < 0)
+	if (calcY_sat || Y_sat <= 0) // Moisture content calculation under assumption of ideal gas law
 	{
-		P_sat = P_sat * 0.999;
-		i++;
+		pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa]					// Equilibrium partial pressure [Pa]
+		const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
+		bool pressureReductionWarning = false;
+		int i = 0;
+		while (pressureGas - P_sat < 0)
+		{
+			P_sat = P_sat * 0.999;
+			i++;
+		}
+		if (pressureReductionWarning)
+			RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
+		const moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in kg per kg dry gas
 	}
-	if (pressureReductionWarning)
-		RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by "+std::to_string(0.1*i)+" % .\n Temperature : " + std::to_string(temperatureGas));
-
-
-	const moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in kg per kg dry gas
+	//else // same as user input
+	//{
+	//	return Y_sat;
+	//}
 	return Y_sat;
 }
 
@@ -1105,7 +1105,6 @@ double CDryerBatch::CalculateDiffusionCoefficient(double _time, double avgGasTem
 {
 	switch (DiffCoeff)
 	{
-
 		case 0: // Dosta (2010): https://doi.org/10.1016/j.powtec.2010.07.018
 			return (23e-5) * pow(avgGasTemperature / T_ref, 1.81); 
 			break;
@@ -1123,8 +1122,6 @@ double CDryerBatch::CalculateDiffusionCoefficient(double _time, double avgGasTem
 				/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
 			break;
 	}
-	
-	
 }
 
 double CDryerBatch::CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature, double D) const
@@ -1273,7 +1270,7 @@ void CDryerBatch::SetupChamber()
 
 		section.name = "expander";
 		section.dimensionsInternal = { std::make_pair(0.500, 0.500) };
-		section.height = { 0.500 }; // 0.500 from Glatt, 0.95 measured
+		section.height = { 0.950 }; // 0.500 from Glatt, 0.95 measured
 		chamber.push_back(section);
 	}
 }

@@ -152,6 +152,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerBatch", "Units\Dr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerSimpleBatch", "Units\DryerSimpleBatch\DryerSimpleBatch.vcxproj", "{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerBatchAlex", "Units\DryerBatchAlex\DryerBatchAlex.vcxproj", "{6528B962-04FF-4621-99CE-2EC7874E5DBF}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_VibratedFluidizedBedDryer", "Units\VibratedFluidizedBedDryer\VibratedFluidizedBedDryer.vcxproj", "{1181131A-2939-4D49-B826-79F4FEC3C400}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -652,6 +656,22 @@ Global
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|Win32.Build.0 = Release|Win32
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|x64.ActiveCfg = Release|x64
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|x64.Build.0 = Release|x64
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Debug|Win32.ActiveCfg = Debug|Win32
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Debug|Win32.Build.0 = Debug|Win32
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Debug|x64.ActiveCfg = Debug|x64
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Debug|x64.Build.0 = Debug|x64
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Release|Win32.ActiveCfg = Release|Win32
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Release|Win32.Build.0 = Release|Win32
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Release|x64.ActiveCfg = Release|x64
+		{6528B962-04FF-4621-99CE-2EC7874E5DBF}.Release|x64.Build.0 = Release|x64
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Debug|Win32.Build.0 = Debug|Win32
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Debug|x64.ActiveCfg = Debug|x64
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Debug|x64.Build.0 = Debug|x64
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Release|Win32.ActiveCfg = Release|Win32
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Release|Win32.Build.0 = Release|Win32
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Release|x64.ActiveCfg = Release|x64
+		{1181131A-2939-4D49-B826-79F4FEC3C400}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -724,7 +744,7 @@ Global
 		{9E33ACE6-5DDA-400C-8242-6BE0B8569221} = {FF9F78BB-144A-48EF-87D3-7EEE6C6B4682}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		Qt5Version = msvc2019_64
 		SolutionGuid = {CAC327DA-BA65-4990-BEC0-618347D67688}
+		Qt5Version = msvc2019_64
 	EndGlobalSection
 EndGlobal
