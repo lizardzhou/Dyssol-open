@@ -66,14 +66,10 @@ public:
 	 *	\return pair of heat loss through particles and vector for heat loss through gas all in watts*/
 	std::pair<double, std::vector<double>> CalculateChamberHeatLoss(double _time, void* _unit, double* _vars);
 	
-	/**	Calculates heat loss of each chamber section
-	 *	\param 
-	 *	\return */
+	//	Calculates heat loss of each chamber section
 	double CalculateSectionHeatLoss(double _time, void* _unit, double* _vars, size_t section, std::vector<double>* Q_GW, double heightUsage = 1);
 
-	/**	Calculates heat loss of top section
-	 *	\param 
-	 *	\return */
+	//	Calculates heat loss of top section
 	double CalculateTopPlateHeatLoss(double _time, void* _unit, double* _vars);
 
 	bool debugToggle = false;
@@ -87,11 +83,10 @@ private:
 
 private:
 	std::vector<std::pair< EPhase, int>> CompoundsKeyIndexPhasePartnerIndex; // Storage vector for phase and phase change partner, index same as compoundKeys variable
-	void PullCompoundDataFromDatabase(double _time); // Updates all material properties using matieral database values
-	void CheckHeighDiscretizationLayers(double _time); // Adjusting number of height discretization layers if layer height is lower than max particle size
+	void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
+	void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
 	double minMoistureContent = 0;
 	double moistureScaler = 1;
-	size_t dryingCurveSetting = 0;
 	massTransferCoefficient beta_GP = 0.02; // Water mass transfer coefficient from gas to particle in [m/s]
 	equilibriumMoistureContentData eqData;
 	//std::set<double> RHs;
@@ -100,9 +95,9 @@ private:
 public:
 	bool debugToggle = false;
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_inf = T_ref + 20.5; // Ambient temperature [K] - default: Standart condition
+	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standart condition
 	// Gas
-		density rhoGas = 1; // Density gas [kg/m^3] - default: air
+		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
 		heatCapacity C_PGas = 1200; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
@@ -136,7 +131,7 @@ public:
 		bool calcBeta = GetCheckboxParameterValue("calcBeta");
 		bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
 		bool calcNdc = GetCheckboxParameterValue("calcNdc");
-		bool dryingCurveSetting = GetComboParameterValue("DryingCurve");
+		size_t dryingCurveSetting = GetComboParameterValue("DryingCurve");
 		double SmallBiotNumber = 0.1;
 		double f_alpha = 1; // ratio alpha_PF / alpha_AP
 		double phiCuttOff = 0.999;
@@ -188,38 +183,28 @@ public:
 	void LoadState() override;
 	void Simulate(double _timeBeg, double _timeEnd) override;
 
-	// Get compound or phase properties
+	/// Get compound or phase properties///
 	/**	Calculates sauter diameter of the particles
 	 *	\param time stamp
 	 *	\return sauter diameter in meter*/
 	double CalculateHoldupSauter(double _time) const;
 	
 	// Returns gas moisture content for relativ humidity times saturation pressure [kg liquid per kg dry gas]
-	/**	
-	 *	\param 
-	 *	\return */
 	moistureContent GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas = STANDARD_CONDITION_P);
-	// Returns praticle equilibirum moisture content from material database, if no entry in data base is found 0 is returned [kg liqudi per kg dry solid]
-	/**	
-	 *	\param 
-	 *	\return */
-	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH);
-	// Returns normalized drying curve
-	/**	
-	 *	\param 
-	 *	\return */
-	double CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq);
-	/**	Calculates the diffusion coefficient following the correlation published in https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-	 *	\param sim time
-	 *	\param film temperature
-	 *	\param system pressure
-	 *	\return diffusion coefficient in meter squared per second*/
-	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
-	/**	
-	 *	\param 
-	 *	\return */
-	double GetRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P);// const;
 
+	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
+	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH);
+
+	// Returns normalized drying curve
+	double CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq);
+
+	//	Calculates the diffusion coefficient following the correlation published in https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
+	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
+
+	// Calculates air relative humidity
+	double GetRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
+
+	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
 	double REA(double deltaX) const 
 	{ 
 		if (deltaX > 0) 
@@ -228,6 +213,7 @@ public:
 			return 1;
 	};
 
+	// Calculates the inverted REA, namely the evaporation rate in case of REA
 	double REAinv(double Xeq, double y) const 
 	{ 
 		if (REA1 == 0 || REA2 == 0) 
@@ -237,181 +223,136 @@ public:
 	};
 
 	double GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const;
-	/**	
-	 *	\param 
-	 *	\return */
+	
+
 	double GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties property, double temperature, double pressure = STANDARD_CONDITION_P) const;
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	double CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape=EShape::CYLINDRICAL) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalckAc(double alphaIn, double alphaOut, double L, std::vector<double> d/* Inner to outer diameter*/, std::vector<double> lambda) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalckAp(double alphaIn, double alphaOut, std::vector<double> A, std::vector<double> delta, std::vector<double> lambda) const;
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	area CalculateParticleSurfaceArea(double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double RH=1) const;
-	/**	
-	 *	\param 
-	 *	\return */
-	//double CalcuateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
+	double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
+
 	double GetEquilibriumRelativeHumidity(double temperature, double X) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalcAlphaParticleGas(double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	bool CheckForSmallBiot(double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateMinFluidizeVel(double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateGasVel(double _time, size_t section = 0) const;
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	double CalculateBedPorosity(double _time, bool homogeniusFluidization = true) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateAlpha_GW(double _time) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateAlpha_GW(double _time, size_t section) const;
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature, double D) const;
 
 	double GetParticleEquilibriumMoistureContent(double temperature, double RH) const;
-	/**	Initializes variables containing equilibirum moisture content date
-	 *	\param path to data file
-	 *	\return sucess*/
+	
+	//	Initializes variables containing equilibirum moisture content date
 	bool InitializeMoistureContentDatabase(std::string path);
-	/**	
-	 *	\param 
-	 *	\return */
+
 	double CalculateBedHeight(double _time, double particleTemperature);
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	double CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight = true);
-	/**	
-	 *	\param 
-	 *	\return */
+
 	//double GetGasMassOfLayer(double _time, size_t layer, double gasTemperature, double particleTemperature);
 
-	// Dimensionless numbers
-	/**	
-	 *	\param 
-	 *	\return */
+	/// Dimensionless numbers ///
+	// Reynolds number 
 	double CalculateReynolds(double _time) const
-		{return CalculateGasVel(_time) * CalculateHoldupSauter(_time) * rhoGas / etaGas;};
-	/**	
-	 *	\param 
-	 *	\return */
+	{
+		return CalculateGasVel(_time) * CalculateHoldupSauter(_time) * rhoGas / etaGas;
+	};
+	
+	// Reynolds number of each section of process chamber
 	double CalculateReynolds(double _time, size_t section) const;
-	/**	Calculates the Prandtl number of the gas
-	 *	\param time
-	 *	\return Prandtl number*/
+	
+	//	Calculates the Prandtl number of the gas
 	double CalculatePrandtl(double _time) const
-		{return C_PGas * etaGas / lambdaGas;};
-	/**	Calculates Archimedes number for the gas particle combination using the sauter diameter
-	 *	\param time
-	 *	\return Archimedes number*/
+	{
+		return C_PGas * etaGas / lambdaGas;
+	};
+
+	//	Calculates Archimedes number for the gas particle combination using the sauter diameter
 	double CalculateArchimedes(double _time) const
-		{return STANDARD_ACCELERATION_OF_GRAVITY * pow(CalculateHoldupSauter(_time), 3) * (rhoParticle - rhoGas) * rhoGas / pow(etaGas, 2);};
-	/**	Converts Nusselt/Sherwood number of single particle to Nusselt/Sherwood number of fluidized bed
-	 *  \param bed porosity
-	 *	\param Nusselt/Sherwood number of single particle
-	 *	\return Nusselt/Sherwood number of fluidized bed*/
+	{
+		return STANDARD_ACCELERATION_OF_GRAVITY * pow(CalculateHoldupSauter(_time), 3) * (rhoParticle - rhoGas) * rhoGas / pow(etaGas, 2);
+	};
+	
+	//	Converts Nusselt/Sherwood number of single particle to Nusselt/Sherwood number of fluidized bed
 	double CalculateNusseltSherwoodBed(double porosity, double Nu_Sh_SingleParticle) const
-		{return (1. + 1.5 * (1. - porosity)) * Nu_Sh_SingleParticle;};
-	/**	Calculates the Nusselt/Sherwood number of a single particle
-	 *	\param Nusselt/Sherwood number for the larminar part
-	 *	\param Nusselt/Sherwood number for the turbulent part
-	 *	\return Nusselt/Sherwood number of a single particle*/
+	{
+		return (1. + 1.5 * (1. - porosity)) * Nu_Sh_SingleParticle;
+	};
+
+	//	Calculates the Nusselt/Sherwood number of a single particle
 	double CalculateNusseltSherwoodSingleParticle(double Nu_Sh_lam, double Nu_Sh_turb) const
-		{return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));};
-	/**	Calculates the Nusselt/Sherwood number for the larminar part
-	 *  Following the equations listed in VDI chapter M5
-	 *	\param Reynolds number of a fluidized bed
-	 *  \param Prandtl/Schmidt number
-	 *	\return Nusselt/Sherwood number for the laminar part*/
+	{
+		return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
+	};
+
+	//	Calculates the Nusselt/Sherwood number for the larminar part
 	double CalculateNusseltSherwoodLam(double Re, double Pr_Sc) const
-		{return 0.664 * pow(Pr_Sc, 1. / 3) * sqrt(Re);};
-	/**	Calculates the Nusselt/Sherwood number for the turbulent part
-	 *  Following the equations listed in VDI chapter M5
-	 *	\param Reynolds number of a fluidized bed
-	 *  \param Prandtl/Schmidt number
-	 *	\return Nusselt/Sherwood number for the turbulent part*/
+	{
+		return 0.664 * pow(Pr_Sc, 1. / 3) * sqrt(Re);
+	};
+
+	//	Calculates the Nusselt/Sherwood number for the turbulent part
 	double CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const
-		{return (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));};
-	/**	
-	 *	\param 
-	 *	\return */
+	{
+		return (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+	};
+
+	//	Calculate Biot number
 	double CalcBiotNumber(double _time) const
-		{return (CalcAlphaParticleGas(_time) * m_holdup->GetPhaseMass(_time, EPhase::SOLID) / (rhoParticle * CalculateParticleSurfaceArea(_time) * lambdaParticle));};
-	/**	Setup variables containing the dimensions and information of the chamber
-	 *	\return None*/
+	{
+		return (CalcAlphaParticleGas(_time) * m_holdup->GetPhaseMass(_time, EPhase::SOLID) / (rhoParticle * CalculateParticleSurfaceArea(_time) * lambdaParticle));
+	};
+
+	//	Setup variables containing the dimensions and information of the chamber
 	void SetupChamber();
-	//Testing function
-	//called during init.
-	void Testing();
+
+	//Testing function, called during initialzation
+	//void Testing();
+
 	/**	Calculates overall heat transfer coefficient for cylindrical section.
 	 *	\param section id of section in chamber object
 	 *	\param alphaInternal heat transfer coefficient internal
 	 *	\param alphaExternal heat transfer coefficient external
-	 *	\param heightUsage use >0 for section partilly filled with particles, <0 for sections partilly void of particles and =0 for sections void of particles range -1 to 1
+	 *	\param heightUsage use >0 for section partailly filled with particles, <0 for sections partially void of particles and =0 for sections void of particles range -1 to 1
 	 *	\return overall heat transfer coefficient*/
 	double CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage = 0);
-	/**	Calculates overall heat transfer coefficient fo the top plate
-	 *	\param alphaInternal heat transfer coefficient internal
-	 *	\param alphaExternal heat transfer coefficient external
-	 *	\return */
+
+	//	Calculates overall heat transfer coefficient fo the top plate
 	double CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal);
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	double DetermineSectionsFilledWithBed(double _time, double particleTemperature);
-	/**	
-	 *	\param 
-	 *	\return */
+	
 	size_t DetermineLayersInSectionFilledWithBed(size_t section, double heigthUsage) const
-		{return std::ceil(chamber.at(section).layers * heigthUsage);};
-	/**	Calculates volume of a section
-	 *  Using volume function of circular frustum
-	 *	\param index of section
-	 *	\return volume of section*/
+	{
+		return std::ceil(chamber.at(section).layers * heigthUsage);
+	};
+
+	//	Calculates volume of a section
 	double CalculateSectionVolume(size_t section);
+	
 	/**	Determine into which section a layer falls
 	 *	\param index of layer
 	 *	\return index of section*/
 	//size_t DetermineSectionForLayer(size_t layer) const;
-
 
 	std::vector<double> GetGasMassOfLayers(double _time, double gasTemperature, double particleTemperature);
 
@@ -420,7 +361,7 @@ public:
 		return chamber.at(section).height* MATH_PI* (R1 * R1 + R1 * r1 + r1 * r1) / (3 * chamber.at(section).layers);
 	};
 
-	//linear interpolation: calculate the linear interpolation between lowNum and highNum
+	// linear interpolation: calculate the linear interpolation between lowNum and highNum
 	double lerp(double lowNum, double highNum, double midNum) const
 	{
 		return lowNum + midNum * (highNum - lowNum);
