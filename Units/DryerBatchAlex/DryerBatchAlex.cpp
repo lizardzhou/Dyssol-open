@@ -25,7 +25,7 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 void CDryerBatch::CreateBasicInfo()
 {
 	/// Set basic unit info ///
-	SetUnitName("Dryer batch (recent version Alex)");
+	SetUnitName("Dryer batch (most recent version of Alex)");
 	SetAuthorName("Alexander Hanke, Xiye Zhou");
 	SetUniqueID("8CA9B8E5-8418-4EB5-8070-AA9C157A3167");
 }
@@ -43,7 +43,7 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("Y_in", 5, "g/kg dry gas", "Moisture content of the fluidization gas", 0);
 	AddConstRealParameter("RH_in", 48.99, "%", "Relativ humidity of the fluidization gas", 0, 100);
 	AddConstRealParameter("Y_sat",0, "g/kg dry gas", "Saturation moisture content of the fluidization gas\nWill be cacluated using material database values if 0.", 0);
-	AddConstRealParameter("A_P", 0, "m2", "Surface area of all particles in the granulator\nIf left at 0 PSD is used to calculate surface area", 0);
+	AddConstRealParameter("A_P", 0, "m2", "Surface area of all particles in the granulator\nIn case of 0, calculate surface area using given PSD", 0);
 	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
 	AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", -10000, 10000); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
 	AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
