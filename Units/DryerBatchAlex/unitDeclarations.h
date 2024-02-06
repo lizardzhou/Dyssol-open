@@ -59,6 +59,7 @@ struct chamberSection
 	std::vector<double> thermalConductivities;
 	size_t layers;
 };
+
 struct equilibriumMoistureContentData
 {
 	std::string compoundKey;
