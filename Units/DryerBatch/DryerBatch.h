@@ -26,9 +26,9 @@ public:
 	void* m_unit{};
 	bool Y_eq = true;
 
-	// Dosta model DEA variables
-	size_t m_iY_g{};
-	size_t m_iTempGas{};
+	// Indices of state variables for DAE solver
+	size_t m_iY_g{}; // no height discretization
+	size_t m_iTempGas{}; // no height discretization
 	size_t m_iTempFilm{};
 	size_t m_iTempParticle{};
 
@@ -47,7 +47,7 @@ public:
 
 	/**	Initialize the variables for debugging
 	 *	\return None*/
-	void InitCounterVaraibles() 
+	void InitCounterVariables() 
 	{ 
 		progressCounter = 1; 
 		progressCounterTotal = 0;
@@ -95,7 +95,7 @@ private:
 public:
 	bool debugToggle = false;
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standart condition
+	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
 	// Gas
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
@@ -103,7 +103,7 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 		moistureContent Y_in; // Moisture content of input gas stream [kg/kg]
-		moistureContent Y_sat = 0.020; // Saturation moisture content of gas [kg/kg]
+		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
 	// Liquid
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		heatCapacity C_PWaterLiquid = 4200; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
@@ -112,21 +112,34 @@ public:
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		massFraction w_l = 1; // Liquid mass fraction of suspenstion [kg/kg] - default: 1
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
+	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
 	// Particle
-		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
+		std::vector<double> Grid; // d_min
+		std::vector<double> q_3;
+		std::vector<double> avgClassDiam; // d_m,i
+		std::vector<double> classSize; // Delta d
+		double d32; // Sauter diameter
+		density rhoParticle; // = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
-		double k_dc = 3.5; // k for normalized drying curve
-		moistureContent X_cr = 0.025; // Critical moisture content [kg/kg]
-		area A_P = 4; // total surface area of particle mass [m^2]
-		length Delta_f = 40e-6; // Thickness of the water film on particles [m]
+		area A_P; // = 4; // total surface area of particle mass [m^2]
+		length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
 		thermalConductivity lambdaParticle = 0.58;
 		moistureContent InitX = 0;
+		//drying kinetic parameters, currently not in use
+		double k_dc; // = 3.5; // k for normalized drying curve
+		moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
 	// Bed
-		double eps_0 = 0.4;
-		double u_mf = 0;
+		double heightOfBed;
+		double diamOfBed;
+		double eps_0; // = 0.4;
+		double u_mf; // = 0;
+	// process chamber
 		std::vector<chamberSection> chamber;
-		double heightOfChamberTemperatureProbe = 0.070;
+		double heightOfChamber;
+		double heightOfChamberTemperatureProbe;// = 0.070;
+		double heightOfNozzle;
 		double heighestFlowTimepoint = 0;
+
 	// Settings
 		bool calcBeta = GetCheckboxParameterValue("calcBeta");
 		bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
@@ -156,7 +169,6 @@ public:
 	CStream* m_VaporStream{};
 	//CHoldup* m_Expander{}; //ToDo - check usage
 	//CHoldup* workingHoldup{}; //ToDo - check usage
-	
 
 	// String keys of compounds for material database
 	std::vector<std::string> compoundKeys;
@@ -243,7 +255,7 @@ public:
 
 	double CalcAlphaParticleGas(double _time) const;
 
-	bool CheckForSmallBiot(double _time) const;
+	//bool CheckForSmallBiot(double _time) const;
 
 	double CalculateMinFluidizeVel(double _time) const;
 
