@@ -17,9 +17,10 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 
 //////////////////////////////////////////////////////////////////////////
 /// Batch dryer with a water inlet and a fluidization gas inlet, and an outlet for exhaust gas
-/// - With heat transfer based on model from Maksym + Soeren (1st and 2nd drying stages)
+/// - Heat transfer based on model from Maksym
 /// - Mass transfer of water from particle to fluidization gas
-/// - Mass transfer is treated as ideal plug flow reactor and heat exchanger with phase change -> consider the efficiency during mass transfer
+/// - Drying kinetics from Soeren (1st and 2nd drying stages) - UNDER CONSTRUCTION
+/// - Height discretization for gas phase moisture & temperature - UNDER CONSTRUCTION
 
 void CDryerBatch::CreateBasicInfo()
 {
@@ -38,37 +39,51 @@ void CDryerBatch::CreateStructure()
 	AddPort("OutletExhaustGas", EUnitPort::OUTPUT);
 
 	/// Add unit parameters ///
+	// particle properties
 	AddStringParameter("Particle properties", "",	"");
-	AddConstRealParameter("A_P", 4, "m2", "Total surface of all particles in the granulator.\nIf <= 0, PSD is used to calculate surface area", 0);
+	AddConstRealParameter("w_l (t=0)", 4.3, "mass %", "Initial water fraction of particles.", 1e-3, 100);
+	AddConstRealParameter("A_P", 4, "m2", "Total surface of all particles in the granulator.\nIf = 0, PSD is used to calculate surface area", 0);
 	AddCheckBoxParameter("updateA", true, "Tick this box to enable calculating total particle surface from PSD and mass.");
 	AddConstRealParameter("Delta_f"	, 40	, "mum"			, "Thickness of the water film on particles in micrometer"	, 1);
-	//AddStringParameter("Path", "C:\\", "Location of dimension file.");
-	AddConstRealParameter("w_l (t=0)", 0, "mass %", "Initial moisture fraction of particles.\nIf 0, equalibrium moisture content of ambient conditions will be used.", 0, 100);
-	AddConstRealParameter("w_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
-	AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
+	// environment
+	AddConstRealParameter("theta_env", 20, "deg C", "Temperature of the environment, assumed to be constant", 0, 100);
+	// inlet fluidization gas properties
+	AddStringParameter("Inlet fluidization gas properties", "", "");
+	AddConstRealParameter("Y_in"	, 5		, "g/kg dry gas", "Moisture content of the fluidization gas"	, 0);
+	std::vector<size_t>	items = { 0, 1, 2 };
+	std::vector<std::string> itemNames = { "RH_in","Y_in","Input stream" };
+	AddComboParameter("Y_in_Value", 0, items, itemNames, "How Y_in should be calculated.");
+	AddConstRealParameter("RH_in"	, 48.99	, "%"			, "Relative humidity of the fluidization gas"	, 0, 100);
+	AddConstRealParameter("Y_sat"	, 0		, "g/kg dry gas", "Saturation moisture content of the fluidization air\nIf 0, material database will be used to cacluate Y_sat.", 0);
+	AddCheckBoxParameter("Y_eq", 1, "If unticked, omits reduced saturation vapor pressure.");
+	AddConstRealParameter("beta_GP", -1, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf 0, calculated using correlation from Gnielinski");
+	// Selection of correlation for calculating diffusion coefficient
+	itemNames = { "Dosta", "Tsotsas", "Poos" };
+	AddComboParameter("Diff_coeff", 0, items, itemNames, "Correlation for diffusion coefficient from water vapor to air"); // by default use correlation from Dosta (2010)	
+		
+	// Process chamber information
+	AddStringParameter	 ("Chamber information"	, ""		, "");
+	AddConstRealParameter("H_tempProbe"		, 0.07			, "m"	, "Height of temperature probe for chamber temperature over distributor.", 0, 0.35);
+	AddConstRealParameter("H_nozzle"		, 0.25			, "m"	, "Height of two-fluid nozzle over gas distributor.", 0, 0.35);
+	AddConstRealParameter("d_bed"			, 0.2			, "m"	, "Bed diameter", 1e-3, 1);
+	AddConstRealParameter("H_bed"			, 0.106			, "m"	, "Bed height without fluidization", 1e-3, 0.2);
+	AddConstRealParameter("H_chamber"		, 0.35			, "m"	, "Process chamber height", 1e-3, 0.4);
+	// Bed properties, use for development of further models
+	AddStringParameter("Bed properties", ""	, "Currently not in use, designed for further development");
+	AddConstRealParameter("eps_0"			, 0.4			, "-"	, "Bed porosity without fluidization"										, 0, 1);
+	AddConstRealParameter("u_mf"			, 0				, "m/s"	, "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
+	AddConstIntParameter ("N_el"			, 1				, ""	, "Number of hight discretization layers"									, 1); // # of height discretization layers
+	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
+	
+	////////////////////////////////////////////////////////////
+	// Drying kinetics calculation, currently not in use
+	AddStringParameter("Drying kinetics calculation, currently not in use!", "", "");
 	AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
+	AddConstRealParameter("w_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
+	AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
 	AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", 0, 5); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
 	AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
-	AddConstRealParameter("theta_env", 20, "deg C", "Temperature of the environment, assumed to be constant", 0, 100);
-
-	// Height of temperature probe and nozzle
-	AddStringParameter("Inlet fluidization gas properties", "", "");
-	AddCheckBoxParameter("Y_eq", 1, "If unticked, omits reduced saturation vapor pressure.");
-	AddConstRealParameter("Y_in"	, 5		, "g/kg dry gas", "Moisture content of the fluidization gas"				, 0);
-	AddConstRealParameter("RH_in"	, 48.99	, "%"			, "Relative humidity of the fluidization gas"				, 0, 100);
-	AddConstRealParameter("Y_sat"	, 0		, "g/kg dry gas", "Saturation moisture content of the fluidization air\nIf 0, material database will be used to cacluate Y_sat.", 0);
-	//AddCheckBoxParameter("calc Y_sat", true, "Tick this box to enable calculating saturated absolute moisture in the air.");
-	AddConstRealParameter("beta_GP", -1, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf 0, calculated using correlation from Gnielinski");
-	//AddCheckBoxParameter("calc Beta"	, true, "Tick this box to enable calculating mass transfer coeffcient.");
-	
-	// Selection of correlation for calculating diffusion coefficient
-	std::vector<size_t>	items{ 0, 1, 2 };
-	std::vector<std::string> itemNames{ "Dosta", "Tsotsas", "Poos" };
-	AddComboParameter("Diff_coeff", 0, items, itemNames, "Correlation for diffusion coefficient from water vapor to air"); // by default use correlation from Dosta (2010)
-	// Selection of calculating method for calculating inlet air absolute moisture
-	itemNames = { "RH_in","Y_in","Input stream" };
-	AddComboParameter("Y_in_Value", 0, items, itemNames, "How Y_in should be calculated.");
 	// Selection of calculating method for drying kinetics
 	itemNames = { "REA", "Normalized drying curve", "No curve" };
 	AddComboParameter("DryingCurve", 0, items, itemNames, "How drying curve should be determined.");
@@ -77,21 +92,8 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("REA1", 0.96, "", "");
 	AddConstRealParameter("REA2", -19.63, "", "");
 	AddConstRealParameter("REA3", 0.73, "", "");
-	
-	// Process chamber information
-	AddStringParameter	 ("Chamber information"	, ""		, "");
-	AddConstRealParameter("H_tempProbe", 7, "cm", "Height of temperature probe for chamber temperature over distributor.", 0);
-	AddConstRealParameter("H_nozzle", 25, "cm", "Height of two-phase nozzle over distributor.", 0);
-	AddConstRealParameter("d_bed"			, 0.2			, "m"	, "Bed diameter", 0.001);
-	AddConstRealParameter("H_bed"			, 0.106			, "m"	, "Bed height without fluidization", 0.001);
-	AddConstRealParameter("H_chamber"		, 0.25			, "m"	, "Process chamber height", 0.001);
-	// Bed properties, use for development of further complexer models
-	AddStringParameter("Bed properties", ""	, "Currently not in use, designed for further development");
-	AddConstRealParameter("eps_0"			, 0.4			, "-"	, "Bed porosity without fluidization"										, 0, 1);
-	AddConstRealParameter("u_mf"			, 0				, "m/s"	, "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
-	AddConstIntParameter ("N_el"			, 1				, ""	, "Number of hight discretization layers"									, 1);
-	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
-	
+	////////////////////////////////////////////////////////////
+
 	// Tolerance for solver
 	AddStringParameter("Tolerance for solver", "", "");
 	AddConstRealParameter("Relative tolerance", 0.0, "-", "Solver relative tolerance. Set to 0 to use flowsheet-set value", 0);
@@ -128,10 +130,9 @@ void CDryerBatch::Initialize(double _time)
 	//useREA = GetCheckboxParameterValue("useREA");
 	//dryingCurveSetting = GetComboParameterValue("DryingCurve");
 
-
 	/// Get holdup ///
 	m_holdup = GetHoldup("Holdup");
-	const double M_tot = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
+	const double M_tot = m_holdup->GetPhaseMass(_time, EPhase::SOLID); // get the solid mass, however this solid mass still contains water
 	if (M_tot == 0) // empty run
 	{
 		particlesGlobal = false;
@@ -151,7 +152,7 @@ void CDryerBatch::Initialize(double _time)
 	/// Pull compound data ///
 	this->PullCompoundDataFromDatabase(_time);
 
-	// Setup vapor (gas phase) stream //
+	/// Setup vapor (gas phase) stream ///
 	m_VaporStream = AddStream("Vapor");
 	std::vector<double> vaporStreamCompoundSetup(size(compoundKeys), 0);
 	m_VaporStream->SetCompoundsFractions(_time, vaporStreamCompoundSetup);
@@ -175,146 +176,18 @@ void CDryerBatch::Initialize(double _time)
 	//workingHoldup->SetCompoundsFractions(_time, m_inSuspensionStream->GetCompoundsFractions(_time));
 	//workingHoldup->SetMass(_time, 0);
 	
-	double H_bed = GetConstRealParameterValue("H_bed");
-	double H_chamber = GetConstRealParameterValue("H_chamber");
-	double d_bed = GetConstRealParameterValue("d_bed");
-	T_inf = T_ref + GetConstRealParameterValue("T_env");
-	eps_0 = GetConstRealParameterValue("eps_0");
-	u_mf = GetConstRealParameterValue("u_mf");
-	double H_susp = GetConstRealParameterValue("SuspNozzleHeight") / 100;
-	SetupChamber();
-	eqData.compoundKey = GetCompoundParameterValue("Xeq compound");
-	if (particlesGlobal)
-	{
-		InitializeMoistureContentDatabase(GetStringParameterValue("Path Xeq")); //"E:\\Dyssol\\Xeq.csv"
-	}
-
-	//phi_eq = GetConstRealParameterValue("phi_eq");
-	k_dc = GetConstRealParameterValue("k_dc");
-	X_cr = GetConstRealParameterValue("X_cr");
-	DiffCoeff = GetComboParameterValue("Diff_coeff");
-	double RH_in = GetConstRealParameterValue("RH_in") / 100; 
-	size_t Y_in_Value = GetComboParameterValue("Y_in_Value");
-	Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
-	m_model.Y_eq = GetCheckboxParameterValue("Y_eq");
-	Delta_f = GetConstRealParameterValue("Delta_f") * 1e-6; // convert into [m]
-	heightOfChamberTemperatureProbe = GetConstRealParameterValue("T-Probe height") * 1e-2; // convert into  [m]
-	std::ostringstream os;
-
+	/////////////////////////////
 	/// Read input parameters ///
-	// Inlet air absolute moisture
-	switch (Y_in_Value) 
-	{
-		case 0: // calculate from RH and saturation vapor pressure at the given temperature
-		{
-			Y_in = RH_in * GetGasSaturationMoistureContent(T_inf);
-			os << "Y_in is calculated using RH_in as: " << Y_in << " kg/kg";
-			ShowInfo(os.str());
-			os.str("");
-			break;
-		}
-			
-		case 1: // same as GUI input
-		{
-			Y_in = GetConstRealParameterValue("Y_in") * 1e-3; // convert in [kg/kg]
-			os << "Y_in is the input value: " << Y_in << " kg/kg";
-			ShowInfo(os.str());
-			os.str("");
-			break;
-		}
-		case 2: // using mass fraction of water defined in GUI input of holdup
-		{
-			double compoundFractionOfVaporOfPhaseChangingCompound = m_inGasStream->GetPhase(EPhase::GAS)->GetCompoundFraction(_time, GetCompoundIndex(compoundKeys[indicesOfVaporOfPhaseChangingCompound.second]));
-			Y_in = compoundFractionOfVaporOfPhaseChangingCompound / (1 - compoundFractionOfVaporOfPhaseChangingCompound);
-			os << "Y_in is calculated using defined water vapor fraction in the air as: "<< Y_in << " kg/kg";
-			ShowInfo(os.str());
-			os.str("");
-			break;
-		}
-	}
-
-	/*
-	double compoundFractionOfSolidInLiquidInput = m_inSuspensionStream->GetPhase(EPhase::SOLID)->GetCompoundFraction(_time, GetCompoundIndex(compoundKeys[indicesOfVaporOfPhaseChangingCompound.second]));
-	if (compoundFractionOfSolidInLiquidInput > 0 && !ignoreVaporInput)
-	{
-		w_l = compoundFractionOfVaporOfPhaseChangingCompound / (1 - compoundFractionOfVaporOfPhaseChangingCompound);
-		ShowInfo("Y_in was calculated using inGasStream as: " + std::to_string(Y_in) + "kg/kg");
-	}
-	else
-		w_l = 1;*/
-	
-	// Particle properties
-	std::vector<double> Grid = GetNumericGrid(DISTR_SIZE);
-	std::vector<double> q_3 = m_holdup->GetPSD(_time, PSD_q3, EPSDGridType::DIAMETER);
-	const double A_Calculated = GetSpecificSurface(Grid, q_3) / rhoParticle * M_tot;
-	bool updateA = GetCheckboxParameterValue("updateA");
-	double A_Input = GetConstRealParameterValue("A_P");
-	if (updateA || A_Input <= 0)
-	{
-		A_P = A_Calculated;
-	}
-	else
-	{
-		A_P = A_Input;
-	}
-	/*if (A_Input > 0)
-		A_P = A_Input;
-	else
-		A_P = A_Calculated;*/
-
-	// Show particle properties in DEBUG mode
-	if (debugToggle) 
-	{
-		/// Get number of classes for PSD ///
-		size_t m_classesNum = GetClassesNumber(DISTR_SIZE); //n
-		/// Get grid of PSD ///
-		std::vector<double> m_sizeGrid = GetNumericGrid(DISTR_SIZE); //d_min
-		std::vector<double> m_avgDiam = GetClassesMeans(DISTR_SIZE); //d_m,i
-		std::vector<double> m_classSize = GetClassesSizes(DISTR_SIZE); //Delta d
-		const double d32 = CalculateHoldupSauter(_time);
-
-		// output of read data in simulation window
-		os << "\nPSD info\n" << "\tNumber of classes: " << m_classesNum <<"\n\tSize Grid\n";
-		for (int i = 0; i < m_sizeGrid.size(); i++)
-			os << "\t\tSize Grid: " << i << " = " << m_sizeGrid[i] << " m\n";
-		os << "\tAvg diam\n";
-		for (int i = 0; i < m_avgDiam.size(); i++)
-			os << "\t\tAvg diam: "<<i<<" = "<<m_avgDiam[i]<<" m\n";
-		os <<"\tClass size\n";
-		for (int i = 0; i < m_classSize.size(); i++)
-			os << "\t\tClass size: "<<i<<" = "<<m_classSize[i]<<" m\n";
-		os << "\tSauter diameter:" << d32 << "m\n";
-		os << "\tToal surface area: " << A_Calculated << " m^2\n" << "\tTotal particle mass: " << M_tot << " kg\n";
-		if (particlesGlobal)
-			ShowInfo(os.str());
-		os.str("");
-	} 
-
-	this->CheckHeightDiscretizationLayers(_time);
-
-	// Calculate gas mass from initial conditions and volume // ToDo: Add more info
-	volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
-	volume volumeChamber = 0;
-	for (size_t i = 0; i < chamber.size(); i++)
-		volumeChamber += CalculateSectionVolume(i);
-	volume volumeGas = volumeChamber - volumeSolids;
-	mass massGas = volumeGas * rhoGas;
-
-	//mass massGas2 = 0;
-	//for (size_t i = 0; i < N_total; i++)
-	//	massGas2 += GetGasMassOfLayer(_time, i, STANDARD_CONDITION_T, STANDARD_CONDITION_T);
-
-	mass orignalMassGas = m_holdup->GetPhaseMass(_time, EPhase::GAS);
-
-	if (massGas > orignalMassGas)
-	{
-		m_holdup->SetPhaseMass(_time, EPhase::GAS, massGas);
-		os << "Adjusted mass of gas phase in holdup from " << orignalMassGas << " kg to " << massGas << " kg.";
-		ShowInfo(os.str());
-		os.str("");
-	}
-
-	/// PSD, currently not in use
+	/////////////////////////////
+	std::ostringstream os;
+	// Get particle properties
+	Grid = GetNumericGrid(DISTR_SIZE);
+	q_3 = m_holdup->GetPSD(_time, PSD_q3, EPSDGridType::DIAMETER);
+	double w_l_init = GetConstRealParameterValue("w_l (t=0)"); // initial water mass fraction
+	InitX = w_l_init / (1. - w_l_init); // initial moisture content
+	m_holdup->SetPhaseMass(_time, EPhase::SOLID, M_tot * (1 - w_l_init)); // set actual mass of solid in holdup
+	double m_solid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
+	// PSD, currently not in use
 	/*
 	/// Get initial mass in holdup ///
 	m_initMass = m_holdup->GetMass(_time);
@@ -327,31 +200,212 @@ void CDryerBatch::Initialize(double _time)
 		m_diamRatio.push_back(std::pow((m_sizeGrid[i] + m_sizeGrid[i + 1]) / (m_sizeGrid[i - 1] + m_sizeGrid[i]), 3)); //at least 3 size grids, i.e. 2 classNums
 	}
 	*/
+	const double A_Calculated = GetSpecificSurface(Grid, q_3) * (m_solid / rhoParticle);
+	bool updateA = GetCheckboxParameterValue("updateA");
+	double A_Input = GetConstRealParameterValue("A_P");
+	if (updateA || A_Input == 0)
+	{
+		A_P = A_Calculated;
+	}
+	else
+	{
+		A_P = A_Input;
+	}
+	Delta_f = GetConstRealParameterValue("Delta_f") * 1e-6; // convert into [m]
+																
+	if (particlesGlobal) // set particle moisture for non-empty run
+	{
+		double w_eqMinTemperature = GetConstRealParameterValue("w_l,eq,min temperature") + T_ref;
+		double X_eqMinBase = CalcuateSolidEquilibriumMoistureContent(_time, w_eqMinTemperature, GetRelativeHumidity(Y_in, w_eqMinTemperature));
+		double w_leqmin = GetConstRealParameterValue("w_l,eq,min") / 100;
+		//minMoistureContent = w_leqmin / (1. - w_leqmin);//0.0271;
+		//moistureScaler = minMoistureContent / X_eqMinBase;
+	}
+	
+	// Show particle properties in DEBUG mode
+	if (debugToggle)
+	{
+		/// Get number of classes for PSD ///
+		size_t m_classesNum = GetClassesNumber(DISTR_SIZE); //n
+		/// Get grid of PSD ///
+		avgClassDiam = GetClassesMeans(DISTR_SIZE); //d_m,i
+		classSize = GetClassesSizes(DISTR_SIZE); //Delta d
+		d32 = CalculateHoldupSauter(_time);
+		// output of read data in simulation window
+		os << "\nPSD info\n" << "\tNumber of classes: " << m_classesNum << "\n\tSize Grid\n";
+		for (int i = 0; i < Grid.size(); i++)
+			os << "\t\tSize Grid: " << i << " = " << Grid[i] << " m\n";
+		os << "\tAvg diam\n";
+		for (int i = 0; i < avgClassDiam.size(); i++)
+			os << "\t\tAvg diam: " << i << " = " << avgClassDiam[i] << " m\n";
+		os << "\tClass size\n";
+		for (int i = 0; i < classSize.size(); i++)
+			os << "\t\tClass size: " << i << " = " << classSize[i] << " m\n";
+		os << "\tSauter diameter:" << d32 << "m\n";
+		os << "\tToal surface area: " << A_Calculated << " m^2\n" << "\tTotal particle mass: " << M_tot << " kg\n";
+		if (particlesGlobal)
+		{
+			ShowInfo(os.str());
+		}
+		os.str("");
+	}
 
-	suspLayer = DetermineLayersInSectionFilledWithBed(0, H_susp / chamber.at(0).height) - 1;
+	// get environment temperature
+	T_inf = T_ref + GetConstRealParameterValue("theta_env"); // T_ref = 0 degreeC
+
+	// inlet fluidization gas conditions
+	double RH_in = GetConstRealParameterValue("RH_in") / 100;
+	size_t Y_in_Value = GetComboParameterValue("Y_in_Value");
+	switch (Y_in_Value)
+	{
+		case 0: // calculate from RH and saturation vapor pressure at the given temperature
+		{
+			Y_in = RH_in * GetGasSaturationMoistureContent(T_inf);
+			os << "Y_in is calculated using RH_in as: " << Y_in << " kg/kg";
+			ShowInfo(os.str());
+			os.str("");
+			break;
+		}
+		case 1: // same as GUI input
+		{
+			Y_in = GetConstRealParameterValue("Y_in") * 1e-3; // convert in [kg/kg]
+			os << "Y_in is the input value: " << Y_in << " kg/kg";
+			ShowInfo(os.str());
+			os.str("");
+			break;
+		}
+		case 2: // using mass fraction of water defined in GUI input of holdup
+		{
+			double compoundFractionOfVaporOfPhaseChangingCompound = m_inGasStream->GetPhase(EPhase::GAS)->GetCompoundFraction(_time, GetCompoundIndex(compoundKeys[indicesOfVaporOfPhaseChangingCompound.second]));
+			Y_in = compoundFractionOfVaporOfPhaseChangingCompound / (1 - compoundFractionOfVaporOfPhaseChangingCompound);
+			os << "Y_in is calculated using defined water vapor fraction in the air as: " << Y_in << " kg/kg";
+			ShowInfo(os.str());
+			os.str("");
+			break;
+		}
+	}
+	Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
+	m_model.Y_eq = GetCheckboxParameterValue("Y_eq");	
+	DiffCoeff = GetComboParameterValue("Diff_coeff"); //calculation of DiffCoeff in function - double CDryerBatch::CalculateDiffusionCoefficient
+
+	// get process chamber properties
+	heightOfChamberTemperatureProbe = GetConstRealParameterValue("H_tempProbe");
+	heightOfNozzle = GetConstRealParameterValue("H_nozzle");
+	heightOfChamber = GetConstRealParameterValue("H_chamber");
+	diamOfBed = GetConstRealParameterValue("d_bed");
+	SetupChamber();
+	this->CheckHeightDiscretizationLayers(_time);
+
+	// Calculate gas mass from initial conditions and volume // ToDo: Add more info
+	volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
+	volume volumeChamber = 0;
+	for (size_t i = 0; i < chamber.size(); i++)
+	{
+		volumeChamber += CalculateSectionVolume(i);
+	}		
+	volume volumeGas = volumeChamber - volumeSolids;
+	mass massGas = volumeGas * rhoGas;
+	mass orignalMassGas = m_holdup->GetPhaseMass(_time, EPhase::GAS);
+	if (massGas > orignalMassGas)
+	{
+		m_holdup->SetPhaseMass(_time, EPhase::GAS, massGas);
+		os << "Adjusted mass of gas phase in holdup from " << orignalMassGas << " kg to " << massGas << " kg.";
+		ShowInfo(os.str());
+		os.str("");
+	}
+
+	// get bed properties
+	heightOfBed = GetConstRealParameterValue("H_bed");
+	eps_0 = GetConstRealParameterValue("eps_0");
+	u_mf = GetConstRealParameterValue("u_mf");
+	suspLayer = DetermineLayersInSectionFilledWithBed(0, heightOfNozzle / chamber.at(0).height) - 1;
+
+	////////////////////////////////////////////////////////////
+	// parameters about drying kinetics, currently not in use //
+	eqData.compoundKey = GetCompoundParameterValue("Xeq compound");
+	if (particlesGlobal)
+	{
+		InitializeMoistureContentDatabase(GetStringParameterValue("Path Xeq")); //"E:\\Dyssol\\Xeq.csv"
+	}
+	//phi_eq = GetConstRealParameterValue("phi_eq");
+	k_dc = GetConstRealParameterValue("k_dc");
+	X_cr = GetConstRealParameterValue("X_cr");
+	////////////////////////////////////////////////////////////
+
+	/*
+	double compoundFractionOfSolidInLiquidInput = m_inSuspensionStream->GetPhase(EPhase::SOLID)->GetCompoundFraction(_time, GetCompoundIndex(compoundKeys[indicesOfVaporOfPhaseChangingCompound.second]));
+	if (compoundFractionOfSolidInLiquidInput > 0 && !ignoreVaporInput)
+	{
+		w_l = compoundFractionOfVaporOfPhaseChangingCompound / (1 - compoundFractionOfVaporOfPhaseChangingCompound);
+		ShowInfo("Y_in was calculated using inGasStream as: " + std::to_string(Y_in) + "kg/kg");
+	}
+	else
+		w_l = 1;*/
+
+	//mass massGas2 = 0;
+	//for (size_t i = 0; i < N_total; i++)
+	//	massGas2 += GetGasMassOfLayer(_time, i, STANDARD_CONDITION_T, STANDARD_CONDITION_T);
 
 	/// Clear all state variables in model ///
 	m_model.ClearVariables();
+
+	///////////////////////////
+	/// Add state variables ///
+	///////////////////////////	
+	// Add DAE state vaviables
+	//std::vector<moistureContent> Y_inInit(N_total, Y_in); // vector in case of height discretization
+	m_model.m_iY_g = m_model.AddDAEVariable(true, Y_in * 1e3, 0, 1.0); 
+	//std::vector<temperature> temperatureGasInit(N_total, m_holdup->GetTemperature(_time) - T_ref); // vector in case of height discretization
+	m_model.m_iTempGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); // Temperature of gas in [degreeC]
+
+	// gas in holdup
+	AddStateVariable("gas mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
+	AddStateVariable("Avg. temperature gas [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // average of gas temperature in all discretized layers
+	// gas in outlet
+	AddStateVariable("theta_out [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // exhaust gas temperature in degreeC
+	AddStateVariable("Y_out [g/kg]", Y_in * 100);
+	AddStateVariable("RH_out [%]", RH_in * 100);
+
+	// particle if non-empty run
+	temperature tempParticleInit = 0;
+	double phiInit = 0; // wetness degree
+	double m_solid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 	if (particlesGlobal)
 	{
-		AddStateVariable("X", 0);
-		AddStateVariable("w%", 0);
-		AddStateVariable("phi", 0);
+		tempParticleInit = m_holdup->GetTemperature(_time); // in [K]
+		if (tempParticleInit <= 0)
+		{
+			RaiseError("Provided holdup temperature is <= 0 K.");
+		}
+		const double w_lInit = GetConstRealParameterValue("w_l (t=0)") / 100;
+		/*if (w_lInit < 0)
+			InitX = CalcuateSolidEquilibriumMoistureContent(_time, tempParticleInit, GetRelativeHumidity(Y_in, tempParticleInit));
+		else*/
+		InitX = w_lInit / (1. - w_lInit);
+		os << "Initial particle moisture content: " << InitX * 1e3 << " g/kg \nWater mass fraction: " << InitX / (1. + InitX) * 100 << " %";
+		ShowInfo(os.str());
+		os.str("");
+		m_holdup->SetPhaseMass(_time, EPhase::LIQUID, InitX * m_solid);
+		phiInit = InitX * m_solid / rhoWater / Delta_f / A_P;
+		
+		AddStateVariable("Holdup - solid mass [kg]", m_solid); 
+		AddStateVariable("Holdup - liquid mass [kg]", m_holdup->GetPhaseMass(_time, EPhase::LIQUID));
+		AddStateVariable("Particle X [%]", InitX);
+		AddStateVariable("Particle w [%]", w_l_init);
+		AddStateVariable("Particle wetness degree [%]", phiInit * 100);	
+		AddStateVariable("Particle temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
+		AddStateVariable("Particle water fraction [%]", (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + m_holdup->GetPhaseMass(_time, EPhase::SOLID))) * 100);
+		AddStateVariable("Liquid film temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
+		AddStateVariable("Water evaporation rate [kg/s]", 0);
 	}
-	AddStateVariable("T_out", m_holdup->GetTemperature(_time));
-	AddStateVariable("Y_out", Y_in);
-	AddStateVariable("RH_out [%]", RH_in*100);
-	if (particlesGlobal)
-		AddStateVariable("solid mass in holdup", m_holdup->GetPhaseMass(_time, EPhase::SOLID));
-	if (particlesGlobal)
-		AddStateVariable("liquid mass in holdup", m_holdup->GetPhaseMass(_time, EPhase::LIQUID));
-	AddStateVariable("gas mass in holdup", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
-	if (particlesGlobal)
-		AddStateVariable("evaporation rate [kg/s]", 0);
-	//AddStateVariable("temperature exhaust gas", m_holdup->GetTemperature(_time) - 273.15); // convert in Cesius
-	//AddStateVariable("temperature water film", m_inSuspensionStream->GetTemperature(_time) - 273.15); // convert in Cesius
-	//AddStateVariable("temperature particle", m_holdup->GetTemperature(_time) - 273.15); // convert in Cesius
-	
+	AddStateVariable("Avg. Y [g/kg]", Y_in * 100); // [g/kg]
+	AddStateVariable("Temperature chamber", m_holdup->GetTemperature(_time));
+	/// height discretization
+	//for (int i = 0; i < Y_init.size(); i++)
+	//{
+	//	AddStateVariable("Gas temperature_i [degreeC] " + std::to_string(i), m_holdup->GetTemperature(_time) - T_ref); // [°C]
+	//	AddStateVariable("Y_i [g/kg] " + std::to_string(i), Y_in) * 1e3; // [g/kg]
+	//}
 
 	//ShowInfo("RH to Y: " + std::to_string(RH_in * GetGasSaturationMoistureContent(T_ref + 20.5)*1000) + " g/kg");
 	//ShowInfo("Massflow nozzle: " + std::to_string((5.91 /*Volume flow gas m^3/h*/ * rhoGas / 60 * 1000 + 20 /*Mass flow water g/min*/) / 60 / 1000) + " kg/s");
@@ -360,47 +414,12 @@ void CDryerBatch::Initialize(double _time)
 	//temperature T_out = T_ref + 48.2;
 	//ShowInfo("RH - in vs out: " + std::to_string(RH_in*100) + " at " + std::to_string(T_inf-T_ref) + " deg C turn into " + std::to_string(100 * GetRelativeHumidity(RH_in * GetGasSaturationMoistureContent(T_inf), T_out)) + " at " + std::to_string(T_out-T_ref) + " deg C.");
 	////ShowInfo(std::to_string(_y / GetGasSaturationMoistureContent(_t, _p)));
-
-	if (particlesGlobal)
-	{
-		double w_eqMinTemperature = GetConstRealParameterValue("w_l,eq,min temperature") + T_ref;
-		double X_eqMinBase = CalcuateSolidEquilibriumMoistureContent(_time, w_eqMinTemperature, GetRelativeHumidity(Y_in, w_eqMinTemperature));
-		double w_leqmin = GetConstRealParameterValue("w_l,eq,min") / 100;
-		//minMoistureContent = w_leqmin / (1. - w_leqmin);//0.0271;
-		//moistureScaler = minMoistureContent / X_eqMinBase;
-	}
-
-	// State variables for model of Dosta
-	temperature tempParticleInit = 0;
-	double phiInit = 0;
-	if (particlesGlobal)
-	{
-		tempParticleInit = m_holdup->GetTemperature(_time);
-		if (tempParticleInit <= 0)
-			RaiseError("Provided holdup temperature is <= 0 K.");
-		const double w_lInit = GetConstRealParameterValue("w_l(t=0)") / 100;
-		if (w_lInit < 0)
-			InitX = CalcuateSolidEquilibriumMoistureContent(_time, tempParticleInit, GetRelativeHumidity(Y_in, tempParticleInit));
-		else
-			InitX = w_lInit / (1. - w_lInit);
-		os << "Initial particle moisture content: " << InitX * 1000 << " g/kg\nLiquid content: " << InitX / (1. + InitX) * 100 << " %";
-		ShowInfo(os.str());
-		os.str("");
-		m_holdup->SetPhaseMass(_time, EPhase::LIQUID, InitX * M_tot);
-		phiInit = InitX * M_tot / rhoWater / Delta_f / A_P;
-	}
+		
 	//m_model.m_iPhi2 = m_model.AddDAEVariable(true, phiInit, 0, 1.0); // Degree of wetness of the particles
 	//InitX = 0;
 
 	//m_model.m_iA_p = m_model.AddDAEVariable(true, A_P, 0,1.0); // Total surface area of particles [m^2]
 	//m_model.m_iMFlowVapor2 = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow [kg/s]
-	m_model.ClearVariables();
-
-	std::vector<moistureContent> Y_inInit(N_total,Y_in); // Vector to initilize Y variable for model for all height layers
-	//m_model.m_iY_g = m_model.AddDAEVariables(true, Y_inInit,0,1.0); // Moisture content of gas layers in [kg/kg]
-
-	std::vector<temperature> temperatureGasInit(N_total, m_holdup->GetTemperature(_time));
-	//m_model.m_iTempGas = m_model.AddDAEVariables(true, temperatureGasInit, 0,1.0); // Temperature of gas layers in [K]
 
 	temperature InitTemperatureLiquid;
 	if (particlesGlobal)
@@ -413,7 +432,7 @@ void CDryerBatch::Initialize(double _time)
 		m_model.m_iTempParticle = m_model.AddDAEVariable(true, tempParticleInit, 0, 1.0); // Temperature of particles in [K]
 	}
 
-	const pressure dP_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, m_holdup->GetTemperature(_time), m_holdup->GetPressure(_time)); // Saturation partial pressure of phase changing compound at particle temperature [Pa]					// Equilibrium partial pressure [Pa]
+	const pressure dP_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, m_holdup->GetTemperature(_time), m_holdup->GetPressure(_time)); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
 	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
 	//const moistureContent Y_sat = ratioMM * dP_sat / (m_holdup->GetPressure(_time) - (1 - ratioMM) * dP_sat);
 	/*const double phiIn = Y_in / Y_sat;
@@ -422,22 +441,6 @@ void CDryerBatch::Initialize(double _time)
 		RaiseWarning("Phi for exaust gas was raised to input levels.");
 	}*/
 
-	// State variables for Dosta model varaiables
-	AddStateVariable("Avg. temperature gas", m_holdup->GetTemperature(_time)); // [°C]
-	if (particlesGlobal)
-	{
-		AddStateVariable("Temperature film", 0); // [°C]
-		AddStateVariable("Temperature particle", m_holdup->GetTemperature(_time)); // [°C]
-		AddStateVariable("Moisture precentage", m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + m_holdup->GetPhaseMass(_time, EPhase::SOLID)));
-		AddStateVariable("RH particles", GetRelativeHumidity(Y_in, m_holdup->GetTemperature(_time), m_holdup->GetPressure(_time)));
-	}
-	AddStateVariable("Avg. Y", Y_in); // [kg/kg]
-	AddStateVariable("Temperature chamber", m_holdup->GetTemperature(_time));
-	for (int i = 0; i < Y_inInit.size(); i++)
-	{
-		AddStateVariable("Temperature gas height layer " + std::to_string(i), m_holdup->GetTemperature(_time)); // [°C]
-		AddStateVariable("Y height layer " + std::to_string(i), Y_in); // [kg/kg]
-	}
 
 	// Check mass and energy balance in DEBUG mode
 	if (debugToggle)
@@ -448,15 +451,17 @@ void CDryerBatch::Initialize(double _time)
 			AddStateVariable("debug" + std::to_string(i), 0);
 	} 
 
-	if (particlesGlobal)
-		if (!CheckForSmallBiot(_time))
-			RaiseWarning("Biot number: "+std::to_string(CalcBiotNumber(_time)) + ">" + std::to_string(SmallBiotNumber) + "\nAssumption of uniform temperature distribution throughout material is invalid.");
+	/// checkForSmallBiot
+	//if (particlesGlobal)
+	//	if (!CheckForSmallBiot(_time))
+	//		RaiseWarning("Biot number: "+std::to_string(CalcBiotNumber(_time)) + ">" + std::to_string(SmallBiotNumber) + "\nAssumption of uniform temperature distribution throughout material is invalid.");
+	
 	/*if (DiffCoefWarning) {
 		RaiseWarning("Critical eqData.temperatures and critical specific molar volumes used, are hard coded for air and water.");
 		DiffCoefWarning = false;
 	}*/
 
-	m_model.InitCounterVaraibles();
+	m_model.InitCounterVariables();
 	//ShowInfo(std::to_string(m_model.CalculateBetaPA(_time, m_holdup->GetTemperature(_time), m_holdup->GetTemperature(_time)) / m_model.CalculateBetaPA(_time, m_holdup->GetTemperature(_time), m_holdup->GetTemperature(_time) + 4)*100));
 	debugHasBeenShown = false;
 	//DiffCoefWarning = true;
@@ -477,10 +482,11 @@ void CDryerBatch::Initialize(double _time)
 	const auto atolY = GetConstRealParameterValue("Absolute tolerance Y");
 
 	std::vector<double> absolutTolerances;
-	for (int i = 0; i < Y_inInit.size(); i++)
-		absolutTolerances.push_back(atolY != 0.0 ? atolY : GetAbsTolerance()); // 0.0001
-	for (int i = 0; i < temperatureGasInit.size() + (particlesGlobal ? 2 : 0); i++)
-		absolutTolerances.push_back(atolT != 0.0 ? atolT : GetAbsTolerance()); // 0.01
+	/// height discretization
+	//for (int i = 0; i < Y_inInit.size(); i++)
+	//	absolutTolerances.push_back(atolY != 0.0 ? atolY : GetAbsTolerance()); // 0.0001
+	//for (int i = 0; i < temperatureGasInit.size() + (particlesGlobal ? 2 : 0); i++)
+	//	absolutTolerances.push_back(atolT != 0.0 ? atolT : GetAbsTolerance()); // 0.01
 	size_t variables = m_model.GetVariablesNumber();
 	m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), rtol != 0.0 ? rtol : GetRelTolerance());
 	m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), absolutTolerances); // 0.01
@@ -547,10 +553,10 @@ double CDryerBatch::CalculateSectionVolume(size_t section)
 	return sectionVolume;
 }
 
-// Functions to setup and check the inputs of for the calculation
+/// Functions to setup and check the inputs of for the calculation //
 void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 {
-	/// Get general data for compounds
+	// Get general data for compounds
 	this->compoundKeys = this->GetAllCompounds();
 	std::vector<std::pair< EPhase, int>> compoundsKeyIndexPhasePartnerIndex(compoundKeys.size(), std::make_pair(EPhase::UNDEFINED, -2));
 	std::vector<density> CompoundDensities(compoundKeys.size()); // Compound densities
@@ -569,16 +575,17 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 		//CompoundCriticaleqData.temperatures[i] = GetCompoundProperty(compoundKeys[i], ECompoundConstProperties::CRITICAL_TEMPERATURE);
 	}
 
-	// Properties of solids
+	/// Properties of solids ///
 	if (m_holdup->GetPhaseFraction(_time, EPhase::SOLID) == 0)
+	{
 		RaiseWarning("Dryer holdup contains no solid.");
-
+	}
 	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
-
 	density tempRhoParticle = 0;
 	heatCapacity tempHeatCapacityParticle = 0;
 	thermalConductivity tempThermalConductivityParticle = 0;
 	for (int i = 0; i < compoundKeys.size(); i++)
+	{
 		if (SolidCompoundsDistribution[i] > 0)
 		{
 			compoundsKeyIndexPhasePartnerIndex[i] = std::make_pair(EPhase::SOLID, -1);
@@ -586,18 +593,18 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 			tempHeatCapacityParticle += SolidCompoundsDistribution[i] * CompoundHeatCapacities[i];
 			tempThermalConductivityParticle += SolidCompoundsDistribution[i] * CompoundThermalConductivities[i];
 		}
+	}		
 	rhoParticle = tempRhoParticle;
 	C_PParticle = tempHeatCapacityParticle;
 	lambdaParticle = tempThermalConductivityParticle;
-	// Particle
 	beta_GP = this->GetConstRealParameterValue("beta_GP");
 
-	/// Properties of liquids
+	/// Properties of liquids ///
 	if (m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID) == 0)
+	{
 		RaiseWarning("Port: InletSuspension contains no liquid.");
-
+	}
 	std::vector<massFraction> LiqudCompoundsDistribution = m_inLiquidStream->GetPhase(EPhase::LIQUID)->GetCompoundsDistribution(_time);
-
 	density tempRhoLiquid = 0;
 	heatCapacity tempHeatCapacityLiquid = 0;
 	thermalConductivity tempLambdaLiquid = 0;
@@ -611,9 +618,46 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 	C_PWaterLiquid = tempHeatCapacityLiquid;
 	lambdaWater = tempLambdaLiquid;
 
-	// Vector to store indices of liquid (first) and vapor (second) form of compound
-	std::vector<std::pair<int, int>> liquidVaporIndices;
+	/// Propterties of vapors (gas phase) ///
+	if (m_inGasStream->GetPhaseFraction(_time, EPhase::GAS) != 1)
+	{
+		RaiseError("Port: InletFluidizationGas contains non gaseous phases.");
+	}
+	std::vector<double> VaporCompoundsDistribution = m_inGasStream->GetPhase(EPhase::GAS)->GetCompoundsDistribution(_time);
+	density tempRhoGas = 0;
+	heatCapacity tempHeatCapacityGas = 0;
+	thermalConductivity templambdaGas = 0;
+	dynamicViscosity tempEtaGas = 0;
+	molarMass tempMolarMassGas = 0;
+	//temperature tempCriticaleqData.temperatures = 0;
+	for (int i = 0; i < compoundKeys.size(); i++)
+		if (VaporCompoundsDistribution[i] > 0 && compoundsKeyIndexPhasePartnerIndex[i].first == EPhase::UNDEFINED)
+		{
+			compoundsKeyIndexPhasePartnerIndex[i] = std::make_pair(EPhase::GAS, -1);
+			tempRhoGas += VaporCompoundsDistribution[i] * CompoundDensities[i];
+			tempHeatCapacityGas += VaporCompoundsDistribution[i] * CompoundHeatCapacities[i];
+			templambdaGas += VaporCompoundsDistribution[i] * CompoundThermalConductivities[i];
+			tempEtaGas += VaporCompoundsDistribution[i] * CompoundDynViscosities[i];
+			tempMolarMassGas += VaporCompoundsDistribution[i] * CompoundMolarMasses[i];
+			//tempCriticaleqData.temperatures += VaporCompoundsDistribution[i] * CompoundCriticaleqData.temperatures[i];
+		}
+	rhoGas = tempRhoGas;
+	C_PGas = tempHeatCapacityGas;
+	lambdaGas = templambdaGas;
+	etaGas = tempEtaGas;
+	molarMassGas = tempMolarMassGas;
+	//T_critGas = tempCriticaleqData.temperatures;
+	for (int i = 0; i < compoundsKeyIndexPhasePartnerIndex.size(); i++)
+	{
+		if (compoundsKeyIndexPhasePartnerIndex[i].first == EPhase::UNDEFINED)
+		{
+			RaiseError("Compound " + GetCompoundName(compoundKeys[i]) + "could not be fitted into solid, liquid or vapor/gas phase");
+		}
+	}
+	CompoundsKeyIndexPhasePartnerIndex = compoundsKeyIndexPhasePartnerIndex;
 
+	/// Vector to store indices of liquid (first) and vapor (second) form of compound ///
+	std::vector<std::pair<int, int>> liquidVaporIndices;
 	for (int i = 0; i < compoundKeys.size(); i++) // Liquid form
 	{
 		if (LiqudCompoundsDistribution[i] > 0 && compoundsKeyIndexPhasePartnerIndex[i].first == EPhase::UNDEFINED)
@@ -648,48 +692,14 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 				compoundsKeyIndexPhasePartnerIndex[i] = std::make_pair(EPhase::LIQUID, -1);
 	}
 	if (liquidVaporIndices.size() > 1)
+	{
 		RaiseWarning("Only the first pair will be considered for phase change calculations.");
-
+	}
 	C_PWaterVapor = GetCompoundProperty(compoundKeys[liquidVaporIndices[0].second], ECompoundTPProperties::HEAT_CAPACITY_CP); // Water vapor heat capacity
 	Delta_h0 = GetCompoundProperty(compoundKeys[liquidVaporIndices[0].first], ECompoundConstProperties::HEAT_OF_VAPORIZATION_AT_NORMAL_BOILING_POINT) / GetCompoundProperty(compoundKeys[liquidVaporIndices[0].first], MOLAR_MASS); // Latent heat (evaporation heat) at 0 degree
 	molarMassPhaseChangingLiquid = CompoundMolarMasses[liquidVaporIndices[0].first];
 
-	/// Propterties of vapors
-	if (m_inGasStream->GetPhaseFraction(_time, EPhase::GAS) != 1)
-		RaiseError("Port: InletFluidizationGas contains non gaseous phases.");
-	
-	std::vector<double> VaporCompoundsDistribution = m_inGasStream->GetPhase(EPhase::GAS)->GetCompoundsDistribution(_time);
-
-	density tempRhoGas = 0;
-	heatCapacity tempHeatCapacityGas = 0;
-	thermalConductivity templambdaGas = 0;
-	dynamicViscosity tempEtaGas = 0;
-	molarMass tempMolarMassGas = 0;
-	//temperature tempCriticaleqData.temperatures = 0;
-	for (int i = 0; i < compoundKeys.size(); i++)
-		if (VaporCompoundsDistribution[i] > 0 && compoundsKeyIndexPhasePartnerIndex[i].first == EPhase::UNDEFINED)
-		{
-			compoundsKeyIndexPhasePartnerIndex[i] = std::make_pair(EPhase::GAS, -1);
-			tempRhoGas += VaporCompoundsDistribution[i] * CompoundDensities[i];
-			tempHeatCapacityGas += VaporCompoundsDistribution[i] * CompoundHeatCapacities[i];
-			templambdaGas += VaporCompoundsDistribution[i] * CompoundThermalConductivities[i];
-			tempEtaGas += VaporCompoundsDistribution[i] * CompoundDynViscosities[i];
-			tempMolarMassGas += VaporCompoundsDistribution[i] * CompoundMolarMasses[i];
-			//tempCriticaleqData.temperatures += VaporCompoundsDistribution[i] * CompoundCriticaleqData.temperatures[i];
-		}
-	rhoGas = tempRhoGas;
-	C_PGas = tempHeatCapacityGas;
-	lambdaGas = templambdaGas;
-	etaGas = tempEtaGas;
-	molarMassGas = tempMolarMassGas;
-	//T_critGas = tempCriticaleqData.temperatures;
-
-	for (int i = 0; i < compoundsKeyIndexPhasePartnerIndex.size(); i++)
-		if (compoundsKeyIndexPhasePartnerIndex[i].first == EPhase::UNDEFINED)
-			RaiseError("Compound " + GetCompoundName(compoundKeys[i]) + "could not be fitted into solid, liquid or vapor/gas phase");
-
-	CompoundsKeyIndexPhasePartnerIndex = compoundsKeyIndexPhasePartnerIndex;
-
+	/// print material properties on simulation window in DEBUG mode ///
 	if (debugToggle){
 		std::ostringstream  os;
 		os << "Debug info\n"
@@ -719,86 +729,98 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 	} // DEBUG
 }
 
-void CDryerBatch::CheckHeightDiscretizationLayers(double _time)
-{
-	N_particle = this->GetConstIntParameterValue("N_el");
-	std::vector<double> sizeGrid = GetNumericGrid(DISTR_SIZE);
-	double maxDistributionSize = sizeGrid.back();
-	if (chamber.at(0).height / N_particle < maxDistributionSize)
-	{
-		this->RaiseWarning("Height of discretization layer smaller than biggest particles.");
-		int64_t tempN_el = N_particle -  1;
-		while (chamber.at(0).height / tempN_el < maxDistributionSize)
-		{
-			tempN_el--;
-			if (tempN_el == 0)
-				break;
-		}
-		N_particle = tempN_el;
-		if (N_particle < 1)
-			this->RaiseError("Size of larges particles " + std::to_string(maxDistributionSize) + " m is larger than total bed height " + std::to_string(chamber.at(0).height) + " m.");
-		this->RaiseWarning("Adjusted number of discretization layers to: " + std::to_string(N_particle));
-	}
-	for (auto& element : chamber)
-		if (element.layers < 1)
-			element.layers = 1;
-	chamber.at(0).layers = N_particle;
-	double sectionsFilledWithBed = 0;
-	if (particlesGlobal)
-	{
-		std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
-		double maxInGasFlow = 0;
-		heighestFlowTimepoint = 0;
-		for (auto& element : inGasStreamTimePoints)
-			if (m_inGasStream->GetMassFlow(element) > maxInGasFlow)
-			{
-				maxInGasFlow = m_inGasStream->GetMassFlow(element);
-				heighestFlowTimepoint = element;
-			}
-		sectionsFilledWithBed = DetermineSectionsFilledWithBed(heighestFlowTimepoint, m_holdup->GetTemperature(heighestFlowTimepoint));
-		// sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(heighestFlowTimepoint, std::max(m_holdup->GetTemperature(0), m_inGasStream->GetTemperature(heighestFlowTimepoint)), false);
-		for (int i = 1; i < std::ceil(sectionsFilledWithBed); i++)
-		{
-			chamber.at(i).layers = std::ceil(chamber.at(0).layers * chamber.at(i).height / chamber.at(0).height);
-			N_particle += chamber.at(i).layers;
-		}
-	}
-	N_total = 0;
-	for (auto& section : chamber)
-		N_total += section.layers;
-}
+/// CheckHeightDiscretizationLayers ///
+//void CDryerBatch::CheckHeightDiscretizationLayers(double _time)
+//{
+//	N_particle = this->GetConstIntParameterValue("N_el");
+//	std::vector<double> sizeGrid = GetNumericGrid(DISTR_SIZE);
+//	double maxDistributionSize = sizeGrid.back();
+//	if (chamber.at(0).height / N_particle < maxDistributionSize)
+//	{
+//		this->RaiseWarning("Height of discretization layer smaller than biggest particles.");
+//		int64_t tempN_el = N_particle -  1;
+//		while (chamber.at(0).height / tempN_el < maxDistributionSize)
+//		{
+//			tempN_el--;
+//			if (tempN_el == 0)
+//				break;
+//		}
+//		N_particle = tempN_el;
+//		if (N_particle < 1)
+//			this->RaiseError("Size of larges particles " + std::to_string(maxDistributionSize) + " m is larger than total bed height " + std::to_string(chamber.at(0).height) + " m.");
+//		this->RaiseWarning("Adjusted number of discretization layers to: " + std::to_string(N_particle));
+//	}
+//	for (auto& element : chamber)
+//	{
+//		if (element.layers < 1)
+//		{
+//			element.layers = 1;
+//		}
+//			
+//	}
+//		
+//	chamber.at(0).layers = N_particle;
+//	double sectionsFilledWithBed = 0;
+//	if (particlesGlobal)
+//	{
+//		std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
+//		double maxInGasFlow = 0;
+//		heighestFlowTimepoint = 0;
+//		for (auto& element : inGasStreamTimePoints)
+//			if (m_inGasStream->GetMassFlow(element) > maxInGasFlow)
+//			{
+//				maxInGasFlow = m_inGasStream->GetMassFlow(element);
+//				heighestFlowTimepoint = element;
+//			}
+//		sectionsFilledWithBed = DetermineSectionsFilledWithBed(heighestFlowTimepoint, m_holdup->GetTemperature(heighestFlowTimepoint));
+//		// sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(heighestFlowTimepoint, std::max(m_holdup->GetTemperature(0), m_inGasStream->GetTemperature(heighestFlowTimepoint)), false);
+//		for (int i = 1; i < std::ceil(sectionsFilledWithBed); i++)
+//		{
+//			chamber.at(i).layers = std::ceil(chamber.at(0).layers * chamber.at(i).height / chamber.at(0).height);
+//			N_particle += chamber.at(i).layers;
+//		}
+//	}
+//	N_total = 0;
+//	for (auto& section : chamber)
+//		N_total += section.layers;
+//}
 
-bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform temperature distribution (Diss Soeren, chapter 2.2.2, page 27)
-{
-	const double Bi = CalcBiotNumber(_time);
-	if (Bi < SmallBiotNumber)
-		return true;
-	else
-		return false;
-}
+///CheckForSmallBiot///
+//bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform temperature distribution (Diss Soeren, chapter 2.2.2, page 27)
+//{
+//	const double Bi = CalcBiotNumber(_time);
+//	if (Bi < SmallBiotNumber)
+//		return true;
+//	else
+//		return false;
+//}
 
 //bool CDryerBatch::LoadDimensions(std::string path)
 //{
 //	return false;
 //}
 
-/// Functions to calculate/return moisture related properties ///
-moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas)
+/////////////////////////////////////////////////////////////////
+/// Functions to calculate/return moisture-related properties ///
+///						for gas and solid					  ///
+/////////////////////////////////////////////////////////////////
+moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas) // temperature in [K]
 {
 	if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
 	{
-		pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa]					// Equilibrium partial pressure [Pa]
-		const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-		bool pressureReductionWarning = false;
+		pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
+		/*
 		int i = 0;
 		while (pressureGas - P_sat < 0)
 		{
 			P_sat = P_sat * 0.999;
 			i++;
 		}
-		if (pressureReductionWarning)
-			RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
-		const moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in kg per kg dry gas
+		*/
+		//bool pressureReductionWarning = false;
+		//if (pressureReductionWarning)
+		//	RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
+		const moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
 		return Y_sat;
 	}
 	else // same as user input
@@ -807,19 +829,14 @@ moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature tempera
 	}
 }
 
-moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double RH) const
+moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double RH) const // Gas moisture content under assumption of ideal gas law
 {
-	// Moisture content calculation
-	// Assumption: ideal gas law
 	if (RH == 0)
+	{
 		return 0;
-
-	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa]					// Equilibrium partial pressure [Pa]
-
-	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-
+	}
+	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
 	const pressure P_eq = P_sat * RH;
-
 	const moistureContent Y_eq = ratioMM * P_eq / (pressureGas - P_eq); // Moisture content in kg per kg dry gas
 	return Y_eq;
 }
@@ -839,8 +856,8 @@ double CDryerBatch::GetRelativeHumidity(moistureContent Y, temperature temperatu
 
 	const double phi = P_wg / P_sat; // Relative humidity [-]
 	*/
-	const moistureContent y_sat = GetGasSaturationMoistureContent(temperature, pressure);
-	double phi = Y / y_sat;
+	const moistureContent Y_sat = GetGasSaturationMoistureContent(temperature, pressure);
+	double phi = Y / Y_sat; // relative humidity
 	if (phi > 1)
 		phi = 1;
 	if (phi < 0)
@@ -852,27 +869,30 @@ moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _tim
 {
 	std::vector<moistureContent> EquilibriumMoistures(compoundKeys.size());
 	moistureContent particleEquilibriumMoistureContent = 0;
-
 	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
-
 	for (int i = 0; i < compoundKeys.size(); i++)
+	{
 		if (compoundKeys.at(i) == eqData.compoundKey)
 			EquilibriumMoistures[i] = GetParticleEquilibriumMoistureContent(temperature, RH);
 		else
 			EquilibriumMoistures[i] = GetCompoundProperty(compoundKeys[i], ECompoundTPProperties::EQUILIBRIUM_MOISTURE_CONTENT, temperature, RH);
-		// Equilibrium moisture content depends on temperatur and humidity
+	}		
+	// Equilibrium moisture content depends on temperatur and humidity
 	for (int i = 0; i < compoundKeys.size(); i++)
+	{
 		if (EquilibriumMoistures.at(i) < 0)
 		{
 			std::stringstream os;
-			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at "<< RH*100 <<"%.";
+			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at " << RH * 100 << "%.";
 			RaiseError(os.str());
 			os.str() = "";
 		}
-
+	}
+		
 	for (int i = 0; i < compoundKeys.size(); i++)
+	{
 		particleEquilibriumMoistureContent += SolidCompoundsDistribution[i] * EquilibriumMoistures[i];
-
+	}
 	particleEquilibriumMoistureContent *= moistureScaler;
 	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
 }
@@ -1254,8 +1274,8 @@ void CDryerBatch::SetupChamber()
 		chamberSection section;
 		section.name = "main";
 		section.shape = EShape::CYLINDRICAL;
-		section.dimensionsInternal = { std::make_pair(0.180, 0.250) };
-		section.height = { 0.337 };
+		section.dimensionsInternal = { std::make_pair(diamOfBed, 0.250) };
+		section.height = { heightOfChamber };
 		section.wallThicknesses = { 0.005 };
 		section.thermalConductivities = { 15 };
 		section.layers = 1;
