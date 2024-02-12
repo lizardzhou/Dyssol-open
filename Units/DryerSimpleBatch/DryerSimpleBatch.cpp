@@ -109,11 +109,11 @@ void CDryerSimpleBatch::Initialize(double _time)
 	m_model.m_iMWaterBed = m_model.AddDAEVariable(false, 0, 0, 0);	// Water mass in the bed
 	m_model.m_iYOut = m_model.AddDAEVariable(false, Y_in, 0, 0); // Moisture content of exhaust gas in [kg/kg]
 
-	AddStateVariable("X", 0);
-	//AddStateVariable("dX/dt", 0);
-	//AddStateVariable("MFlowVapor", 0);
-	AddStateVariable("phi", 0);
-	AddStateVariable("Y_out", Y_in);
+	AddStateVariable("X", 0); 
+	AddStateVariable("dX/dt", 0); 
+	AddStateVariable("MFlowVapor", 0); 
+	AddStateVariable("phi", 0); 
+	AddStateVariable("Y_out", Y_in); 
 	AddStateVariable("Eta_PFTR", 0);	
 	
 	/// Set tolerances to model ///
