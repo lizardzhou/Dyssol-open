@@ -26,11 +26,24 @@ public:
 	void* m_unit{};
 	bool Y_eq = true;
 
-	// Indices of state variables for DAE solver
-	size_t m_iY_g{}; // no height discretization
-	size_t m_iTempGas{}; // no height discretization
-	size_t m_iTempFilm{};
+	/// Indices of state variables for DAE solver ///
+	// gas phase
+	size_t m_iYOutGas{}; // outlet gas, no height discretization
+	size_t m_iTempOutGas{}; // outlet gas, no height discretization
+	size_t m_iHOutGas{}; // outlet gas enthalpy
+	// particle (solid) phase
 	size_t m_iTempParticle{};
+	size_t m_iPhi{}; // particle wetness degree
+	size_t m_iX{}; // particle moisture content
+	// liquid phase (water film)
+	size_t m_iTempFilm{}; // water film (on particle surface) temperature
+	// water vapor
+	size_t m_iMFlowVapor{}; // vapor flow (evaporation) rate
+	size_t m_iHFlowVapor{}; // vapor flow enthalpy
+	// heat transfer
+	size_t m_iQ_AF{}; // heat transfer from air to water film, == Q_AP
+	size_t m_iQ_AP{}; // heat transfer from air to particle, == Q_AF
+	size_t m_iQ_PF{}; // heat transfer from particle to water film
 
 	// Debug
 	std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -84,7 +97,7 @@ private:
 private:
 	std::vector<std::pair< EPhase, int>> CompoundsKeyIndexPhasePartnerIndex; // Storage vector for phase and phase change partner, index same as compoundKeys variable
 	void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
-	void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
+	//void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
 	double minMoistureContent = 0;
 	double moistureScaler = 1;
 	massTransferCoefficient beta_GP = 0.02; // Water mass transfer coefficient from gas to particle in [m/s]
@@ -103,6 +116,7 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 		moistureContent Y_in; // Moisture content of input gas stream [kg/kg]
+		specificLatentHeat h_in; // enthalpy for inlet gas: determined by user input
 		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
 	// Liquid
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
@@ -124,7 +138,7 @@ public:
 		area A_P; // = 4; // total surface area of particle mass [m^2]
 		length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
 		thermalConductivity lambdaParticle = 0.58;
-		moistureContent InitX = 0;
+		moistureContent initX = 0;
 		//drying kinetic parameters, currently not in use
 		double k_dc; // = 3.5; // k for normalized drying curve
 		moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
@@ -366,7 +380,7 @@ public:
 	 *	\return index of section*/
 	//size_t DetermineSectionForLayer(size_t layer) const;
 
-	std::vector<double> GetGasMassOfLayers(double _time, double gasTemperature, double particleTemperature);
+	std::vector<double> GetSectionGasMass(double _time, double gasTemperature, double particleTemperature);
 
 	double CalculateLayerVolume(size_t section, double R1, double r1)
 	{

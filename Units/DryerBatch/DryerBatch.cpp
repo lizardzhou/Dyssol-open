@@ -184,7 +184,7 @@ void CDryerBatch::Initialize(double _time)
 	Grid = GetNumericGrid(DISTR_SIZE);
 	q_3 = m_holdup->GetPSD(_time, PSD_q3, EPSDGridType::DIAMETER);
 	double w_l_init = GetConstRealParameterValue("w_l (t=0)"); // initial water mass fraction
-	InitX = w_l_init / (1. - w_l_init); // initial moisture content
+	initX = w_l_init / (1. - w_l_init); // initial moisture content
 	m_holdup->SetPhaseMass(_time, EPhase::SOLID, M_tot * (1 - w_l_init)); // set actual mass of solid in holdup
 	double m_solid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 	// PSD, currently not in use
@@ -254,6 +254,7 @@ void CDryerBatch::Initialize(double _time)
 	T_inf = T_ref + GetConstRealParameterValue("theta_env"); // T_ref = 0 degreeC
 
 	// inlet fluidization gas conditions
+	double theta_in = m_inGasStream->GetTemperature(_time) - T_ref;
 	double RH_in = GetConstRealParameterValue("RH_in") / 100;
 	size_t Y_in_Value = GetComboParameterValue("Y_in_Value");
 	switch (Y_in_Value)
@@ -284,8 +285,10 @@ void CDryerBatch::Initialize(double _time)
 			break;
 		}
 	}
+	double y_in = Y_in / (1. + Y_in);
 	Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
 	m_model.Y_eq = GetCheckboxParameterValue("Y_eq");	
+	h_in = C_PWaterLiquid * theta_in + y_in * (C_PWaterVapor * theta_in + Delta_h0);
 	DiffCoeff = GetComboParameterValue("Diff_coeff"); //calculation of DiffCoeff in function - double CDryerBatch::CalculateDiffusionCoefficient
 
 	// get process chamber properties
@@ -294,7 +297,7 @@ void CDryerBatch::Initialize(double _time)
 	heightOfChamber = GetConstRealParameterValue("H_chamber");
 	diamOfBed = GetConstRealParameterValue("d_bed");
 	SetupChamber();
-	this->CheckHeightDiscretizationLayers(_time);
+	//this->CheckHeightDiscretizationLayers(_time);
 
 	// Calculate gas mass from initial conditions and volume // ToDo: Add more info
 	volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
@@ -318,7 +321,7 @@ void CDryerBatch::Initialize(double _time)
 	heightOfBed = GetConstRealParameterValue("H_bed");
 	eps_0 = GetConstRealParameterValue("eps_0");
 	u_mf = GetConstRealParameterValue("u_mf");
-	suspLayer = DetermineLayersInSectionFilledWithBed(0, heightOfNozzle / chamber.at(0).height) - 1;
+	//suspLayer = DetermineLayersInSectionFilledWithBed(0, heightOfNozzle / chamber.at(0).height) - 1;
 
 	////////////////////////////////////////////////////////////
 	// parameters about drying kinetics, currently not in use //
@@ -352,54 +355,73 @@ void CDryerBatch::Initialize(double _time)
 	///////////////////////////
 	/// Add state variables ///
 	///////////////////////////	
-	// Add DAE state vaviables
+	/// Add DAE state vaviables
 	//std::vector<moistureContent> Y_inInit(N_total, Y_in); // vector in case of height discretization
-	m_model.m_iY_g = m_model.AddDAEVariable(true, Y_in * 1e3, 0, 1.0); 
 	//std::vector<temperature> temperatureGasInit(N_total, m_holdup->GetTemperature(_time) - T_ref); // vector in case of height discretization
-	m_model.m_iTempGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); // Temperature of gas in [degreeC]
-
 	// gas in holdup
-	AddStateVariable("gas mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
-	AddStateVariable("Avg. temperature gas [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // average of gas temperature in all discretized layers
+	AddStateVariable("Gas mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
+	AddStateVariable("Gas temperature in holdup + outlet [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // gas temperature in hold up == in outlet. Further with height discretization
 	// gas in outlet
-	AddStateVariable("theta_out [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // exhaust gas temperature in degreeC
-	AddStateVariable("Y_out [g/kg]", Y_in * 100);
-	AddStateVariable("RH_out [%]", RH_in * 100);
+	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_in * 1e3, 0, 1.0);
+	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); // Temperature of gas in [degreeC]
+	m_model.m_iHOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetMassFlow(_time) * h_in, 0, 1.0); // Enthaly of gas in [J/s]
+	AddStateVariable("Gas temperature outlet [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // exhaust gas temperature in degreeC
+	AddStateVariable("Gas Y_outlet [g/kg]", Y_in * 100);
+	AddStateVariable("Gas RH_outlet [%]", RH_in * 100);
 
 	// particle if non-empty run
 	temperature tempParticleInit = 0;
-	double phiInit = 0; // wetness degree
+	temperature tempLiquidInit = 0;
+	double initPhi = 0; // wetness degree
 	double m_solid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 	if (particlesGlobal)
 	{
+		// particle properties
 		tempParticleInit = m_holdup->GetTemperature(_time); // in [K]
 		if (tempParticleInit <= 0)
 		{
 			RaiseError("Provided holdup temperature is <= 0 K.");
 		}
 		const double w_lInit = GetConstRealParameterValue("w_l (t=0)") / 100;
-		/*if (w_lInit < 0)
-			InitX = CalcuateSolidEquilibriumMoistureContent(_time, tempParticleInit, GetRelativeHumidity(Y_in, tempParticleInit));
-		else*/
-		InitX = w_lInit / (1. - w_lInit);
-		os << "Initial particle moisture content: " << InitX * 1e3 << " g/kg \nWater mass fraction: " << InitX / (1. + InitX) * 100 << " %";
+		initX = w_lInit / (1. - w_lInit);
+		os << "Initial particle moisture content: " << initX * 1e3  << " g/kg dry air \nWater mass fraction: " << initX / (1. + initX) * 100 << " %";
 		ShowInfo(os.str());
 		os.str("");
-		m_holdup->SetPhaseMass(_time, EPhase::LIQUID, InitX * m_solid);
-		phiInit = InitX * m_solid / rhoWater / Delta_f / A_P;
-		
-		AddStateVariable("Holdup - solid mass [kg]", m_solid); 
-		AddStateVariable("Holdup - liquid mass [kg]", m_holdup->GetPhaseMass(_time, EPhase::LIQUID));
-		AddStateVariable("Particle X [%]", InitX);
+		m_holdup->SetPhaseMass(_time, EPhase::LIQUID, initX * m_solid); // set water mass in particle as liquid mass in holdup
+		initPhi = initX * m_solid / rhoWater / Delta_f / A_P;		
+		m_model.m_iTempParticle = m_model.AddDAEVariable(true, tempParticleInit, 0, 1.0); // Particle temperature in [K]
+		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0, 1.0); // Particle degree of wetness
+		m_model.m_iX = m_model.AddDAEVariable(true, initX, 0, 1.0); // Particle moisture content
+		AddStateVariable("Particle mass in holdup [kg]", m_solid); 
+		AddStateVariable("Particle X [%]", initX);
 		AddStateVariable("Particle w [%]", w_l_init);
-		AddStateVariable("Particle wetness degree [%]", phiInit * 100);	
-		AddStateVariable("Particle temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
-		AddStateVariable("Particle water fraction [%]", (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + m_holdup->GetPhaseMass(_time, EPhase::SOLID))) * 100);
-		AddStateVariable("Liquid film temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
+		AddStateVariable("Particle w calc from holdup [%]", (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + m_holdup->GetPhaseMass(_time, EPhase::SOLID))) * 100); // compare with Particle w [%]
+		AddStateVariable("Particle wetness degree [%]", initPhi * 100);
+		AddStateVariable("Particle temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]	
+		AddStateVariable("Water mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::LIQUID));
+		AddStateVariable("Water film temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
 		AddStateVariable("Water evaporation rate [kg/s]", 0);
+		// liquid (film) properties
+		if (m_holdup->GetTemperature(_time) > m_inLiquidStream->GetTemperature(_time) && initPhi == 0)
+		{
+			tempLiquidInit = m_inLiquidStream->GetTemperature(_time);
+		}
+		else
+		{
+			tempLiquidInit = m_holdup->GetTemperature(_time);
+		}
+		m_model.m_iTempFilm = m_model.AddDAEVariable(true, tempLiquidInit, 0, 1.0); // Temperature of liquid film in [K]
+		// water vapor
+		m_model.m_iMFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow (evaporation) rate [kg/s], at the beginning == 0
+		m_model.m_iHFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow enthalpy [J/s], at the beginning == 0
+		// heat transfer
+		m_model.m_iQ_AF = m_model.AddDAEVariable(false, 0, 0, 0.0);
+		m_model.m_iQ_AP = m_model.AddDAEVariable(false, 0, 0, 0.0); 
+		m_model.m_iQ_PF = m_model.AddDAEVariable(false, 0, 0, 0.0);
 	}
-	AddStateVariable("Avg. Y [g/kg]", Y_in * 100); // [g/kg]
-	AddStateVariable("Temperature chamber", m_holdup->GetTemperature(_time));
+	//AddStateVariable("Avg. Y [g/kg]", Y_in * 1e3); //  [g/kg]
+	//AddStateVariable("Temperature chamber", m_holdup->GetTemperature(_time));
+
 	/// height discretization
 	//for (int i = 0; i < Y_init.size(); i++)
 	//{
@@ -413,42 +435,17 @@ void CDryerBatch::Initialize(double _time)
 
 	//temperature T_out = T_ref + 48.2;
 	//ShowInfo("RH - in vs out: " + std::to_string(RH_in*100) + " at " + std::to_string(T_inf-T_ref) + " deg C turn into " + std::to_string(100 * GetRelativeHumidity(RH_in * GetGasSaturationMoistureContent(T_inf), T_out)) + " at " + std::to_string(T_out-T_ref) + " deg C.");
-	////ShowInfo(std::to_string(_y / GetGasSaturationMoistureContent(_t, _p)));
+	//ShowInfo(std::to_string(_y / GetGasSaturationMoistureContent(_t, _p)));
 		
-	//m_model.m_iPhi2 = m_model.AddDAEVariable(true, phiInit, 0, 1.0); // Degree of wetness of the particles
-	//InitX = 0;
-
-	//m_model.m_iA_p = m_model.AddDAEVariable(true, A_P, 0,1.0); // Total surface area of particles [m^2]
-	//m_model.m_iMFlowVapor2 = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow [kg/s]
-
-	temperature InitTemperatureLiquid;
-	if (particlesGlobal)
-	{
-		if (m_holdup->GetTemperature(_time) > m_inLiquidStream->GetTemperature(_time) && phiInit == 0)
-			InitTemperatureLiquid = m_inLiquidStream->GetTemperature(_time);
-		else
-			InitTemperatureLiquid = m_holdup->GetTemperature(_time);
-		m_model.m_iTempFilm = m_model.AddDAEVariable(true, InitTemperatureLiquid, 0, 1.0); // Temperature of liquid film in [K]
-		m_model.m_iTempParticle = m_model.AddDAEVariable(true, tempParticleInit, 0, 1.0); // Temperature of particles in [K]
-	}
-
-	const pressure dP_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, m_holdup->GetTemperature(_time), m_holdup->GetPressure(_time)); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
-	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-	//const moistureContent Y_sat = ratioMM * dP_sat / (m_holdup->GetPressure(_time) - (1 - ratioMM) * dP_sat);
-	/*const double phiIn = Y_in / Y_sat;
-	if (phi_eq < phiIn) {
-		phi_eq = phiIn;
-		RaiseWarning("Phi for exaust gas was raised to input levels.");
-	}*/
-
-
 	// Check mass and energy balance in DEBUG mode
 	if (debugToggle)
 	{
 		AddStateVariable("Mass balance", 0);
 		AddStateVariable("Energy balance", 0);
 		for (int i = 0; i < 10; i++)
+		{
 			AddStateVariable("debug" + std::to_string(i), 0);
+		}			
 	} 
 
 	/// checkForSmallBiot
@@ -469,7 +466,7 @@ void CDryerBatch::Initialize(double _time)
 	//m_model.unit = static_cast<CDryerBatch*>(this);
 	if (particlesGlobal)
 	{
-		this->EnergyLiquidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * this->C_PWaterLiquid * InitTemperatureLiquid;
+		this->EnergyLiquidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * this->C_PWaterLiquid * tempLiquidInit;
 		this->EnergySolidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * this->C_PParticle * tempParticleInit;
 	}
 	this->EnergyGasPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((this->C_PGas + this->C_PWaterVapor * Y_in) * m_holdup->GetTemperature(_time) + this->Delta_h0 * Y_in);
@@ -478,9 +475,9 @@ void CDryerBatch::Initialize(double _time)
 
 	/// Set tolerances to model ///
 	const auto rtol = GetConstRealParameterValue("Relative tolerance");
+	// separate absolute tolerance for temperature and gas moisture content
 	const auto atolT = GetConstRealParameterValue("Absolute tolerance T");
 	const auto atolY = GetConstRealParameterValue("Absolute tolerance Y");
-
 	std::vector<double> absolutTolerances;
 	/// height discretization
 	//for (int i = 0; i < Y_inInit.size(); i++)
@@ -505,7 +502,6 @@ void CDryerBatch::Initialize(double _time)
 		os.str("");
 	}
 
-
 	os << "\nInitialization completed.\n";
 	ShowInfo(os.str());
 
@@ -528,32 +524,574 @@ void CDryerBatch::Simulate(double _timeBeg, double _timeEnd)
 		RaiseError(m_solver.GetError());
 }
 
-double CDryerBatch::CalculateSectionVolume(size_t section)
+///////////////////////////////////
+///  Main calculation functions ///
+///////////////////////////////////
+void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _ders, double* _res, void* _unit)
 {
-	double sectionVolume = 0;
-	if (chamber.at(section).shape == EShape::CYLINDRICAL)
-		sectionVolume = chamber.at(section).height * MATH_PI / 3 * (
-			pow(chamber.at(section).dimensionsInternal.at(0).first / 2, 2)
-			+ (chamber.at(section).dimensionsInternal.at(0).first * chamber.at(section).dimensionsInternal.at(0).second) / 4
-			+ pow(chamber.at(section).dimensionsInternal.at(0).second / 2, 2)
-			);
-	else if (chamber.at(section).shape == EShape::RECTANGULAR)
+	const auto* unit = static_cast<CDryerBatch*>(_unit);
+	auto* unit2 = static_cast<CDryerBatch*>(_unit);
+
+	// Codes for checking _vars, _ders and _res
+	std::vector vars(_vars, _vars + GetVariablesNumber());
+	std::vector ders(_ders, _ders + GetVariablesNumber());
+	std::vector  res(_res, _res + GetVariablesNumber());
+
+	bool NaNvalue = false;
+	for (int i = 0; i < GetVariablesNumber(); i++)
+		if (_vars[i] != _vars[i])
+			NaNvalue = true;
+
+	if (debugToggle) {
+		if (_time <= 1)
+			counter++;
+		progressCounterTotal++;
+	} // _DEBUG
+	if (/*_time > 7929|| _time > 6000 || _time > 5948 || _time > 300 ||*/ _time > 2797.52)
+		bool breakint = true;
+
+	/// Read input parameters ///
+	const pressure mPressure = unit->m_holdup->GetPressure(_time); // Pressure holdup [Pa]
+	const massFlow mFlowSuspension = unit->m_inLiquidStream->GetMassFlow(_time);
+	const massFlow mFlowSuspensionLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID); // Suspension mass flow [kg/s]
+	const massFlow mFlowSuspensionSolid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID);
+	const massFlow mFlowSuspensionGas = unit->m_inNozzleAirStream->GetPhaseMassFlow(_time, EPhase::GAS);
+	//const double mFlowGasSupplemental = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::GAS); [kg/s]
+	const massFlow mFlowGas = unit->m_inGasStream->GetPhaseMassFlow(_time, EPhase::GAS); // Gas mass flow [kg/s]
+	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID); // Solid mass holdup [kg]
+	const mass mHoldupGas = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS); // Gas mass holdup [kg]
+	const mass mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID); // Liquid mass holdup [kg]
+	//const length H_bed = unit->H_bed; // Bed height [m]
+	//const length d_bed = unit->d_bed; // Bed diameter [m]
+	const moistureContent Y_in = unit->Y_in; // Y in [kg/kg dry]
+	const area A_P = unit->A_P; // Total particle surface [m^2]
+	const area varA_p = A_P; // Total particle surface [m^2]
+	const double derA_p = 0; // Change of total particle surface [m^2/s]
+	/*	If changed to a granulator, these varaibles need to change:
+		phi, d/dt particle temperature, A_P, d/dt A_P
+	*/
+	const length Delta_f = unit->Delta_f; // Max. liquid film thickness [m]
+	const massFraction w_l = unit->m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);// unit->w_l; // Liquid mass fraction suspension [kg/kg]
+
+	const temperature mGasInTemperature = unit->m_inGasStream->GetTemperature(_time); // Temperature of inGasStream general [K]
+	const temperature mSuspensionTemperature = unit->m_inLiquidStream->GetTemperature(_time);
+
+	/// DAE system ///
+	// Values in _vars: determined by the solver & should not be changed, set as const!
+
+	const temperature varTempParticle2 = _vars[m_iTempParticle]; // Temperature of the particles [K]
+	const temperature varTempFilm2 = _vars[m_iTempFilm]; // Temperature of the film [K]
+
+	//const double varPhi2 = _vars[m_iPhi2]; // Liquid film surface coverage
+
+	size_t sectionsWithParticles = unit->particlesGlobal ? std::ceil(unit2->DetermineSectionsFilledWithBed(_time, varTempParticle2)) : 0;
+	// size_t sectionsWithParticles = unit->particlesGlobal ? std::ceil(unit2->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, varTempParticle2, false)) : 0;
+	size_t layersWithParticles = 0;
+	for (size_t section = 0; section < sectionsWithParticles; section++)
+		layersWithParticles += unit->chamber.at(section).layers;
+
+	// Calculated constants
+
+	const moistureContent X = mHoldupLiquid / mHoldupSolid; // Moisture content of the bed [kg water per kg dry particle] 
+
+	// Calculate other coefficients
+	const double alpha_GP = unit->CalcAlphaParticleGas(_time); // Heat transfer coefficient gas to particle
+	const double alpha_GF = alpha_GP; // Heat transfer coefficient gas to film
+	const double alpha_PF = alpha_GP * unit->f_alpha;//unit->CalculateAlphaPF(_time); // Heat transfer coefficient particle to film
+
+
+	// Model according to Dosta 2010
+
+	// Height averaged temperature of the gas phase [K]
+	// Dosta 2010 eq. 14a
+
+	const temperature varAvTempGas = CalculateAverage(_vars, m_iTempOutGas, unit->N_particle);
+
+	// Height averaged moisture content of the gas phase [kg/kg]
+	// Dosta 2010 eq. 14b
+	const moistureContent Y_av = CalculateAverage(_vars, m_iYOutGas, unit->N_particle);
+
+	double rhoGas = unit->rhoGas; // Average density of gas phase for average gas temperature and system pressure [kg/m^3]
+	rhoGas = unit->GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, varAvTempGas, mPressure);
+	double rhoLiquid = unit->rhoWater; // Average density of gas phase for average gas temperature and system pressure [kg/m^3]
+	rhoLiquid = unit->GetAvgTPCompoundProperty(_time, EPhase::LIQUID, ECompoundTPProperties::DENSITY, varTempFilm2, mPressure);
+	double rhoSolid = unit->rhoParticle; // Average density of solid phase for average particle temperature and system pressure [kg/m^3]
+	rhoSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, varTempParticle2, mPressure);
+
+	double cPLiquidGaseous = unit->C_PWaterVapor;
+	double cPSolid = unit->C_PParticle;
+	cPSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::HEAT_CAPACITY_CP, varTempParticle2, mPressure);
+
+	const double D = unit->CalculateDiffusionCoefficient(_time, varAvTempGas, varTempFilm2, mPressure);
+	const double beta = !unit->particlesGlobal ? 0 : unit->CalculateBetaPA(_time, varAvTempGas, varTempParticle2, D); // Mass transfer coefficient for film to gas [m/s]
+	if (beta == -1)
+		unit2->RaiseError("Mass transfer coefficient calculation error. Provided temperature = nan or < 0 K");
+
+	double Y_sat = unit2->GetGasSaturationMoistureContent(varAvTempGas, mPressure); // Saturation moisture content of the gas (average) [kg/kg]
+
+	// Normalized dyring curve [-]
+	// Implementation according to Lehmann 2021
+	double normalizedDryingCurve = 1;
+	const double avgRH = unit2->GetRelativeHumidity(Y_av, varAvTempGas, mPressure); // Average relativ humidity of gas phase [-]
+
+	double Xeq = !unit->particlesGlobal ? 0 : unit2->CalcuateSolidEquilibriumMoistureContent(_time, varTempParticle2, avgRH); // Equilibrium moisture content of particle [kg liquid/ kg dry solid]
+	normalizedDryingCurve = unit2->CalculateNormalizedDryingCurve(X, Xeq);
+	//Transfer = Xeq;
+
+	bool liquidFilm = !unit->particlesGlobal ? false : normalizedDryingCurve > unit->phiCuttOff; // Liquid film of particle surface
+	if (liquidFilm)
+		normalizedDryingCurve = 1;
+
+	double varPhi2 = 0;
+	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
+
+	const double RHeq = !unit->particlesGlobal ? 0 : unit->GetEquilibriumRelativeHumidity(varTempParticle2, X);// CalcuateSolidEquilibriumMoistureContent^-1 from Temp+X to RH
+	const double Y_eq = this->Y_eq ? unit->CalculateGasEquilibriumMoistureContent(varTempParticle2, mPressure, RHeq) : Y_sat;
+
+	// Mass stream of evaporating liquid gas side [kg/s]
+	// Dosta 2010 eq. 16
+	// Replaced with not DEA variable as not necessary
+	double MFlowVaporGasSide = normalizedDryingCurve * beta * varA_p * rhoGas * (Y_eq - Y_av);
+	// varA_p could be change to also represent swelling (X) and liquid film presence (phi,deltaF)
+	if (MFlowVaporGasSide < 0)
+		MFlowVaporGasSide = 0;
+
+	//Transfer = MFlowVaporGasSide;
+	//double MFlowVaporLiquidSide = DBL_MAX; // Mass to be evaporated liquid side [kg]
+
+	// ToDo - Fix as kg is compared with kg/s
+	//unit2->workingHoldup->SetMass(_time, 0);
+	//unit2->workingHoldup->SetPhaseMass(_time,EPhase::LIQUID, (X - Xeq) * mHoldupSolid);
+	//unit2->workingHoldup->AddStream(prevTime, _time, unit->m_inSuspensionStream);
+	//if (unit2->workingHoldup->GetPhaseMass(_time, EPhase::LIQUID) - MFlowVaporGasSide * (_time - prevTime) < 0)
+	//{
+	//	MFlowVaporLiquidSide = unit2->workingHoldup->GetPhaseMass(_time, EPhase::LIQUID) / (_time - prevTime);
+	//	liquidSideLimitedGlobal = true;
+	//}
+	//unit2->workingHoldup->SetMass(_time, 0);
+
+	double MFlowVaporLiquidSide = (X - Xeq) * mHoldupSolid / (_time - prevTime) + mFlowSuspensionLiquid;
+	MFlowVaporLiquidSide = (X - Xeq) * mHoldupSolid;
+	if (MFlowVaporLiquidSide < 0)
+		MFlowVaporLiquidSide = 0;
+
+	//MFlowVaporLiquid = MFlowVaporLiquidSide;
+	//liquidSideLimitedGlobal = MFlowVaporLiquidSide < MFlowVaporGasSide;
+	const double MFlowVapor = std::min(MFlowVaporGasSide, MFlowVaporLiquidSide);
+	VaporFlowStorage = MFlowVapor;
+
+	const double XCutt = unit->REAinv(Xeq, 1. - unit->phiCuttOff);
+
+	//liquidFilm = liquidFilm ? ((unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - ((_time - prevTime) * MFlowVapor) - XCutt * mHoldupSolid) / (unit->rhoWater * Delta_f * unit->A_P) > 0) : false;
+
+	if (liquidFilm)
 	{
-		std::stringstream os;
-		os << section << " has an rectengular shape.\nWhich volume has not been implemented.";
-		RaiseError(os.str());
+		unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
+		varPhi2 = (unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - XCutt * mHoldupSolid - ((_time - prevTime) * MFlowVapor)) / (rhoLiquid * Delta_f * unit->A_P);
+		unit->m_holdup->SetPhaseMass(_time, EPhase::LIQUID, mHoldupLiquid);
+		unit->m_holdup->SetPhaseMass(_time, EPhase::SOLID, mHoldupSolid);
+	}
+	if (varPhi2 < 0)
+		liquidFilm = false;
+	TransferBool = liquidFilm;
+
+	std::vector<double> Q_AP(unit->N_particle, 0);// Heat transfered from air to particle [W]
+	double Q_AP3 = 0; // Sum of heat transfered from air to particle [W]
+	if (unit->particlesGlobal)
+	{
+		for (int i = 0; i < unit->N_particle; i++)
+			Q_AP[i] = alpha_GP * A_P / unit->N_particle * (1 - varPhi2) * (_vars[m_iTempOutGas + i] - varTempParticle2);
+
+		for (int i = 0; i < Q_AP.size(); i++)
+			Q_AP3 += Q_AP[i];
+	}
+	// Dosta 2010 eq. 23 - changed to prevent cooling of higher layers by subtracting the same amount of energy
+	// Original was A_P / 1
+
+	std::vector<double> Q_AF(unit->N_particle, 0);// Heat transfered from air to film [W]
+	double Q_AF2 = 0;// Sum of heat transfered from air to film
+	if (unit->particlesGlobal)
+	{
+		for (int i = 0; i < Q_AF.size(); i++)
+			Q_AF[i] = alpha_GF * A_P / unit->N_particle * varPhi2 * (_vars[m_iTempOutGas + i] - varTempFilm2);
+
+		for (int i = 0; i < Q_AF.size(); i++)
+			Q_AF2 += Q_AF[i];
+	}
+	// Dosta 2010 eq. 21 - changed to prevent cooling of higher layers by subtracting the same amount of energy
+	// Original was A_P / 1
+
+	const double Q_PF2 = !unit->particlesGlobal ? 0 : alpha_PF * A_P * varPhi2 * (varTempParticle2 - varTempFilm2); // Heat transfered from particle to film [W]
+	// Dosta 2010 eq. 22
+
+	std::pair<double, std::vector<double>> resultHeatLoss = CalculateChamberHeatLoss(_time, _unit, _vars); // Overall heat trasfer throught wall to environment
+	const double Q_PW = resultHeatLoss.first; // Heat transfered from particles to wall and environment [W]
+	std::vector<double> Q_GW = resultHeatLoss.second; // Heat transfered from gas to wall  and environment [W]
+	heatLossTransfer = Q_PW;
+	for (int i = 0; i < Q_GW.size(); i++)
+		heatLossTransfer += Q_GW.at(i);
+
+	const double HFlowVapor2 = MFlowVapor * (unit->C_PWaterVapor * varAvTempGas + unit->Delta_h0); // Enthaly stream of evporating liquid [J/s]
+	// Dosta 2010 eq. 15
+	const double H_susp2 = !unit->particlesGlobal ? 0 : mSuspensionTemperature * (mFlowSuspensionLiquid * unit->C_PWaterLiquid * mFlowSuspensionSolid * unit->C_PParticle); // Enthaly stream of entering suspension [J/s]
+	// Dosta 2010 eq. 17
+	//const double H_gasSupp = unit->m_inSuspensionStream->GetTemperature(_time) * mFlowGasSupplemental * unit->C_PGas; // Enthaly stream of entering gas supplement [J/s]
+
+	if (w_l == 0)
+		unit2->RaiseError("Liquid mass fraction in suspension is 0.");
+
+	const double varPhiFormula2 = (mFlowSuspensionLiquid - MFlowVapor) / (unit->rhoWater * Delta_f * varA_p) - varPhi2 / varA_p * derA_p; // Change in the degree of wetness of the particle [-/s]
+	// Dosta 2010 eq. 13
+	//_res[m_iPhi2] = _ders[m_iPhi2] - varPhiFormula2;
+	const double dersPhi2 = varPhiFormula2;
+
+	// Total particle surface area
+	//const double varAFormula = 0; // Change of total particle surface area due to ganulation and attrition 
+	//_res[m_iA_p] = derA_p - varAFormula;
+
+	std::vector<double> HFlowInGas2(unit->N_total, 0); // Storage vector for enthaly stream entering height layers
+	std::vector<double> HFlowOutGas2(unit->N_total, 0); // Storage vector for enthaly stream exiting height layers
+	std::vector<double> sumEnergyStreamsGas(unit->N_total, 0);
+
+	ParallelFor(unit->N_total, [&](size_t i)
+		{
+			double HFlowInGasFormula = 0; // Enthaly stream entering height layer Dosta
+			if (i == 0)
+				HFlowInGasFormula = mFlowGas * (unit->C_PGas * mGasInTemperature + Y_in * (unit->C_PWaterVapor * mGasInTemperature + unit->Delta_h0));
+			// Dosta 2010 eq. 18 - addjusted for first layer with gas input
+			else
+				HFlowInGasFormula = (mFlowGas + ((i > unit->suspLayer) ? mFlowSuspensionGas : 0)) * (unit->C_PGas * _vars[m_iTempOutGas + (i - 1)] + _vars[m_iYOutGas + (i - 1)] * (unit->C_PWaterVapor * _vars[m_iTempOutGas + (i - 1)] + unit->Delta_h0));
+			// Dosta 2010 eq. 18
+
+			if (i == unit->suspLayer)
+				HFlowInGasFormula += mFlowSuspensionGas * (unit->C_PGas * mSuspensionTemperature + Y_in * (unit->C_PWaterVapor * mSuspensionTemperature + unit->Delta_h0));
+
+			HFlowInGas2[i] = HFlowInGasFormula;
+
+			const double HFlowOutGasFormula = (mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * (unit->C_PGas * _vars[m_iTempOutGas + i] + _vars[m_iYOutGas + i] * (unit->C_PWaterVapor * _vars[m_iTempOutGas + i] + unit->Delta_h0)); // Enthaly stream exiting height layer
+			// Dosta 2010 eq. 19
+			HFlowOutGas2[i] = HFlowOutGasFormula;
+
+			if (i < unit->N_particle)
+				sumEnergyStreamsGas[i] = HFlowInGas2[i] - HFlowOutGas2[i] - Q_AP[i] - Q_AF[i] - Q_GW[i] + (HFlowVapor2/* + H_gasSupp */) / unit->N_particle;
+			else
+				sumEnergyStreamsGas[i] = HFlowInGas2[i] - HFlowOutGas2[i] - Q_GW[i];
+		});
+
+	//std::vector<double> layerGasMasses = unit2->GetGasMassOfLayers(unit->heighestFlowTimepoint, varAvTempGas, varTempParticle2);
+
+
+	ParallelFor(unit->N_total, [&](size_t i)
+		{
+			std::vector vars(_vars, _vars + GetVariablesNumber());
+			std::vector ders(_ders, _ders + GetVariablesNumber());
+			std::vector  res(_res, _res + GetVariablesNumber());
+
+			double varYOutFormula2 = 0; // Change of gas moisture content
+			if (i == 0)
+				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iYOutGas + i] - Y_in) + MFlowVapor / mHoldupGas;
+			// Dosta 2010 eq. 12 addjusted for first layer with gas input
+			else if (i < unit->N_particle)
+				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iYOutGas + i] - _vars[m_iYOutGas + (i - 1)]) + MFlowVapor / mHoldupGas;
+			// Dosta 2010 eq. 12
+			else
+				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iYOutGas + i] - _vars[m_iYOutGas + (i - 1)]);
+			if (i == unit->suspLayer)
+				varYOutFormula2 += mFlowSuspensionGas * Y_in * unit->N_total / mHoldupGas;
+			_res[m_iYOutGas + i] = _ders[m_iYOutGas + i] - varYOutFormula2;
+
+			// Change of gas temperature
+			const double derTempGasFormula2 = unit->N_total / (mHoldupGas * (unit->C_PGas + unit->C_PWaterVapor * _vars[m_iYOutGas + i])) * sumEnergyStreamsGas[i]
+				- _ders[m_iYOutGas + i] * ((unit->C_PWaterVapor * _vars[m_iTempOutGas + i] + unit->Delta_h0) / (unit->C_PGas + unit->C_PWaterVapor * _vars[m_iYOutGas + i]));
+			// Dosta 2010 eq. 10
+
+			_res[m_iTempOutGas + i] = _ders[m_iTempOutGas + i] - derTempGasFormula2;
+		}
+	);
+
+	const double H_granulation = 0; // Granulation enthaly
+	// Currently unsed, preparation for later
+
+	const double deltaHParticleGrowth = 0; // Sum of all variables concering particle growth
+	// Pre. for granulation
+	const double sumEnergyStreamsParticle = Q_AP3 - Q_PW - Q_PF2 - deltaHParticleGrowth + (H_susp2 - HFlowVapor2) * (1 - varPhi2); // Sum of energy streams to particle
+	const double derTempParticleFormula2 = sumEnergyStreamsParticle / (mHoldupSolid * (unit->C_PParticle + (liquidFilm ? XCutt : X) * unit->C_PWaterLiquid)) + (liquidFilm ? 0 : -varTempParticle2 * unit->C_PWaterLiquid / (unit->C_PParticle + unit->C_PWaterLiquid * X) * ((mFlowSuspension - MFlowVapor) / mHoldupSolid));// Change of particel temperature
+	// Dosta 2010 eq. 11 with addjustments: no sum necessary as all values are not height dependent, division not applicable as no summation occures
+	if (unit->particlesGlobal)
+		_res[m_iTempParticle] = _ders[m_iTempParticle] - derTempParticleFormula2;
+	doubleTransfer = derTempParticleFormula2;
+
+	const double sumEnergyStreamsFilm = Q_PF2 + Q_AF2 + (H_susp2 - HFlowVapor2) * varPhi2; // Sum of energy streams to film
+	// Dosta 2010 eq. 9 - no sum necessary as all values are not height dependent, division not applicable as no summation occures
+
+	// Change in film temperature
+	double derTempFilmFormula2 = 0;
+	if (liquidFilm)
+	{
+		derTempFilmFormula2 = 1.0 / (unit->C_PWaterLiquid * mHoldupSolid * (X - XCutt)) * sumEnergyStreamsFilm
+			- varTempFilm2 * unit->C_PWaterLiquid / (unit->C_PWaterLiquid * (X - XCutt)) * ((mFlowSuspensionLiquid - MFlowVapor) / mHoldupSolid);
 	}
 	else
-	{
-		std::stringstream os;
-		os << section << " has an undefind shape.";
-		RaiseError(os.str());
-	}
-		
-	return sectionVolume;
+		derTempFilmFormula2 = derTempParticleFormula2;
+	if (unit->particlesGlobal)
+		_res[m_iTempFilm] = _ders[m_iTempFilm] - derTempFilmFormula2;
+
+
+
+	// Codes for checking _vars, _ders and _res
+	std::vector vars2(_vars, _vars + GetVariablesNumber());
+	std::vector ders2(_ders, _ders + GetVariablesNumber());
+	std::vector  res2(_res, _res + GetVariablesNumber());
 }
 
-/// Functions to setup and check the inputs of for the calculation //
+void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, void* _unit)
+{
+	auto* unit = static_cast<CDryerBatch*>(_unit); // crash after 16700
+
+	std::ostringstream  os;
+	if (debugToggle) {
+		if (_time <= 1) {
+			unit->ShowInfo(std::to_string(counter));
+			counter = 0;
+		}
+	} //_DEBUG
+	if (_time / (100 * progressCounter) >= 1)
+	{
+		os << "SimTime: " << 100 * progressCounter << " s has passed.";
+		unit->ShowInfo(os.str());
+		os.str("");
+		progressCounter++;
+	}
+
+	unit->m_holdup->AddTimePoint(_time);
+
+	massFlow mFlowInGas = unit->m_inGasStream->GetMassFlow(_time);
+	const massFlow mFlowInLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
+	const mass mHoldup = unit->m_holdup->GetMass(0);
+	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID);
+	const mass mHoldupGas = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS);
+	const pressure mPressure = unit->m_holdup->GetPressure(_time);
+	mass mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
+	const area A_P = unit->A_P;
+	const length Delta_f = unit->Delta_f;
+	const moistureContent Y_in = unit->Y_in;
+
+	const massFlow mFlowVapor = VaporFlowStorage;
+	const temperature mTempParticle = _vars[m_iTempParticle];
+	const moistureContent mY_gOut = _vars[m_iYOutGas + (unit->N_total - 1)];
+	const double mTempGasOut = _vars[m_iTempOutGas + (unit->N_total - 1)];
+	const temperature mTempFilm = _vars[m_iTempFilm];
+
+	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
+	const mass mWaterNozzle = (_time - prevTime) * mFlowInLiquid;
+	const mass mWaterAirIn = (_time - prevTime) * mFlowInGas * Y_in;
+	const mass mVapor = (_time - prevTime) * mFlowVapor;
+
+	unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
+	//mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
+
+	unit->m_holdup->RemoveTimePointsAfter(_time);
+
+	unit->m_holdup->SetPhaseMass(_time, EPhase::LIQUID, unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - mVapor);
+	mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
+	unit->m_holdup->SetTemperature(_time, mTempParticle);
+
+	//Set outlet gas stream: incl. dry gas & water vapor
+	// !!! different from inlet gas stream which contains only dry gas
+	unit->m_outExhaustGasStream->CopyFromStream(_time, unit->m_inGasStream);
+	unit->m_VaporStream->SetMassFlow(_time, mFlowVapor);
+	unit->m_outExhaustGasStream->AddStream(_time, unit->m_VaporStream);
+	unit->m_outExhaustGasStream->AddStream(_time, unit->m_inNozzleAirStream);
+	unit->m_outExhaustGasStream->SetTemperature(_time, mTempGasOut);
+	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::SOLID, 0);
+	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::LIQUID, 0);
+	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::VAPOR, 1);
+	const massFlow mFLowGasOut = unit->m_outExhaustGasStream->GetMassFlow(_time);
+
+	const moistureContent X = mHoldupLiquid / mHoldupSolid;
+
+	// Height averaged temperature of the gas phase [K]
+	// Dosta 2010 eq. 14a
+	const double avVarTempGas = CalculateAverage(_vars, m_iTempOutGas, unit->N_total);
+	unit->SetStateVariable("Avg. temperature gas", avVarTempGas - unit->T_ref, _time);
+	// Output of average gas temperature in celsius
+
+	// Height averaged moisture content of the gas phase [kg/kg]
+	// Dosta 2010 eq. 14b
+	const double avY = CalculateAverage(_vars, m_iYOutGas, unit->N_total);
+	unit->SetStateVariable("Avg. Y", avY, _time);
+
+
+	const double avRH = unit->GetRelativeHumidity(avY, avVarTempGas, mPressure);
+	const double Xeq = !unit->particlesGlobal ? 0 : unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, avRH);
+	const double XCutt = unit->REAinv(Xeq, 1. - unit->phiCuttOff);
+	double mPhi = unit->particlesGlobal ? (mHoldupLiquid - XCutt * mHoldupSolid) / (unit->rhoWater * Delta_f * unit->A_P) : 0;
+
+	if (mPhi < 0)
+		mPhi = 0;
+	if (mPhi > 1)
+		unit->RaiseWarning("Attention: Overwetting in the dryer at " + std::to_string(_time) + " s");
+	// Give warning if degree of wetness (phi) exceeds 1
+	// Warning texts in GUI
+
+
+	if (unit->particlesGlobal) {
+		unit->SetStateVariable("X", X, _time);
+		unit->SetStateVariable("w%", X / (1.0 + X) * 100, _time);
+		unit->SetStateVariable("phi", mPhi, _time);
+		unit->SetStateVariable("solid mass in holdup", mHoldupSolid, _time);
+		unit->SetStateVariable("liquid mass in holdup", unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID), _time);
+		unit->SetStateVariable("evaporation rate [kg/s]", mFlowVapor, _time);
+		unit->SetStateVariable("Temperature film", mTempFilm - unit->T_ref, _time);
+		unit->SetStateVariable("Temperature particle", mTempParticle - unit->T_ref, _time);
+		unit->SetStateVariable("Moisture precentage", unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * 100 / (unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID)), _time);
+		unit->SetStateVariable("RH particles", unit->GetRelativeHumidity(avY, avVarTempGas, mPressure) * 100, _time);
+	}
+	unit->SetStateVariable("T_out", mTempGasOut - unit->T_ref, _time);
+	unit->SetStateVariable("Y_out", mY_gOut, _time);
+	unit->SetStateVariable("RH_out [%]", unit->GetRelativeHumidity(mY_gOut, mTempGasOut, mPressure) * 100, _time);
+	unit->SetStateVariable("gas mass in holdup", mHoldupGas, _time);
+	size_t probeLayer = unit->DetermineLayersInSectionFilledWithBed(0, unit->heightOfChamberTemperatureProbe / unit->chamber.at(0).height) - 1;
+	unit->SetStateVariable("Temperature chamber", _vars[m_iTempOutGas + probeLayer] - unit->T_ref, _time);
+	ParallelFor(unit->N_total, [&](size_t i)
+		{
+			unit->SetStateVariable("Temperature gas height layer " + std::to_string(i), _vars[m_iTempOutGas + i] - unit->T_ref, _time);
+			unit->SetStateVariable("Y height layer " + std::to_string(i), _vars[m_iYOutGas + i], _time);
+		});
+
+	if (debugToggle) {
+		unit->SetStateVariable("Mass balance", (_time - prevTime == 0 ? 0 : (-unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime)) / (_time - prevTime)) + ((unit->m_inGasStream->GetMassFlow(_time) + unit->m_inNozzleAirStream->GetMassFlow(_time)) * (1 + Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inLiquidStream->GetMassFlow(_time)), _time);
+		//unit->SetStateVariable("Energy balance", unit->m_inGasStream->GetMassFlow(_time) - unit->m_outExhaustGasStream->GetMassFlow(_time),_time);
+		//unit->SetStateVariable("Mass balance new", -unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime) + (_time - prevTime) * (unit->m_inGasStream->GetMassFlow(_time)*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inSuspensionStream->GetMassFlow(_time)), _time);
+
+		double EnergyLiquidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * unit->C_PWaterLiquid * mTempFilm;
+		double EnergySolidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * unit->C_PParticle * mTempParticle;
+		double EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * (unit->YavgOld - avY)) * avVarTempGas/* + unit->Delta_h0 * (unit->YavgOld - Y_av)*/);
+
+		double EnergyInputGas = (_time - prevTime) * unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time)/* + unit->Y_in * unit->Delta_h0*/);
+		double EnergyInputLiquid = (_time - prevTime) * (unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
+		double EnergyOutputGas = (_time - prevTime) * (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut/* + mY_out * unit->Delta_h0*/));
+
+		double HeatLoss = heatLossTransfer;
+		/*
+		const double EnergyChangeLiquidPhase = (-unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * mTempFilm + unit->m_holdup->GetPhaseMass(prevTime, EPhase::LIQUID) * unit->TempLiquidOld)* unit->C_PWaterLiquid;
+		const double EnergyChangeSolidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * unit->C_PParticle * (-mTempParticle + unit->TempSolidOld);
+		const double EnergyChangeGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * (unit->C_PGas + unit->C_PWaterVapor * (unit->YavgOld-Y_av)) * (-varAvTempGas + unit->TempGasOld);
+		const double EnergyInputGas = (_time - prevTime) * unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time));
+		const double EnergyInputLiquid = (_time - prevTime) * unit->m_inSuspensionStream->GetMassFlow(_time) * (unit->C_PWaterLiquid * unit->w_l + unit->C_PParticle * (1 - unit->w_l))* unit->m_inSuspensionStream->GetTemperature(_time);
+		const double EnergyOutputGas = (_time - prevTime) * (-unit->m_outExhaustGasStream->GetMassFlow(_time) * (
+			(unit->C_PGas + mY_out * unit->C_PWaterVapor) * T_out
+			+ (mY_out - unit->Y_in) * unit->Delta_h0));
+		const double EnergyBalance = EnergyChangeLiquidPhase + EnergyChangeSolidPhase + EnergyChangeGasPhase + EnergyInputGas + EnergyInputLiquid + EnergyOutputGas;
+		unit->TempLiquidOld = mTempFilm;
+		unit->TempSolidOld = mTempParticle;
+		unit->TempGasOld = varAvTempGas;
+		unit->YavgOld = Y_av;
+		*/
+		double DeltaEnergyLiquid = EnergyLiquidPhase - unit->EnergyLiquidPhaseOld;
+		double DeltaEnergySolid = EnergySolidPhase - unit->EnergySolidPhaseOld;
+		double DeltaEnergyGas = EnergyGasPhase - unit->EnergyGasPhaseOld;
+		double DeltaGasStreams = EnergyInputGas - EnergyOutputGas;
+		double DeltaEnergy = DeltaEnergyLiquid + DeltaEnergySolid + DeltaEnergyGas;
+		double EnergyBalance = -DeltaEnergy + DeltaGasStreams + EnergyInputLiquid - unit->HeatLossOld;
+		/*unit->EnergyLiquidPhaseOld = EnergyLiquidPhase;
+		unit->EnergyGasPhaseOld = EnergyGasPhase;
+		unit->EnergySolidPhaseOld = EnergySolidPhase;
+		unit->HeatLossOld = HeatLoss;
+		unit->SetStateVariable("Energy balance new", EnergyBalance, _time);*/
+		EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * avY) * avVarTempGas + unit->Delta_h0 * avY);
+		EnergyInputGas = unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time) + unit->Y_in * unit->Delta_h0);
+		EnergyInputLiquid = (unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
+		EnergyOutputGas = (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut + mY_gOut * unit->Delta_h0));
+		EnergyBalance = (_time - prevTime == 0 ? 0 : -(EnergyGasPhase + EnergyLiquidPhase + EnergySolidPhase) + (unit->EnergyGasPhaseOld + unit->EnergyLiquidPhaseOld + unit->EnergySolidPhaseOld) / (_time - prevTime)) + EnergyInputGas + EnergyInputLiquid - EnergyOutputGas - unit->HeatLossOld;
+		unit->SetStateVariable("Energy balance", EnergyBalance, _time);
+		unit->EnergyLiquidPhaseOld = EnergyLiquidPhase;
+		unit->EnergyGasPhaseOld = EnergyGasPhase;
+		unit->EnergySolidPhaseOld = EnergySolidPhase;
+
+		//unit->SetStateVariable("debug0", EnergyBalance!=0?mPhi/(-EnergyBalance):0, _time);// ~mPhi ~X
+		/*
+		unit->SetStateVariable("debug1",unit->GetGasSaturationMoistureContent(varAvTempGas, mPressure)/unit->Y_sat,_time);
+
+
+		//unit->SetStateVariable("debug15", (mPressure - CachePressureRange <= inputCache[1][1] && inputCache[1][1] <= mPressure + CachePressureRange)?1:0, _time);
+		//unit->SetStateVariable("debug17",resultCache[0],_time);
+		unit->SetStateVariable("debug18", unit->GetRelativeHumidity(Y_av + Y_in, varAvTempGas, mPressure),_time);
+		double RH = unit->GetRelativeHumidity(Y_av, varAvTempGas, mPressure);
+		unit->SetStateVariable("debug19", RH, _time);
+		double Xeq = unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, RH);
+		double deltaX = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / mHoldupSolid - Xeq;
+		unit->SetStateVariable("debug20", deltaX, _time);
+		double REA = unit->REA(deltaX);
+		unit->SetStateVariable("debug21", REA, _time);
+		double curve = 1 - REA;
+		unit->SetStateVariable("debug22", curve, _time);
+		unit->SetStateVariable("debug24", Xeq-XeqTransfer, _time);
+		unit->SetStateVariable("debug25", X-curveTransfer, _time);
+		if (_time >= 134)
+		{
+			std::vector vars(_vars, _vars + GetVariablesNumber());
+			std::vector ders(_ders, _ders + GetVariablesNumber());
+			//std::vector  res(_res, _res + GetVariablesNumber());
+			double deltaTime = _time - unit->m_holdup->GetPreviousTimePoint(_time);
+			std::vector<double> DebugVector;
+			DebugVector.reserve(vars.size() + ders.size()+3); // preallocate memory
+			DebugVector.insert(DebugVector.end(), vars.begin(), vars.end());
+			DebugVector.insert(DebugVector.end(), ders.begin(), ders.end());
+			DebugVector.push_back(deltaX);
+			DebugVector.push_back(MFlowVaporLiquid);
+			DebugVector.push_back(mFlowVapor);
+			//DebugCache.push_back(DebugVector);
+			if (_time >= 136)
+				double test = 1;
+		}
+		*/
+		/*
+		std::vector ders(_ders, _ders + GetVariablesNumber());
+		std::pair<double,size_t> output = std::make_pair(0,-1);
+		for (size_t i = 0; i < ders.size();i++ )
+			if (abs(ders[i])>output.first)
+				output = std::make_pair(ders[i], i);
+		std::ofstream myfile;
+		std::string fileLocation = "E:\\Dyssol\\output.csv";
+		myfile.open(fileLocation, std::fstream::app);
+		myfile << _time << "," << output.first << "," << output.second << "\n";
+		myfile.close();*/
+		unit->SetStateVariable("debug0", progressCounterTotal, _time);
+		unit->SetStateVariable("debug1", liquidSideLimitedGlobal, _time);
+		unit->SetStateVariable("debug2", TransferBool, _time);
+		unit->SetStateVariable("debug3", doubleTransfer, _time);
+		double X_eq = !unit->particlesGlobal ? 0 : unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, unit->GetRelativeHumidity(avY, avVarTempGas));
+		unit->SetStateVariable("debug4", X_eq, _time);
+		unit->SetStateVariable("debug5", X - X_eq, _time);
+		unit->SetStateVariable("debug6", HeatLoss, _time);
+		unit->SetStateVariable("debug7", (mTempFilm - unit->T_ref) - (mTempFilm - unit->T_ref) * TransferBool, _time);
+		if (_time >= 99)
+			bool breakPoint = true;
+		//unit->SetStateVariable("debug3", RHTransfer, _time);
+		//unit->SetStateVariable("debug3", unit->GetRelativeHumidity(Y_av, varAvTempGas, mPressure), _time);
+		std::vector vars(_vars, _vars + GetVariablesNumber());
+		std::vector ders(_ders, _ders + GetVariablesNumber());
+	} // DEBUG
+		//Temp particle climbs while temps of gas and film fall
+		/*
+		std::pair<double, std::vector<double>> result = CalculateTotalHeatLoss(_time, _unit,X,_vars, true);
+		unit->ShowInfo("Heat loss - particles");
+		unit->ShowInfo(std::to_string(result.first));
+		unit->ShowInfo(std::to_string(result.second[0]));
+		result = CalculateTotalHeatLoss(_time, _unit, X, _vars, false);
+		unit->ShowInfo("Heat loss - gas");
+		unit->ShowInfo(std::to_string(result.first));
+		unit->ShowInfo(std::to_string(result.second[0]));
+		unit->ShowInfo("");
+		unit->ShowInfo(std::to_string(XeqTransfer));
+		unit->ShowInfo("");*/
+		//unit->ShowInfo(std::to_string(CalculateAlpha_PW(mTempParticle, X, varAvTempGas, mPressure, _unit, _time)* unit->AreaGasParticleWallHeatLoss* (mTempParticle - unit->TemperatureWall)));
+		//unit->ShowInfo(std::to_string(unit->CalckA(CalculateAlpha_PW(mTempParticle, X, varAvTempGas, mPressure, _unit, _time), 0, 0.35, { 0.225 ,0.230 }, { 15 }) * (mTempParticle - unit->T_inf)));
+		//unit->ShowInfo(std::to_string(unit->CalcAlphaOutside(_time, h, d.front(), /*unit->TemperatureWall*/0.4 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) + unit->T_inf), unit->T_inf)));
+}
+
+/// Read, calculate and check material properties from databank
 void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 {
 	// Get general data for compounds
@@ -729,62 +1267,6 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 	} // DEBUG
 }
 
-/// CheckHeightDiscretizationLayers ///
-//void CDryerBatch::CheckHeightDiscretizationLayers(double _time)
-//{
-//	N_particle = this->GetConstIntParameterValue("N_el");
-//	std::vector<double> sizeGrid = GetNumericGrid(DISTR_SIZE);
-//	double maxDistributionSize = sizeGrid.back();
-//	if (chamber.at(0).height / N_particle < maxDistributionSize)
-//	{
-//		this->RaiseWarning("Height of discretization layer smaller than biggest particles.");
-//		int64_t tempN_el = N_particle -  1;
-//		while (chamber.at(0).height / tempN_el < maxDistributionSize)
-//		{
-//			tempN_el--;
-//			if (tempN_el == 0)
-//				break;
-//		}
-//		N_particle = tempN_el;
-//		if (N_particle < 1)
-//			this->RaiseError("Size of larges particles " + std::to_string(maxDistributionSize) + " m is larger than total bed height " + std::to_string(chamber.at(0).height) + " m.");
-//		this->RaiseWarning("Adjusted number of discretization layers to: " + std::to_string(N_particle));
-//	}
-//	for (auto& element : chamber)
-//	{
-//		if (element.layers < 1)
-//		{
-//			element.layers = 1;
-//		}
-//			
-//	}
-//		
-//	chamber.at(0).layers = N_particle;
-//	double sectionsFilledWithBed = 0;
-//	if (particlesGlobal)
-//	{
-//		std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
-//		double maxInGasFlow = 0;
-//		heighestFlowTimepoint = 0;
-//		for (auto& element : inGasStreamTimePoints)
-//			if (m_inGasStream->GetMassFlow(element) > maxInGasFlow)
-//			{
-//				maxInGasFlow = m_inGasStream->GetMassFlow(element);
-//				heighestFlowTimepoint = element;
-//			}
-//		sectionsFilledWithBed = DetermineSectionsFilledWithBed(heighestFlowTimepoint, m_holdup->GetTemperature(heighestFlowTimepoint));
-//		// sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(heighestFlowTimepoint, std::max(m_holdup->GetTemperature(0), m_inGasStream->GetTemperature(heighestFlowTimepoint)), false);
-//		for (int i = 1; i < std::ceil(sectionsFilledWithBed); i++)
-//		{
-//			chamber.at(i).layers = std::ceil(chamber.at(0).layers * chamber.at(i).height / chamber.at(0).height);
-//			N_particle += chamber.at(i).layers;
-//		}
-//	}
-//	N_total = 0;
-//	for (auto& section : chamber)
-//		N_total += section.layers;
-//}
-
 ///CheckForSmallBiot///
 //bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform temperature distribution (Diss Soeren, chapter 2.2.2, page 27)
 //{
@@ -897,6 +1379,7 @@ moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _tim
 	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
 }
 
+/// CalcuateEquilibriumRelativeHumidity
 //double CDryerBatch::CalcuateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const
 //{
 //	return 0;
@@ -934,36 +1417,9 @@ double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureCo
 	}
 }
 
-/// Supporting functions ///
-double CDryerBatch::GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const
-{
-	std::vector<double> CompoundProperties(compoundKeys.size());
-	for (int i = 0; i < compoundKeys.size(); i++)
-		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property);
-
-	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
-
-	double avgProperty = 0;
-	for (int i = 0; i < compoundKeys.size(); i++)
-		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
-	return avgProperty;
-}
-
-double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties  property, double temperature, double pressure) const
-{
-	std::vector<double> CompoundProperties(compoundKeys.size());
-	for (int i = 0; i < compoundKeys.size(); i++)
-		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property, temperature, pressure);
-
-	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
-
-	double avgProperty = 0;
-	for (int i = 0; i < compoundKeys.size(); i++)
-		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
-	return avgProperty;
-}
-
+/////////////////////
 /// Heat transfer ///
+/////////////////////
 double CDryerBatch::CalckAc(double alphaIn, double alphaOut, double L, std::vector<double> d/* Inner to outer diameter*/, std::vector<double> lambda) const
 {
 	double wall = 0;
@@ -1118,7 +1574,47 @@ double CDryerBatch::CalcAlphaParticleGas(double _time) const
 	return alpha;
 }
 
+std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
+{
+	auto* unit = static_cast<CDryerBatch*>(_unit);
+	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
+	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
+	double heightUsage, fullSections;
+	heightUsage = modf(sectionsFilledWithBed, &fullSections);
+
+	double Q_PW = 0;
+	std::vector<double> Q_GW;
+
+	// Fully filled sections
+	for (int section = 0; section < fullSections; section++)
+	{
+		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
+		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+	}
+
+	// Partilly filled section
+
+	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
+	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, fullSections, &Q_GWsection, heightUsage);
+	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+
+	// Fully empty sections
+	for (size_t section = std::max(std::ceil(sectionsFilledWithBed), 1.); section < unit->chamber.size(); section++)
+	{
+		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
+		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+	}
+
+	// Top plate
+	Q_GW.back() += CalculateTopPlateHeatLoss(_time, _unit, _vars);
+	return std::make_pair(Q_PW, Q_GW);
+}
+
+/////////////////////
 /// Mass transfer ///
+/////////////////////
 double CDryerBatch::CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure) const
 {
 	switch (DiffCoeff)
@@ -1293,6 +1789,7 @@ void CDryerBatch::SetupChamber()
 	}
 }
 
+/// testing
 //void CDryerBatch::Testing()
 //{
 //	/*std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
@@ -1389,7 +1886,9 @@ double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alpha
 	return kA;
 }
 
+////////////////////
 /// Fluiddynamic ///
+////////////////////
 double CDryerBatch::CalculateMinFluidizeVel(double _time) const
 {
 	double d32 = CalculateHoldupSauter(_time);
@@ -1417,6 +1916,27 @@ double CDryerBatch::CalculateGasVel(double _time, size_t section) const
 		return u_gasHoldup;
 }
 
+double CDryerBatch::DetermineSectionsFilledWithBed(double _time, double particleTemperature)
+{
+	if (particlesGlobal == false)
+		return 0;
+	double bedHeight = CalculateBedHeight(_time, particleTemperature);
+	int sectionFilled = 0;
+	double chamberHeight = 0;
+	while (chamberHeight < bedHeight)
+	{
+		chamberHeight += chamber.at(sectionFilled).height;
+		sectionFilled++;
+		if (sectionFilled > chamber.size())
+			return -1; // Bed larger than chamber
+	}
+	double filledHeight = chamberHeight - chamber.at(sectionFilled).height;
+	return sectionFilled -1 + (bedHeight - filledHeight) / chamber.at(sectionFilled).height;
+}
+
+/////////////////////////////////////////////////////////////////
+/// function related to drying kinetics, CURRENTLY NOT IN USE ///
+/////////////////////////////////////////////////////////////////
 double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, double RH) const
 {
 	if (eqData.RHs.empty() || eqData.temperatures.empty() || eqData.equilibriumMoistureContents.empty() || temperature != temperature || RH != RH)
@@ -1468,7 +1988,7 @@ double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, do
 	double Xeq;
 	if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end() || itlowRH == eqData.RHs.end() || itupRH == eqData.RHs.end())
 	{
-		
+
 		if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end())
 		{
 			itT = itlowT != eqData.temperatures.end() ? itlowT : itupT;
@@ -1629,11 +2149,11 @@ bool CDryerBatch::InitializeMoistureContentDatabase(std::string path)
 		parsedCsv.push_back(parsedRow);
 	}
 
-	for (auto & element : parsedCsv.at(0))
+	for (auto& element : parsedCsv.at(0))
 		if (element != "")
 			eqData.RHs.insert(std::stod(element));
 
-	for (auto & element : parsedCsv)
+	for (auto& element : parsedCsv)
 		if (element.at(0) != "")
 			eqData.temperatures.insert(std::stod(element.at(0)));
 
@@ -1649,63 +2169,129 @@ bool CDryerBatch::InitializeMoistureContentDatabase(std::string path)
 	return true;
 }
 
-double CDryerBatch::DetermineSectionsFilledWithBed(double _time, double particleTemperature)
-{
-	if (particlesGlobal == false)
-		return 0;
-	double bedHeight = CalculateBedHeight(_time, particleTemperature);
-	int sectionFilled = 0;
-	double chamberHeight = 0;
-	while (chamberHeight < bedHeight)
-	{
-		chamberHeight += chamber.at(sectionFilled).height;
-		sectionFilled++;
-		if (sectionFilled > chamber.size())
-			return -1; // Bed larger than chamber
-	}
-	double filledHeight = chamberHeight - chamber.at(sectionFilled).height;
-	return sectionFilled -1 + (bedHeight - filledHeight) / chamber.at(sectionFilled).height;
-}
-
-//double CDryerBatch::GetGasMassOfLayer(double _time, size_t layer, double gasTemperature, double particleTemperature)
+///////////////////////////////////////////////////////////////////////////////////
+/// Calculation about sections, for height discretization, CURRENTLY NOT IN USE ///
+///////////////////////////////////////////////////////////////////////////////////
+/// CheckHeightDiscretizationLayers ///
+//void CDryerBatch::CheckHeightDiscretizationLayers(double _time)
 //{
-//	size_t sectionContainingLayer = DetermineSectionForLayer(layer);
-//	size_t layersInPrevSections = 0;
-//	for (size_t i = 0; i < sectionContainingLayer; i++)
-//		layersInPrevSections += chamber.at(i).layers;
-//	double sectionsFilledWithBed = DetermineSectionsFilledWithBed(_time, particleTemperature);
-//	// double sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, particleTemperature, false);
-//	double sectionVolume = CalculateSectionVolume(sectionContainingLayer);
-//	double sectionGasMass;
-//	double heightUsage, fullSections;
-//	heightUsage = modf(sectionsFilledWithBed, &fullSections);
-//	double sectionGasMassVoid = sectionVolume * GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, gasTemperature, m_holdup->GetPressure(_time));
-//	double eps = CalculateBedPorosity(_time);
-//	double sectionGasMassEPS = sectionVolume * eps * GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, gasTemperature, m_holdup->GetPressure(_time));
-//	double particleVolume = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
-//	double eps2 = 1.-particleVolume / sectionVolume;
-//	if (sectionContainingLayer > fullSections)
-//		sectionGasMass = sectionGasMassVoid;
-//	else if (sectionContainingLayer < fullSections)
-//		sectionGasMass = sectionGasMassEPS;
-//	else
-//		sectionGasMass = heightUsage * sectionGasMassEPS + (1 - heightUsage) * sectionGasMassVoid;
-//
-//	if (chamber.at(sectionContainingLayer).shape != EShape::CYLINDRICAL)
-//		RaiseError("Layer mass could not be determined for section with non cylindrical shape.\nMissing implementation.");
-//
-//	const double r = chamber.at(sectionContainingLayer).dimensionsInternal.at(0).first / 2;
-//	const double R = chamber.at(sectionContainingLayer).dimensionsInternal.at(0).second / 2;
-//	const double h = chamber.at(sectionContainingLayer).height;
-//	const double tanWallAngle = (R - r) / h;
-//	const double r1 = r + h * (layer - layersInPrevSections) / chamber.at(sectionContainingLayer).layers * tanWallAngle;
-//	const double R1 = r + h * (layer - layersInPrevSections + 1) / chamber.at(sectionContainingLayer).layers * tanWallAngle;
-//	const double layerVolume = chamber.at(sectionContainingLayer).height * MATH_PI * (R1*R1+R1*r1+r1*r1) / (3*chamber.at(sectionContainingLayer).layers);
-//	const double layerGasMass = sectionGasMass * layerVolume / sectionVolume;
-//	return layerGasMass;
+//	N_particle = this->GetConstIntParameterValue("N_el");
+//	std::vector<double> sizeGrid = GetNumericGrid(DISTR_SIZE);
+//	double maxDistributionSize = sizeGrid.back();
+//	if (chamber.at(0).height / N_particle < maxDistributionSize)
+//	{
+//		this->RaiseWarning("Height of discretization layer smaller than biggest particles.");
+//		int64_t tempN_el = N_particle -  1;
+//		while (chamber.at(0).height / tempN_el < maxDistributionSize)
+//		{
+//			tempN_el--;
+//			if (tempN_el == 0)
+//				break;
+//		}
+//		N_particle = tempN_el;
+//		if (N_particle < 1)
+//			this->RaiseError("Size of larges particles " + std::to_string(maxDistributionSize) + " m is larger than total bed height " + std::to_string(chamber.at(0).height) + " m.");
+//		this->RaiseWarning("Adjusted number of discretization layers to: " + std::to_string(N_particle));
+//	}
+//	for (auto& element : chamber)
+//	{
+//		if (element.layers < 1)
+//		{
+//			element.layers = 1;
+//		}
+//			
+//	}
+//		
+//	chamber.at(0).layers = N_particle;
+//	double sectionsFilledWithBed = 0;
+//	if (particlesGlobal)
+//	{
+//		std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
+//		double maxInGasFlow = 0;
+//		heighestFlowTimepoint = 0;
+//		for (auto& element : inGasStreamTimePoints)
+//			if (m_inGasStream->GetMassFlow(element) > maxInGasFlow)
+//			{
+//				maxInGasFlow = m_inGasStream->GetMassFlow(element);
+//				heighestFlowTimepoint = element;
+//			}
+//		sectionsFilledWithBed = DetermineSectionsFilledWithBed(heighestFlowTimepoint, m_holdup->GetTemperature(heighestFlowTimepoint));
+//		// sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(heighestFlowTimepoint, std::max(m_holdup->GetTemperature(0), m_inGasStream->GetTemperature(heighestFlowTimepoint)), false);
+//		for (int i = 1; i < std::ceil(sectionsFilledWithBed); i++)
+//		{
+//			chamber.at(i).layers = std::ceil(chamber.at(0).layers * chamber.at(i).height / chamber.at(0).height);
+//			N_particle += chamber.at(i).layers;
+//		}
+//	}
+//	N_total = 0;
+//	for (auto& section : chamber)
+//		N_total += section.layers;
 //}
 
-std::vector<double> CDryerBatch::GetGasMassOfLayers(double _time, double gasTemperature, double particleTemperature)
+double CUnitDAEModel::CalculateAverage(double* _vars, size_t variableKey, int64_t end, int64_t start) const
+{
+	double tempAvg = 0;
+	for (int64_t i = start; i < end; i++)
+		tempAvg += _vars[variableKey + i];
+	if (end - start != 0)
+		tempAvg = tempAvg / (end - start);
+	return tempAvg;
+}
+
+double CDryerBatch::GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const
+{
+	std::vector<double> CompoundProperties(compoundKeys.size());
+	for (int i = 0; i < compoundKeys.size(); i++)
+		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property);
+
+	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
+
+	double avgProperty = 0;
+	for (int i = 0; i < compoundKeys.size(); i++)
+		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
+	return avgProperty;
+}
+
+double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties  property, double temperature, double pressure) const
+{
+	std::vector<double> CompoundProperties(compoundKeys.size());
+	for (int i = 0; i < compoundKeys.size(); i++)
+		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property, temperature, pressure);
+
+	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
+
+	double avgProperty = 0;
+	for (int i = 0; i < compoundKeys.size(); i++)
+		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
+	return avgProperty;
+}
+
+double CDryerBatch::CalculateSectionVolume(size_t section)
+{
+	double sectionVolume = 0;
+	if (chamber.at(section).shape == EShape::CYLINDRICAL)
+		sectionVolume = chamber.at(section).height * MATH_PI / 3 * (
+			pow(chamber.at(section).dimensionsInternal.at(0).first / 2, 2)
+			+ (chamber.at(section).dimensionsInternal.at(0).first * chamber.at(section).dimensionsInternal.at(0).second) / 4
+			+ pow(chamber.at(section).dimensionsInternal.at(0).second / 2, 2)
+			);
+	else if (chamber.at(section).shape == EShape::RECTANGULAR)
+	{
+		std::stringstream os;
+		os << section << " has an rectengular shape.\nWhich volume has not been implemented.";
+		RaiseError(os.str());
+	}
+	else
+	{
+		std::stringstream os;
+		os << section << " has an undefind shape.";
+		RaiseError(os.str());
+	}
+
+	return sectionVolume;
+}
+
+std::vector<double> CDryerBatch::GetSectionGasMass(double _time, double gasTemperature, double particleTemperature)
 {
 	std::vector<double> layerMasses(N_total, 0);
 	double chamberVolume = 0;
@@ -1728,9 +2314,9 @@ std::vector<double> CDryerBatch::GetGasMassOfLayers(double _time, double gasTemp
 	double assosiatedGasMass = 0;
 	ritChamberSections++;
 	double test = chamber.rend() - ritChamberSections;
-	
+
 	// Empty section above bed
-	for (size_t section = chamber.size() -1; section > fullSections; section--)
+	for (size_t section = chamber.size() - 1; section > fullSections; section--)
 	{
 		sectionVolume = CalculateSectionVolume(section);
 		sectionGasMass = sectionVolume * rhoGas;
@@ -1753,13 +2339,13 @@ std::vector<double> CDryerBatch::GetGasMassOfLayers(double _time, double gasTemp
 			ritLayerMasses++;
 			assosiatedGasMass += *ritSectionLayerMasses;
 		}
-		
+
 	}
 	// Should be working.
 
 
 	size_t layersWithParticles = 0;
-	
+
 
 	// Last section filled with bed
 	{
@@ -1815,7 +2401,7 @@ std::vector<double> CDryerBatch::GetGasMassOfLayers(double _time, double gasTemp
 			{
 				const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
 				const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
-				const double layerVolume = CalculateLayerVolume(section,R1,r1) - (particlesVolume / layersWithParticles);
+				const double layerVolume = CalculateLayerVolume(section, R1, r1) - (particlesVolume / layersWithParticles);
 				sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
 			}
 			std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
@@ -1834,633 +2420,6 @@ std::vector<double> CDryerBatch::GetGasMassOfLayers(double _time, double gasTemp
 	return layerMasses;
 }
 
-//size_t CDryerBatch::DetermineSectionForLayer(size_t layer) const
-//{
-//	size_t section = 0;
-//	size_t numOfPrevLayers = chamber.at(section).layers;;
-//	while (layer >= numOfPrevLayers)
-//	{
-//		section++;
-//		numOfPrevLayers += chamber.at(section).layers;
-//	}
-//	return section;
-//}
-
-///  Main calculation functions ///
-void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _ders, double* _res, void* _unit)
-{
-	const auto* unit = static_cast<CDryerBatch*>(_unit);
-	auto* unit2 = static_cast<CDryerBatch*>(_unit);
-
-	// Codes for checking _vars, _ders and _res
-	std::vector vars(_vars, _vars + GetVariablesNumber());
-	std::vector ders(_ders, _ders + GetVariablesNumber());
-	std::vector  res(_res, _res + GetVariablesNumber());
-
-	bool NaNvalue = false;
-	for (int i = 0; i < GetVariablesNumber(); i++)
-		if (_vars[i] != _vars[i])
-			NaNvalue = true;
-
-if (debugToggle){
-	if (_time <= 1)
-		counter++;
-	progressCounterTotal++;
-} // _DEBUG
-	if (/*_time > 7929|| _time > 6000 || _time > 5948 || _time > 300 ||*/ _time > 2797.52)
-		bool breakint = true;
-
-	/// Read input parameters ///
-	const pressure mPressure = unit->m_holdup->GetPressure(_time); // Pressure holdup [Pa]
-	const massFlow mFlowSuspension = unit->m_inLiquidStream->GetMassFlow(_time);
-	const massFlow mFlowSuspensionLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID); // Suspension mass flow [kg/s]
-	const massFlow mFlowSuspensionSolid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID);
-	const massFlow mFlowSuspensionGas = unit->m_inNozzleAirStream->GetPhaseMassFlow(_time, EPhase::GAS);
-	//const double mFlowGasSupplemental = unit->m_inSuspensionStream->GetPhaseMassFlow(_time, EPhase::GAS); [kg/s]
-	const massFlow mFlowGas = unit->m_inGasStream->GetPhaseMassFlow(_time, EPhase::GAS); // Gas mass flow [kg/s]
-	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID); // Solid mass holdup [kg]
-	const mass mHoldupGas = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS); // Gas mass holdup [kg]
-	const mass mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID); // Liquid mass holdup [kg]
-	//const length H_bed = unit->H_bed; // Bed height [m]
-	//const length d_bed = unit->d_bed; // Bed diameter [m]
-	const moistureContent Y_in = unit->Y_in; // Y in [kg/kg dry]
-	const area A_P = unit->A_P; // Total particle surface [m^2]
-	const area varA_p = A_P; // Total particle surface [m^2]
-	const double derA_p = 0; // Change of total particle surface [m^2/s]
-	/*	If changed to a granulator, these varaibles need to change:
-		phi, d/dt particle temperature, A_P, d/dt A_P
-	*/
-	const length Delta_f = unit->Delta_f; // Max. liquid film thickness [m]
-	const massFraction w_l = unit->m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);// unit->w_l; // Liquid mass fraction suspension [kg/kg]
-
-	const temperature mGasInTemperature = unit->m_inGasStream->GetTemperature(_time); // Temperature of inGasStream general [K]
-	const temperature mSuspensionTemperature = unit->m_inLiquidStream->GetTemperature(_time);
-
-	/// DAE system ///
-	// Values in _vars: determined by the solver & should not be changed, set as const!
-
-	const temperature varTempParticle2 = _vars[m_iTempParticle]; // Temperature of the particles [K]
-	const temperature varTempFilm2 = _vars[m_iTempFilm]; // Temperature of the film [K]
-
-	//const double varPhi2 = _vars[m_iPhi2]; // Liquid film surface coverage
-
-	size_t sectionsWithParticles = unit->particlesGlobal? std::ceil(unit2->DetermineSectionsFilledWithBed(_time, varTempParticle2)):0;
-	// size_t sectionsWithParticles = unit->particlesGlobal ? std::ceil(unit2->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, varTempParticle2, false)) : 0;
-	size_t layersWithParticles = 0;
-	for (size_t section = 0; section < sectionsWithParticles; section++)
-		layersWithParticles += unit->chamber.at(section).layers;
-	
-	// Calculated constants
-
-	const moistureContent X = mHoldupLiquid / mHoldupSolid; // Moisture content of the bed [kg water per kg dry particle] 
-
-	// Calculate other coefficients
-	const double alpha_GP = unit->CalcAlphaParticleGas(_time); // Heat transfer coefficient gas to particle
-	const double alpha_GF = alpha_GP; // Heat transfer coefficient gas to film
-	const double alpha_PF = alpha_GP * unit->f_alpha;//unit->CalculateAlphaPF(_time); // Heat transfer coefficient particle to film
-
-
-	// Model according to Dosta 2010
-
-	// Height averaged temperature of the gas phase [K]
-	// Dosta 2010 eq. 14a
-
-	const temperature varAvTempGas = CalculateAverage(_vars,m_iTempGas, unit->N_particle);
-
-	// Height averaged moisture content of the gas phase [kg/kg]
-	// Dosta 2010 eq. 14b
-	const moistureContent Y_av = CalculateAverage(_vars, m_iY_g, unit->N_particle);
-
-	double rhoGas = unit->rhoGas; // Average density of gas phase for average gas temperature and system pressure [kg/m^3]
-	rhoGas = unit->GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, varAvTempGas, mPressure);
-	double rhoLiquid = unit->rhoWater; // Average density of gas phase for average gas temperature and system pressure [kg/m^3]
-	rhoLiquid = unit->GetAvgTPCompoundProperty(_time, EPhase::LIQUID, ECompoundTPProperties::DENSITY, varTempFilm2, mPressure);
-	double rhoSolid= unit->rhoParticle; // Average density of solid phase for average particle temperature and system pressure [kg/m^3]
-	rhoSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, varTempParticle2, mPressure);
-
-	double cPLiquidGaseous = unit->C_PWaterVapor;
-	double cPSolid = unit->C_PParticle;
-	cPSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::HEAT_CAPACITY_CP, varTempParticle2, mPressure);
-
-	const double D = unit->CalculateDiffusionCoefficient(_time, varAvTempGas, varTempFilm2, mPressure);
-	const double beta = !unit->particlesGlobal? 0: unit->CalculateBetaPA(_time, varAvTempGas, varTempParticle2, D); // Mass transfer coefficient for film to gas [m/s]
-	if (beta == -1)
-		unit2->RaiseError("Mass transfer coefficient calculation error. Provided temperature = nan or < 0 K");
-
-	double Y_sat = unit2->GetGasSaturationMoistureContent(varAvTempGas, mPressure); // Saturation moisture content of the gas (average) [kg/kg]
-
-	// Normalized dyring curve [-]
-	// Implementation according to Lehmann 2021
-	double normalizedDryingCurve = 1;
-	const double avgRH = unit2->GetRelativeHumidity(Y_av, varAvTempGas, mPressure); // Average relativ humidity of gas phase [-]
-
-	double Xeq = !unit->particlesGlobal ? 0 : unit2->CalcuateSolidEquilibriumMoistureContent(_time, varTempParticle2, avgRH); // Equilibrium moisture content of particle [kg liquid/ kg dry solid]
-	normalizedDryingCurve = unit2->CalculateNormalizedDryingCurve(X, Xeq);
-	//Transfer = Xeq;
-
-	bool liquidFilm = !unit->particlesGlobal ? false : normalizedDryingCurve > unit->phiCuttOff; // Liquid film of particle surface
-	if (liquidFilm)
-		normalizedDryingCurve = 1;
-
-	double varPhi2 = 0;
-	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
-
-	const double RHeq = !unit->particlesGlobal ? 0 : unit->GetEquilibriumRelativeHumidity(varTempParticle2,X);// CalcuateSolidEquilibriumMoistureContent^-1 from Temp+X to RH
-	const double Y_eq = this->Y_eq?unit->CalculateGasEquilibriumMoistureContent(varTempParticle2, mPressure, RHeq): Y_sat;
-
-	// Mass stream of evaporating liquid gas side [kg/s]
-	// Dosta 2010 eq. 16
-	// Replaced with not DEA variable as not necessary
-	double MFlowVaporGasSide = normalizedDryingCurve * beta * varA_p * rhoGas * (Y_eq - Y_av);
-	// varA_p could be change to also represent swelling (X) and liquid film presence (phi,deltaF)
-	if (MFlowVaporGasSide < 0)
-		MFlowVaporGasSide = 0;
-
-	//Transfer = MFlowVaporGasSide;
-	//double MFlowVaporLiquidSide = DBL_MAX; // Mass to be evaporated liquid side [kg]
-
-	// ToDo - Fix as kg is compared with kg/s
-	//unit2->workingHoldup->SetMass(_time, 0);
-	//unit2->workingHoldup->SetPhaseMass(_time,EPhase::LIQUID, (X - Xeq) * mHoldupSolid);
-	//unit2->workingHoldup->AddStream(prevTime, _time, unit->m_inSuspensionStream);
-	//if (unit2->workingHoldup->GetPhaseMass(_time, EPhase::LIQUID) - MFlowVaporGasSide * (_time - prevTime) < 0)
-	//{
-	//	MFlowVaporLiquidSide = unit2->workingHoldup->GetPhaseMass(_time, EPhase::LIQUID) / (_time - prevTime);
-	//	liquidSideLimitedGlobal = true;
-	//}
-	//unit2->workingHoldup->SetMass(_time, 0);
-
-	double MFlowVaporLiquidSide = (X - Xeq) * mHoldupSolid / (_time - prevTime) + mFlowSuspensionLiquid;
-	MFlowVaporLiquidSide = (X - Xeq) * mHoldupSolid;
-	if (MFlowVaporLiquidSide < 0)
-		MFlowVaporLiquidSide = 0;
-
-	//MFlowVaporLiquid = MFlowVaporLiquidSide;
-	//liquidSideLimitedGlobal = MFlowVaporLiquidSide < MFlowVaporGasSide;
-	const double MFlowVapor = std::min(MFlowVaporGasSide, MFlowVaporLiquidSide);
-	VaporFlowStorage = MFlowVapor;
-
-	const double XCutt = unit->REAinv(Xeq, 1. - unit->phiCuttOff);
-
-	//liquidFilm = liquidFilm ? ((unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - ((_time - prevTime) * MFlowVapor) - XCutt * mHoldupSolid) / (unit->rhoWater * Delta_f * unit->A_P) > 0) : false;
-
-	if (liquidFilm)
-	{
-		unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
-		varPhi2 = (unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - XCutt * mHoldupSolid - ((_time - prevTime) * MFlowVapor)) / (rhoLiquid * Delta_f * unit->A_P);
-		unit->m_holdup->SetPhaseMass(_time, EPhase::LIQUID, mHoldupLiquid);
-		unit->m_holdup->SetPhaseMass(_time, EPhase::SOLID, mHoldupSolid);
-	}
-	if (varPhi2 < 0)
-		liquidFilm = false;
-	TransferBool = liquidFilm;
-
-	std::vector<double> Q_AP(unit->N_particle, 0);// Heat transfered from air to particle [W]
-	double Q_AP3 = 0; // Sum of heat transfered from air to particle [W]
-	if (unit->particlesGlobal)
-	{
-		for (int i = 0; i < unit->N_particle; i++)
-			Q_AP[i] = alpha_GP * A_P / unit->N_particle * (1 - varPhi2) * (_vars[m_iTempGas + i] - varTempParticle2);
-		
-		for (int i = 0; i < Q_AP.size(); i++)
-			Q_AP3 += Q_AP[i];
-	}
-	// Dosta 2010 eq. 23 - changed to prevent cooling of higher layers by subtracting the same amount of energy
-	// Original was A_P / 1
-
-	std::vector<double> Q_AF(unit->N_particle, 0);// Heat transfered from air to film [W]
-	double Q_AF2 = 0;// Sum of heat transfered from air to film
-	if (unit->particlesGlobal)
-	{
-		for (int i = 0; i < Q_AF.size(); i++)
-			Q_AF[i] = alpha_GF * A_P / unit->N_particle * varPhi2 * (_vars[m_iTempGas + i] - varTempFilm2);
-		
-		for (int i = 0; i < Q_AF.size(); i++)
-			Q_AF2 += Q_AF[i];
-	}
-	// Dosta 2010 eq. 21 - changed to prevent cooling of higher layers by subtracting the same amount of energy
-	// Original was A_P / 1
-
-	const double Q_PF2 = !unit->particlesGlobal?0:alpha_PF * A_P * varPhi2 * (varTempParticle2 - varTempFilm2); // Heat transfered from particle to film [W]
-	// Dosta 2010 eq. 22
-
-	std::pair<double, std::vector<double>> resultHeatLoss = CalculateChamberHeatLoss(_time, _unit, _vars); // Overall heat trasfer throught wall to environment
-	const double Q_PW = resultHeatLoss.first; // Heat transfered from particles to wall and environment [W]
-	std::vector<double> Q_GW = resultHeatLoss.second; // Heat transfered from gas to wall  and environment [W]
-	heatLossTransfer = Q_PW;
-	for (int i = 0; i < Q_GW.size(); i++)
-		heatLossTransfer += Q_GW.at(i);
-	
-	const double HFlowVapor2 = MFlowVapor * (unit->C_PWaterVapor * varAvTempGas + unit->Delta_h0); // Enthaly stream of evporating liquid [J/s]
-	// Dosta 2010 eq. 15
-	const double H_susp2 =!unit->particlesGlobal?0: mSuspensionTemperature * (mFlowSuspensionLiquid * unit->C_PWaterLiquid * mFlowSuspensionSolid * unit->C_PParticle); // Enthaly stream of entering suspension [J/s]
-	// Dosta 2010 eq. 17
-	//const double H_gasSupp = unit->m_inSuspensionStream->GetTemperature(_time) * mFlowGasSupplemental * unit->C_PGas; // Enthaly stream of entering gas supplement [J/s]
-
-	if (w_l == 0)
-		unit2->RaiseError("Liquid mass fraction in suspension is 0.");
-	
-	const double varPhiFormula2 = (mFlowSuspensionLiquid - MFlowVapor) / (unit->rhoWater * Delta_f * varA_p) - varPhi2 / varA_p * derA_p; // Change in the degree of wetness of the particle [-/s]
-	// Dosta 2010 eq. 13
-	//_res[m_iPhi2] = _ders[m_iPhi2] - varPhiFormula2;
-	const double dersPhi2 = varPhiFormula2;
-	
-	// Total particle surface area
-	//const double varAFormula = 0; // Change of total particle surface area due to ganulation and attrition 
-	//_res[m_iA_p] = derA_p - varAFormula;
-
-	std::vector<double> HFlowInGas2(unit->N_total, 0); // Storage vector for enthaly stream entering height layers
-	std::vector<double> HFlowOutGas2(unit->N_total, 0); // Storage vector for enthaly stream exiting height layers
-	std::vector<double> sumEnergyStreamsGas(unit->N_total, 0);
-
-	ParallelFor(unit->N_total, [&](size_t i)
-		{
-			double HFlowInGasFormula = 0; // Enthaly stream entering height layer Dosta
-			if (i == 0)
-				HFlowInGasFormula = mFlowGas * (unit->C_PGas * mGasInTemperature + Y_in * (unit->C_PWaterVapor * mGasInTemperature + unit->Delta_h0));
-				// Dosta 2010 eq. 18 - addjusted for first layer with gas input
-			else
-				HFlowInGasFormula = (mFlowGas + ((i > unit->suspLayer) ? mFlowSuspensionGas : 0)) * (unit->C_PGas * _vars[m_iTempGas + (i - 1)] + _vars[m_iY_g + (i - 1)] * (unit->C_PWaterVapor * _vars[m_iTempGas + (i - 1)] + unit->Delta_h0));
-				// Dosta 2010 eq. 18
-
-			if (i == unit->suspLayer)
-				HFlowInGasFormula += mFlowSuspensionGas * (unit->C_PGas * mSuspensionTemperature + Y_in * (unit->C_PWaterVapor * mSuspensionTemperature + unit->Delta_h0));
-
-			HFlowInGas2[i] = HFlowInGasFormula;
-
-			const double HFlowOutGasFormula = (mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * (unit->C_PGas * _vars[m_iTempGas + i] + _vars[m_iY_g + i] * (unit->C_PWaterVapor * _vars[m_iTempGas + i] + unit->Delta_h0)); // Enthaly stream exiting height layer
-			// Dosta 2010 eq. 19
-			HFlowOutGas2[i] = HFlowOutGasFormula;
-
-			if (i < unit->N_particle)
-				sumEnergyStreamsGas[i] = HFlowInGas2[i] - HFlowOutGas2[i] - Q_AP[i] - Q_AF[i] - Q_GW[i] + (HFlowVapor2/* + H_gasSupp */) / unit->N_particle;
-			else
-				sumEnergyStreamsGas[i] = HFlowInGas2[i] - HFlowOutGas2[i] - Q_GW[i];
-		});
-
-	//std::vector<double> layerGasMasses = unit2->GetGasMassOfLayers(unit->heighestFlowTimepoint, varAvTempGas, varTempParticle2);
-
-
-	ParallelFor(unit->N_total, [&](size_t i)
-		{
-			std::vector vars(_vars, _vars + GetVariablesNumber());
-			std::vector ders(_ders, _ders + GetVariablesNumber());
-			std::vector  res(_res, _res + GetVariablesNumber());
-
-			double varYOutFormula2 = 0; // Change of gas moisture content
-			if (i == 0)
-				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iY_g + i] - Y_in) + MFlowVapor / mHoldupGas;
-				// Dosta 2010 eq. 12 addjusted for first layer with gas input
-			else if (i < unit->N_particle)
-				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iY_g + i] - _vars[m_iY_g + (i - 1)]) + MFlowVapor / mHoldupGas;
-				// Dosta 2010 eq. 12
-			else
-				varYOutFormula2 = -(mFlowGas + ((i >= unit->suspLayer) ? mFlowSuspensionGas : 0)) * unit->N_total / mHoldupGas * (_vars[m_iY_g + i] - _vars[m_iY_g + (i - 1)]);
-			if (i == unit->suspLayer)
-				varYOutFormula2 += mFlowSuspensionGas * Y_in * unit->N_total / mHoldupGas;
-			_res[m_iY_g + i] = _ders[m_iY_g + i] - varYOutFormula2;
-
-			// Change of gas temperature
-			const double derTempGasFormula2 = unit->N_total / (mHoldupGas * (unit->C_PGas + unit->C_PWaterVapor * _vars[m_iY_g + i])) * sumEnergyStreamsGas[i]
-											- _ders[m_iY_g + i] * ((unit->C_PWaterVapor * _vars[m_iTempGas + i] + unit->Delta_h0) / (unit->C_PGas + unit->C_PWaterVapor * _vars[m_iY_g + i]));
-			// Dosta 2010 eq. 10
-			
-			_res[m_iTempGas + i] = _ders[m_iTempGas + i] - derTempGasFormula2;
-		}
-	);
-	
-	const double H_granulation = 0; // Granulation enthaly
-	// Currently unsed, preparation for later
-
-	const double deltaHParticleGrowth = 0; // Sum of all variables concering particle growth
-	// Pre. for granulation
-	const double sumEnergyStreamsParticle = Q_AP3 - Q_PW - Q_PF2 - deltaHParticleGrowth + (H_susp2 - HFlowVapor2) * (1 - varPhi2); // Sum of energy streams to particle
-	const double derTempParticleFormula2 = sumEnergyStreamsParticle / (mHoldupSolid * (unit->C_PParticle + (liquidFilm ? XCutt:X) * unit->C_PWaterLiquid))+(liquidFilm?0: -varTempParticle2 * unit->C_PWaterLiquid / (unit->C_PParticle + unit->C_PWaterLiquid * X) * ((mFlowSuspension - MFlowVapor) / mHoldupSolid));// Change of particel temperature
-	// Dosta 2010 eq. 11 with addjustments: no sum necessary as all values are not height dependent, division not applicable as no summation occures
-	if (unit->particlesGlobal)
-		_res[m_iTempParticle] = _ders[m_iTempParticle] - derTempParticleFormula2;
-	doubleTransfer = derTempParticleFormula2;
-
-	const double sumEnergyStreamsFilm = Q_PF2 + Q_AF2 + (H_susp2 - HFlowVapor2) * varPhi2; // Sum of energy streams to film
-	// Dosta 2010 eq. 9 - no sum necessary as all values are not height dependent, division not applicable as no summation occures
-
-	// Change in film temperature
-	double derTempFilmFormula2 = 0;
-	if (liquidFilm)
-	{
-		derTempFilmFormula2 = 1.0 / (unit->C_PWaterLiquid * mHoldupSolid * (X - XCutt)) * sumEnergyStreamsFilm
-			- varTempFilm2*unit->C_PWaterLiquid/(unit->C_PWaterLiquid* (X - XCutt)) * ((mFlowSuspensionLiquid - MFlowVapor)/mHoldupSolid);
-	}
-	else
-		derTempFilmFormula2 = derTempParticleFormula2;
-	if (unit->particlesGlobal)
-		_res[m_iTempFilm] = _ders[m_iTempFilm] - derTempFilmFormula2;
-
-	
-
-	// Codes for checking _vars, _ders and _res
-	std::vector vars2(_vars, _vars + GetVariablesNumber());
-	std::vector ders2(_ders, _ders + GetVariablesNumber());
-	std::vector  res2(_res, _res + GetVariablesNumber());
-}
-
-void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, void *_unit)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit); // crash after 16700
-
-	std::ostringstream  os;
-	if (debugToggle){
-		if (_time <= 1) {
-			unit->ShowInfo(std::to_string(counter));
-			counter = 0;
-		}
-	} //_DEBUG
-	if (_time / (100 * progressCounter) >= 1)
-	{
-		os << "SimTime: " << 100 * progressCounter << " s has passed.";
-		unit->ShowInfo(os.str());
-		os.str("");
-		progressCounter++;
-	}
-		
-	unit->m_holdup->AddTimePoint(_time);
-
-	massFlow mFlowInGas = unit->m_inGasStream->GetMassFlow(_time);
-	const massFlow mFlowInLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
-	const mass mHoldup = unit->m_holdup->GetMass(0);
-	const mass mHoldupSolid = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-	const mass mHoldupGas = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS);
-	const pressure mPressure = unit->m_holdup->GetPressure(_time);
-	mass mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
-	const area A_P = unit->A_P;
-	const length Delta_f = unit->Delta_f;
-	const moistureContent Y_in = unit->Y_in;
-
-	const massFlow mFlowVapor = VaporFlowStorage;
-	const temperature mTempParticle = _vars[m_iTempParticle];
-	const moistureContent mY_gOut = _vars[m_iY_g + (unit->N_total - 1)];
-	const double mTempGasOut = _vars[m_iTempGas + (unit->N_total - 1)];
-	const temperature mTempFilm = _vars[m_iTempFilm];
-
-	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
-	const mass mWaterNozzle = (_time - prevTime) * mFlowInLiquid;
-	const mass mWaterAirIn = (_time - prevTime) * mFlowInGas * Y_in;
-	const mass mVapor = (_time - prevTime) * mFlowVapor;
-
-	unit->m_holdup->AddStream(prevTime, _time, unit->m_inLiquidStream);
-	//mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
-
-	unit->m_holdup->RemoveTimePointsAfter(_time);
-
-	unit->m_holdup->SetPhaseMass(_time, EPhase::LIQUID, unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) - mVapor);
-	mHoldupLiquid = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
-	unit->m_holdup->SetTemperature(_time, mTempParticle);
-
-	//Set outlet gas stream: incl. dry gas & water vapor
-	// !!! different from inlet gas stream which contains only dry gas
-	unit->m_outExhaustGasStream->CopyFromStream(_time, unit->m_inGasStream);
-	unit->m_VaporStream->SetMassFlow(_time, mFlowVapor);
-	unit->m_outExhaustGasStream->AddStream(_time, unit->m_VaporStream);
-	unit->m_outExhaustGasStream->AddStream(_time, unit->m_inNozzleAirStream);
-	unit->m_outExhaustGasStream->SetTemperature(_time, mTempGasOut);
-	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::SOLID, 0);
-	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::LIQUID, 0);
-	unit->m_outExhaustGasStream->SetPhaseFraction(_time, EPhase::VAPOR, 1);
-	const massFlow mFLowGasOut = unit->m_outExhaustGasStream->GetMassFlow(_time);
-
-	const moistureContent X = mHoldupLiquid / mHoldupSolid;
-
-	// Height averaged temperature of the gas phase [K]
-	// Dosta 2010 eq. 14a
-	const double avVarTempGas = CalculateAverage(_vars, m_iTempGas, unit->N_total);
-	unit->SetStateVariable("Avg. temperature gas", avVarTempGas - unit->T_ref, _time);
-	// Output of average gas temperature in celsius
-
-	// Height averaged moisture content of the gas phase [kg/kg]
-	// Dosta 2010 eq. 14b
-	const double avY = CalculateAverage(_vars, m_iY_g, unit->N_total);
-	unit->SetStateVariable("Avg. Y", avY, _time);
-
-
-	const double avRH = unit->GetRelativeHumidity(avY, avVarTempGas, mPressure);
-	const double Xeq = !unit->particlesGlobal?0:unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, avRH);
-	const double XCutt = unit->REAinv(Xeq, 1. - unit->phiCuttOff);
-	double mPhi = unit->particlesGlobal ? (mHoldupLiquid - XCutt * mHoldupSolid) / (unit->rhoWater * Delta_f * unit->A_P) : 0;
-
-	if (mPhi < 0)
-		mPhi = 0;
-	if (mPhi > 1)
-		unit->RaiseWarning("Attention: Overwetting in the dryer at " + std::to_string(_time) + " s");
-		// Give warning if degree of wetness (phi) exceeds 1
-		// Warning texts in GUI
-		
-
-	if (unit->particlesGlobal) {
-		unit->SetStateVariable("X", X, _time);
-		unit->SetStateVariable("w%", X/(1.0+X)*100, _time);
-		unit->SetStateVariable("phi", mPhi, _time);
-		unit->SetStateVariable("solid mass in holdup", mHoldupSolid, _time);
-		unit->SetStateVariable("liquid mass in holdup", unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID), _time);
-		unit->SetStateVariable("evaporation rate [kg/s]", mFlowVapor, _time);
-		unit->SetStateVariable("Temperature film", mTempFilm - unit->T_ref, _time);
-		unit->SetStateVariable("Temperature particle", mTempParticle - unit->T_ref, _time);
-		unit->SetStateVariable("Moisture precentage", unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * 100 / (unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID)), _time);
-		unit->SetStateVariable("RH particles", unit->GetRelativeHumidity(avY, avVarTempGas, mPressure) * 100, _time);
-	}
-	unit->SetStateVariable("T_out", mTempGasOut - unit->T_ref,_time);
-	unit->SetStateVariable("Y_out", mY_gOut, _time);
-	unit->SetStateVariable("RH_out [%]", unit->GetRelativeHumidity(mY_gOut, mTempGasOut, mPressure) * 100, _time);
-	unit->SetStateVariable("gas mass in holdup", mHoldupGas, _time);
-	size_t probeLayer = unit->DetermineLayersInSectionFilledWithBed(0, unit->heightOfChamberTemperatureProbe / unit->chamber.at(0).height)-1;
-	unit->SetStateVariable("Temperature chamber", _vars[m_iTempGas + probeLayer] - unit->T_ref, _time);
-	ParallelFor(unit->N_total, [&](size_t i)
-		{
-			unit->SetStateVariable("Temperature gas height layer " + std::to_string(i), _vars[m_iTempGas + i] - unit->T_ref, _time);
-			unit->SetStateVariable("Y height layer " + std::to_string(i), _vars[m_iY_g + i], _time);
-		});
-
-if (debugToggle){
-		unit->SetStateVariable("Mass balance", (_time - prevTime==0?0:( - unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime)) / (_time - prevTime)) + ((unit->m_inGasStream->GetMassFlow(_time)+unit->m_inNozzleAirStream->GetMassFlow(_time))*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inLiquidStream->GetMassFlow(_time)), _time);
-		//unit->SetStateVariable("Energy balance", unit->m_inGasStream->GetMassFlow(_time) - unit->m_outExhaustGasStream->GetMassFlow(_time),_time);
-		//unit->SetStateVariable("Mass balance new", -unit->m_holdup->GetMass(_time) + unit->m_holdup->GetMass(prevTime) + (_time - prevTime) * (unit->m_inGasStream->GetMassFlow(_time)*(1+Y_in) - unit->m_outExhaustGasStream->GetMassFlow(_time) + unit->m_inSuspensionStream->GetMassFlow(_time)), _time);
-
-		double EnergyLiquidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * unit->C_PWaterLiquid * mTempFilm;
-		double EnergySolidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * unit->C_PParticle * mTempParticle;
-		double EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * (unit->YavgOld - avY)) * avVarTempGas/* + unit->Delta_h0 * (unit->YavgOld - Y_av)*/);
-
-		double EnergyInputGas = (_time - prevTime) * unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time)/* + unit->Y_in * unit->Delta_h0*/);
-		double EnergyInputLiquid = (_time - prevTime) * (unit->m_inLiquidStream->GetPhaseMassFlow(_time,EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
-		double EnergyOutputGas = (_time - prevTime) * (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut/* + mY_out * unit->Delta_h0*/));
-
-		double HeatLoss = heatLossTransfer;
-		/*
-		const double EnergyChangeLiquidPhase = (-unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * mTempFilm + unit->m_holdup->GetPhaseMass(prevTime, EPhase::LIQUID) * unit->TempLiquidOld)* unit->C_PWaterLiquid;
-		const double EnergyChangeSolidPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * unit->C_PParticle * (-mTempParticle + unit->TempSolidOld);
-		const double EnergyChangeGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * (unit->C_PGas + unit->C_PWaterVapor * (unit->YavgOld-Y_av)) * (-varAvTempGas + unit->TempGasOld);
-		const double EnergyInputGas = (_time - prevTime) * unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time));
-		const double EnergyInputLiquid = (_time - prevTime) * unit->m_inSuspensionStream->GetMassFlow(_time) * (unit->C_PWaterLiquid * unit->w_l + unit->C_PParticle * (1 - unit->w_l))* unit->m_inSuspensionStream->GetTemperature(_time);
-		const double EnergyOutputGas = (_time - prevTime) * (-unit->m_outExhaustGasStream->GetMassFlow(_time) * (
-			(unit->C_PGas + mY_out * unit->C_PWaterVapor) * T_out
-			+ (mY_out - unit->Y_in) * unit->Delta_h0));
-		const double EnergyBalance = EnergyChangeLiquidPhase + EnergyChangeSolidPhase + EnergyChangeGasPhase + EnergyInputGas + EnergyInputLiquid + EnergyOutputGas;
-		unit->TempLiquidOld = mTempFilm;
-		unit->TempSolidOld = mTempParticle;
-		unit->TempGasOld = varAvTempGas;
-		unit->YavgOld = Y_av;
-		*/
-		double DeltaEnergyLiquid = EnergyLiquidPhase - unit->EnergyLiquidPhaseOld;
-		double DeltaEnergySolid = EnergySolidPhase - unit->EnergySolidPhaseOld;
-		double DeltaEnergyGas = EnergyGasPhase - unit->EnergyGasPhaseOld;
-		double DeltaGasStreams = EnergyInputGas - EnergyOutputGas;
-		double DeltaEnergy = DeltaEnergyLiquid + DeltaEnergySolid + DeltaEnergyGas;
-		double EnergyBalance = -DeltaEnergy + DeltaGasStreams + EnergyInputLiquid - unit->HeatLossOld;
-		/*unit->EnergyLiquidPhaseOld = EnergyLiquidPhase;
-		unit->EnergyGasPhaseOld = EnergyGasPhase;
-		unit->EnergySolidPhaseOld = EnergySolidPhase;
-		unit->HeatLossOld = HeatLoss;
-		unit->SetStateVariable("Energy balance new", EnergyBalance, _time);*/
-		EnergyGasPhase = unit->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((unit->C_PGas + unit->C_PWaterVapor * avY) * avVarTempGas + unit->Delta_h0 * avY);
-		EnergyInputGas = unit->m_inGasStream->GetMassFlow(_time) * ((unit->C_PGas + unit->Y_in * unit->C_PWaterVapor) * unit->m_inGasStream->GetTemperature(_time)+ unit->Y_in * unit->Delta_h0);
-		EnergyInputLiquid = (unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID) * unit->C_PWaterLiquid + unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::SOLID) * unit->C_PParticle) * unit->m_inLiquidStream->GetTemperature(_time);
-		EnergyOutputGas = (unit->m_outExhaustGasStream->GetMassFlow(_time) * ((unit->C_PGas + mY_gOut * unit->C_PWaterVapor) * mTempGasOut + mY_gOut * unit->Delta_h0));
-		EnergyBalance = (_time - prevTime == 0 ? 0 : -(EnergyGasPhase + EnergyLiquidPhase + EnergySolidPhase) + (unit->EnergyGasPhaseOld + unit->EnergyLiquidPhaseOld + unit->EnergySolidPhaseOld) / (_time - prevTime)) + EnergyInputGas+EnergyInputLiquid-EnergyOutputGas-unit->HeatLossOld;
-		unit->SetStateVariable("Energy balance", EnergyBalance, _time);
-		unit->EnergyLiquidPhaseOld = EnergyLiquidPhase;
-		unit->EnergyGasPhaseOld = EnergyGasPhase;
-		unit->EnergySolidPhaseOld = EnergySolidPhase;
-
-		//unit->SetStateVariable("debug0", EnergyBalance!=0?mPhi/(-EnergyBalance):0, _time);// ~mPhi ~X
-		/*
-		unit->SetStateVariable("debug1",unit->GetGasSaturationMoistureContent(varAvTempGas, mPressure)/unit->Y_sat,_time);
-	
-
-		//unit->SetStateVariable("debug15", (mPressure - CachePressureRange <= inputCache[1][1] && inputCache[1][1] <= mPressure + CachePressureRange)?1:0, _time);
-		//unit->SetStateVariable("debug17",resultCache[0],_time);
-		unit->SetStateVariable("debug18", unit->GetRelativeHumidity(Y_av + Y_in, varAvTempGas, mPressure),_time);
-		double RH = unit->GetRelativeHumidity(Y_av, varAvTempGas, mPressure);
-		unit->SetStateVariable("debug19", RH, _time);
-		double Xeq = unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, RH);
-		double deltaX = unit->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / mHoldupSolid - Xeq;
-		unit->SetStateVariable("debug20", deltaX, _time);
-		double REA = unit->REA(deltaX);
-		unit->SetStateVariable("debug21", REA, _time);
-		double curve = 1 - REA;
-		unit->SetStateVariable("debug22", curve, _time);
-		unit->SetStateVariable("debug24", Xeq-XeqTransfer, _time);
-		unit->SetStateVariable("debug25", X-curveTransfer, _time);
-		if (_time >= 134)
-		{
-			std::vector vars(_vars, _vars + GetVariablesNumber());
-			std::vector ders(_ders, _ders + GetVariablesNumber());
-			//std::vector  res(_res, _res + GetVariablesNumber());
-			double deltaTime = _time - unit->m_holdup->GetPreviousTimePoint(_time);
-			std::vector<double> DebugVector;
-			DebugVector.reserve(vars.size() + ders.size()+3); // preallocate memory
-			DebugVector.insert(DebugVector.end(), vars.begin(), vars.end());
-			DebugVector.insert(DebugVector.end(), ders.begin(), ders.end());
-			DebugVector.push_back(deltaX);
-			DebugVector.push_back(MFlowVaporLiquid);
-			DebugVector.push_back(mFlowVapor);
-			//DebugCache.push_back(DebugVector);
-			if (_time >= 136)
-				double test = 1;
-		}
-		*/
-		/*
-		std::vector ders(_ders, _ders + GetVariablesNumber());
-		std::pair<double,size_t> output = std::make_pair(0,-1);
-		for (size_t i = 0; i < ders.size();i++ )
-			if (abs(ders[i])>output.first)
-				output = std::make_pair(ders[i], i);
-		std::ofstream myfile;
-		std::string fileLocation = "E:\\Dyssol\\output.csv";
-		myfile.open(fileLocation, std::fstream::app);
-		myfile << _time << "," << output.first << "," << output.second << "\n";
-		myfile.close();*/
-		unit->SetStateVariable("debug0", progressCounterTotal, _time);
-		unit->SetStateVariable("debug1", liquidSideLimitedGlobal, _time);
-		unit->SetStateVariable("debug2", TransferBool, _time);
-		unit->SetStateVariable("debug3", doubleTransfer, _time);
-		double X_eq = !unit->particlesGlobal?0:unit->CalcuateSolidEquilibriumMoistureContent(_time, mTempParticle, unit->GetRelativeHumidity(avY, avVarTempGas));
-		unit->SetStateVariable("debug4",X_eq , _time);
-		unit->SetStateVariable("debug5", X-X_eq, _time);
-		unit->SetStateVariable("debug6", HeatLoss, _time);
-		unit->SetStateVariable("debug7", (mTempFilm - unit->T_ref) - (mTempFilm - unit->T_ref) * TransferBool, _time);
-		if (_time >= 99)
-			bool breakPoint = true;
-		//unit->SetStateVariable("debug3", RHTransfer, _time);
-		//unit->SetStateVariable("debug3", unit->GetRelativeHumidity(Y_av, varAvTempGas, mPressure), _time);
-		std::vector vars(_vars, _vars + GetVariablesNumber());
-		std::vector ders(_ders, _ders + GetVariablesNumber());
-	} // DEBUG
-		//Temp particle climbs while temps of gas and film fall
-		/*
-		std::pair<double, std::vector<double>> result = CalculateTotalHeatLoss(_time, _unit,X,_vars, true);
-		unit->ShowInfo("Heat loss - particles");
-		unit->ShowInfo(std::to_string(result.first));
-		unit->ShowInfo(std::to_string(result.second[0]));
-		result = CalculateTotalHeatLoss(_time, _unit, X, _vars, false);
-		unit->ShowInfo("Heat loss - gas");
-		unit->ShowInfo(std::to_string(result.first));
-		unit->ShowInfo(std::to_string(result.second[0]));
-		unit->ShowInfo("");
-		unit->ShowInfo(std::to_string(XeqTransfer));
-		unit->ShowInfo("");*/
-		//unit->ShowInfo(std::to_string(CalculateAlpha_PW(mTempParticle, X, varAvTempGas, mPressure, _unit, _time)* unit->AreaGasParticleWallHeatLoss* (mTempParticle - unit->TemperatureWall)));
-		//unit->ShowInfo(std::to_string(unit->CalckA(CalculateAlpha_PW(mTempParticle, X, varAvTempGas, mPressure, _unit, _time), 0, 0.35, { 0.225 ,0.230 }, { 15 }) * (mTempParticle - unit->T_inf)));
-		//unit->ShowInfo(std::to_string(unit->CalcAlphaOutside(_time, h, d.front(), /*unit->TemperatureWall*/0.4 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) + unit->T_inf), unit->T_inf)));
-}
-
-/// Supporting functions ///
-double CUnitDAEModel::CalculateAverage(double* _vars, size_t variableKey, int64_t end, int64_t start) const
-{
-	double tempAvg = 0;
-	for (int64_t i = start; i < end; i++)
-		tempAvg += _vars[variableKey + i];
-	if (end - start != 0)
-		tempAvg = tempAvg / (end - start);
-	return tempAvg;
-}
-
-/// Heat loss calculation functions ///
-std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit);
-	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
-	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
-	double heightUsage, fullSections;
-	heightUsage = modf(sectionsFilledWithBed, &fullSections);
-
-	double Q_PW = 0;
-	std::vector<double> Q_GW;
-
-	// Fully filled sections
-	for (int section = 0; section < fullSections; section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
-		Q_GW.insert(Q_GW.end(),Q_GWsection.begin(), Q_GWsection.end());
-	}
-
-	// Partilly filled section
-
-	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
-	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars,fullSections, &Q_GWsection,heightUsage);
-	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-
-	// Fully empty sections
-	for (size_t section = std::max(std::ceil(sectionsFilledWithBed),1.); section < unit->chamber.size(); section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
-		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-	}
-		
-	// Top plate
-	Q_GW.back() += CalculateTopPlateHeatLoss(_time,_unit,_vars);
-	return std::make_pair(Q_PW, Q_GW);
-}
-
 double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double* _vars, size_t section, std::vector<double>* Q_GW, double heightUsage)
 {
 	auto* unit = static_cast<CDryerBatch*>(_unit);
@@ -2468,7 +2427,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 	bool noTemperatureDelta = unit->particlesGlobal ? ( (_vars[m_iTempParticle] - unit->T_inf) != 0 ? false : true) : true;
 	if (noTemperatureDelta)
 		for (int i = 0; i < Q_GW->size(); i++)
-			if (_vars[m_iTempGas + (i + section * Q_GW->size())] - unit->T_inf != 0)
+			if (_vars[m_iTempOutGas + (i + section * Q_GW->size())] - unit->T_inf != 0)
 			{
 				noTemperatureDelta = false;
 				break;
@@ -2483,7 +2442,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 	{
 		layersOfPrevSections += unit->chamber.at(i).layers;
 	}
-	const double varAvTempGas = CalculateAverage(_vars, m_iTempGas, unit->chamber.at(section).layers+layersOfPrevSections, layersOfPrevSections);
+	const double varAvTempGas = CalculateAverage(_vars, m_iTempOutGas, unit->chamber.at(section).layers+layersOfPrevSections, layersOfPrevSections);
 	const double alphaPFB = !unit->particlesGlobal ? 0 : unit->CalculateAlpha_PW(_vars[m_iTempParticle], varAvTempGas, unit->m_holdup->GetPressure(_time), _time);
 
 	double sumWallThicknesses = 0;
@@ -2518,7 +2477,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 
 			kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGFB, alphaOut, usedLayerPercentage);
 			for (int i = 0; i < usedLayers; i++)
-				Q_GW->at(i) = kA_G / usedLayers * (_vars[m_iTempGas + (i + layersOfPreveusSections)] - unit->T_inf);
+				Q_GW->at(i) = kA_G / usedLayers * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
 
 			double Q = Q_PW;
 			for (int i = 0; i < usedLayers; i++)
@@ -2537,7 +2496,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 
 		kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGPipe, alphaOut, -usedLayerPercentage);
 		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
-			Q_GW->at(i) = kA_G / (unit->chamber.at(section).layers -usedLayers) * (_vars[m_iTempGas + (i + layersOfPreveusSections)] - unit->T_inf);
+			Q_GW->at(i) = kA_G / (unit->chamber.at(section).layers -usedLayers) * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
 
 		double Q = 0;
 		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
@@ -2555,7 +2514,7 @@ double CUnitDAEModel::CalculateTopPlateHeatLoss(double _time, void* _unit, doubl
 {
 	auto* unit = static_cast<CDryerBatch*>(_unit);
 
-	if (_vars[m_iTempGas + (unit->N_total - 1)] - unit->T_inf == 0)
+	if (_vars[m_iTempOutGas + (unit->N_total - 1)] - unit->T_inf == 0)
 		return 0;
 
 	const double alphaG = unit->CalculateAlpha_GW(_time, unit->chamber.size() - 1);
@@ -2570,7 +2529,7 @@ double CUnitDAEModel::CalculateTopPlateHeatLoss(double _time, void* _unit, doubl
 		alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.back().dimensionsInternal.at(0).second, 0, temperatureWall, EShape::RECTANGULAR);
 
 		kA_G = unit->CalculateOverallHeatTransferCoefficientTopPlate(alphaG, alphaOut);
-		Q_GWTop = kA_G  * (_vars[m_iTempGas + (unit->N_total-1)] - unit->T_inf);
+		Q_GWTop = kA_G  * (_vars[m_iTempOutGas + (unit->N_total-1)] - unit->T_inf);
 
 		temperatureWall0 = temperatureWall;
 		double alphaAout = pow(unit->chamber.back().dimensionsInternal.at(0).second,2)/4 * MATH_PI * alphaOut;
