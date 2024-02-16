@@ -41,9 +41,10 @@ public:
 	size_t m_iMFlowVapor{}; // vapor flow (evaporation) rate
 	size_t m_iHFlowVapor{}; // vapor flow enthalpy
 	// heat transfer
-	size_t m_iQ_AF{}; // heat transfer from air to water film, == Q_AP
-	size_t m_iQ_AP{}; // heat transfer from air to particle, == Q_AF
-	size_t m_iQ_PF{}; // heat transfer from particle to water film
+	size_t m_iQFlow_AF{}; // heat transfer from air to water film, == Q_AP
+	size_t m_iQFlow_AP{}; // heat transfer from air to particle, == Q_AF
+	size_t m_iQFlow_PF{}; // heat transfer from particle to water film
+	size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
 
 	// Debug
 	std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -109,37 +110,56 @@ public:
 	bool debugToggle = false;
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
-	// Gas
+	mass mTotHoldup; // mass of solid + liquid in holdup, == user input
+	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
 		heatCapacity C_PGas = 1200; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
+	// Inlet fluidization gas
+		massFlow mFlowInAir;
+		massFlow mFlowInAirDry;
 		moistureContent Y_in; // Moisture content of input gas stream [kg/kg]
 		specificLatentHeat h_in; // enthalpy for inlet gas: determined by user input
 		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
-	// Liquid
+	// Inlet nozzle gas
+		massFlow mFlowInNozzleGas;
+		massFlow mFlowInNozzleGasDry;
+		moistureContent Y_nozzle;
+		temperature thetaNozzleGas;
+	// Gas in holdup (whole plant, incl. chamber & expansion)
+		mass mGasHoldup = 0.62; // mass of gas in the plant (chamber + expansion part) [kg]
+		
+	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		heatCapacity C_PWaterLiquid = 4200; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
 		heatCapacity C_PWaterVapor = 2000; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
 		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
-		massFraction w_l = 1; // Liquid mass fraction of suspenstion [kg/kg] - default: 1
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
-	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-	// Particle
+		const double ratioMM;
+	// Liquid in holdup
+		mass mLiquidHoldup;
+	// Spray liquid
+		massFlow mFlowSprayLiquid;
+		massFraction x_w; // = 1; // water mass fraction of suspension [kg/kg] - default: 1
+		temperature thetaSprayLiquid;
+	// Particle (solid) phase
 		std::vector<double> Grid; // d_min
 		std::vector<double> q_3;
 		std::vector<double> avgClassDiam; // d_m,i
 		std::vector<double> classSize; // Delta d
-		double d32; // Sauter diameter
-		density rhoParticle; // = 1500; // Particle density (Cellets: skeletal density)
+		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
+		thermalConductivity lambdaParticle = 0.58;
+	// Particle in holdup
+		mass mSolidHoldup;
+		double d32; // Sauter diameter
 		area A_P; // = 4; // total surface area of particle mass [m^2]
 		length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
-		thermalConductivity lambdaParticle = 0.58;
 		moistureContent initX = 0;
-		//drying kinetic parameters, currently not in use
+		//drying kinetic parameters, CURRENTLY NOT IN USE
 		double k_dc; // = 3.5; // k for normalized drying curve
 		moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
 	// Bed
@@ -215,6 +235,9 @@ public:
 	 *	\return sauter diameter in meter*/
 	double CalculateHoldupSauter(double _time) const;
 	
+	massFraction CalculateMassFracFromMoistContent(moistureContent Y);
+	moistureContent CalculateMoistContentFromMassFrac(massFraction y);
+
 	// Returns gas moisture content for relativ humidity times saturation pressure [kg liquid per kg dry gas]
 	moistureContent GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas = STANDARD_CONDITION_P);
 
@@ -250,7 +273,6 @@ public:
 
 	double GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const;
 	
-
 	double GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties property, double temperature, double pressure = STANDARD_CONDITION_P) const;
 	
 	double CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape=EShape::CYLINDRICAL) const;

@@ -156,7 +156,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double Delta_f = unit->GetConstRealParameterValue("Delta_f") * 1e-6; // convert in [m]
 
 	/// DAE system ///
-	// Values in _vars: should not be changed !!!
+	// Values in _vars: should not be changed, must set to const !!!
 	const double varMFlowVapor = _vars[m_iMFlowVapor]; 
 	const double varEtaPFTR = _vars[m_iEtaPFTR];
 	const double varNTU = _vars[m_iNTU];

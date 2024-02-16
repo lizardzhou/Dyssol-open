@@ -21,15 +21,15 @@ QT_PLUGIN_PATH=$(QtInstallDir)\plugins</LocalDebuggerEnvironment>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <QtLastBackgroundBuild>2024-01-25T15:51:08.6348520Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-02-14T16:13:17.8815908Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <QtLastBackgroundBuild>2024-01-25T15:51:08.7505420Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-02-14T16:13:18.0052617Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <QtLastBackgroundBuild>2024-01-25T15:51:09.0816559Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-02-14T16:13:18.1528657Z</QtLastBackgroundBuild>
   </PropertyGroup>
   <PropertyGroup Label="QtSettings" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <QtLastBackgroundBuild>2024-01-25T15:51:09.5334455Z</QtLastBackgroundBuild>
+    <QtLastBackgroundBuild>2024-02-14T16:13:18.5777814Z</QtLastBackgroundBuild>
   </PropertyGroup>
 </Project>
