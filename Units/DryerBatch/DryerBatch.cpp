@@ -652,7 +652,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
 
 	const double RHeq = !unit->particlesGlobal ? 0 : unit->GetEquilibriumRelativeHumidity(varTempParticle2, X);// CalcuateSolidEquilibriumMoistureContent^-1 from Temp+X to RH
-	const double Y_eq = this->Y_eq ? unit->CalculateGasEquilibriumMoistureContent(varTempParticle2, mPressure, RHeq) : Y_sat;
+	const double Y_eq = this->Y_eq ? unit->CalculateGasEquilibriumMoistureContent(varTempParticle2, mPressure, unit->ratioMM, RHeq) : Y_sat;
 
 	// Mass stream of evaporating liquid gas side [kg/s]
 	// Dosta 2010 eq. 16
@@ -1323,6 +1323,7 @@ moistureContent CDryerBatch::CalculateMoistContentFromMassFrac(massFraction y)
 
 moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas) // temperature in [K]
 {
+	ratioMM = ratio(molarMassPhaseChangingLiquid, molarMassGas);
 	if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
 	{
 		pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
@@ -1346,7 +1347,7 @@ moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature tempera
 	}
 }
 
-moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double RH) const // Gas moisture content under assumption of ideal gas law
+moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH) const // Gas moisture content under assumption of ideal gas law
 {
 	if (RH == 0)
 	{

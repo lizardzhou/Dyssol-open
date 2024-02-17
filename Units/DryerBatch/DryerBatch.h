@@ -138,7 +138,7 @@ public:
 		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
-		const double ratioMM;
+	double ratioMM; // = molarMassPhaseChangingLiquid / molarMassGas;
 	// Liquid in holdup
 		mass mLiquidHoldup;
 	// Spray liquid
@@ -210,10 +210,10 @@ public:
 	std::pair<int,int> indicesOfVaporOfPhaseChangingCompound=std::make_pair(-1,-1);
 	bool debugHasBeenShown = false;
 
-	temperature TempLiquidOld = T_ref;
-	temperature TempGasOld = T_ref;
-	temperature TempSolidOld = T_ref;
-	moistureContent YavgOld = Y_in;
+	const temperature TempLiquidOld = T_ref;
+	const temperature TempGasOld = T_ref;
+	const temperature TempSolidOld = T_ref;
+	const moistureContent YavgOld = Y_in;
 	int DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
 
 	double EnergyLiquidPhaseOld = 0;
@@ -283,7 +283,7 @@ public:
 	
 	area CalculateParticleSurfaceArea(double _time) const;
 
-	moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double RH=1) const;
+	moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const;
 
 	double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
 
@@ -413,5 +413,17 @@ public:
 	double lerp(double lowNum, double highNum, double midNum) const
 	{
 		return lowNum + midNum * (highNum - lowNum);
+	}
+
+	double ratio(double x, double y)
+	{
+		if (y == 0)
+		{
+			RaiseError("Denominator is zero.");
+		}
+		else
+		{
+			return x / y;
+		}
 	}
 };
