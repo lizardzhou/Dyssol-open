@@ -41,7 +41,7 @@ void CDryerBatch::CreateStructure()
 	/// Add unit parameters ///
 	// particle properties
 	AddStringParameter("Particle properties", "",	"");
-	AddConstRealParameter("x_l (t=0)", 4.3, "mass %", "Initial water fraction of particles.", 1e-3, 100);
+	AddConstRealParameter("x_P (t=0)", 4.3, "mass %", "Initial water fraction of particles.", 1e-3, 100);
 	AddConstRealParameter("A_P", 4, "m2", "Total surface of all particles in the granulator.\nIf = 0, PSD is used to calculate surface area", 0);
 	AddCheckBoxParameter("updateA", true, "Tick this box to enable calculating total particle surface from PSD and mass.");
 	AddConstRealParameter("Delta_f"	, 40	, "mum"			, "Thickness of the water film on particles in micrometer"	, 1);
@@ -65,7 +65,7 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("Y_nozzle", 0, "g/kg dry gas", "Absolute humidity of nozzle gas", 0, 5);
 	// Spray liquid properties
 	AddStringParameter("Spray liquid properties", "", "");
-	AddConstRealParameter("x_w", 100, "%", "Water fraction of suspension liquid", 30, 100);
+	AddConstRealParameter("x_w,susp", 100, "%", "Water fraction of suspension liquid", 30, 100);
 
 
 	// Process chamber information
@@ -257,7 +257,7 @@ void CDryerBatch::Initialize(double _time)
 		os.str("");
 	}
 
-	// get environment temperature
+	// environment temperature
 	T_inf = T_ref + GetConstRealParameterValue("theta_env"); // T_ref = 0 degreeC
 
 	// inlet fluidization gas conditions
@@ -309,7 +309,7 @@ void CDryerBatch::Initialize(double _time)
 
 	// Spray liquid condition
 	mFlowSprayLiquid = m_inLiquidStream->GetMassFlow(_time);
-	x_w = GetConstRealParameterValue("x_w") / 100; 
+	x_wSusp = GetConstRealParameterValue("x_w,susp") / 100; 
 	thetaSprayLiquid = m_inLiquidStream->GetTemperature(_time) - T_ref; // in degreeC
 
 	// get process chamber properties
@@ -320,7 +320,9 @@ void CDryerBatch::Initialize(double _time)
 	SetupChamber();
 	//this->CheckHeightDiscretizationLayers(_time);
 
-	// Calculate gas mass from initial conditions and volume // ToDo: Add more info
+	//////////////////////////////////////////////////////////////////////////////////
+	// Calculate gas mass from initial conditions and volume // CURRENLY NOT IN USE //
+	//////////////////////////////////////////////////////////////////////////////////
 	volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
 	volume volumeChamber = 0;
 	for (size_t i = 0; i < chamber.size(); i++)
@@ -354,7 +356,7 @@ void CDryerBatch::Initialize(double _time)
 	//phi_eq = GetConstRealParameterValue("phi_eq");
 	k_dc = GetConstRealParameterValue("k_dc");
 	X_cr = GetConstRealParameterValue("X_cr");
-	////////////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////////////////////////////////
 
 	/*
 	double compoundFractionOfSolidInLiquidInput = m_inSuspensionStream->GetPhase(EPhase::SOLID)->GetCompoundFraction(_time, GetCompoundIndex(compoundKeys[indicesOfVaporOfPhaseChangingCompound.second]));
@@ -385,7 +387,7 @@ void CDryerBatch::Initialize(double _time)
 	// gas in outlet
 	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_in * 1e3, 0, 1.0);
 	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); // Temperature of gas in [degreeC]
-	m_model.m_iHOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetMassFlow(_time) * h_in, 0, 1.0); // Enthaly of gas in [J/s]
+	m_model.m_iHOutGas = m_model.AddDAEVariable(false, m_inGasStream->GetMassFlow(_time) * h_in, 0, 1.0); // Enthaly of gas in [J/s]
 	AddStateVariable("Gas temperature outlet [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // exhaust gas temperature in degreeC
 	AddStateVariable("Gas Y_outlet [g/kg]", Y_in * 100);
 	AddStateVariable("Gas RH_outlet [%]", RH_in * 100);
@@ -437,10 +439,10 @@ void CDryerBatch::Initialize(double _time)
 		m_model.m_iMFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow (evaporation) rate [kg/s], at the beginning == 0
 		m_model.m_iHFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); // Vapor flow enthalpy [J/s], at the beginning == 0
 		// heat transfer
-		m_model.m_iQFlow_AF = m_model.AddDAEVariable(false, 0, 0, 0.0);
-		m_model.m_iQFlow_AP = m_model.AddDAEVariable(false, 0, 0, 0.0); 
+		m_model.m_iQFlow_GF = m_model.AddDAEVariable(false, 0, 0, 0.0);
+		m_model.m_iQFlow_GP = m_model.AddDAEVariable(false, 0, 0, 0.0); 
 		m_model.m_iQFlow_PF = m_model.AddDAEVariable(false, 0, 0, 0.0);
-		m_model.m_iQFlow_WE = m_model.AddDAEVariable(false, 0, 0, 0.0);
+		//m_model.m_iQFlow_WE = m_model.AddDAEVariable(false, 0, 0, 0.0);
 	}
 	//AddStateVariable("Avg. Y [g/kg]", Y_in * 1e3); //  [g/kg]
 	//AddStateVariable("Temperature chamber", m_holdup->GetTemperature(_time));
@@ -601,7 +603,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const moistureContent X = mHoldupLiquid / mHoldupSolid; // Moisture content of the bed [kg water per kg dry particle] 
 
 	// Calculate other coefficients
-	const double alpha_GP = unit->CalcAlphaParticleGas(_time); // Heat transfer coefficient gas to particle
+	const double alpha_GP = unit->CalculateAlpha_GP(_time, varTempFilm2, unit->d32); // Heat transfer coefficient gas to particle
 	const double alpha_GF = alpha_GP; // Heat transfer coefficient gas to film
 	const double alpha_PF = alpha_GP * unit->f_alpha;//unit->CalculateAlphaPF(_time); // Heat transfer coefficient particle to film
 
@@ -629,7 +631,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	cPSolid = unit->GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::HEAT_CAPACITY_CP, varTempParticle2, mPressure);
 
 	const double D = unit->CalculateDiffusionCoefficient(_time, varAvTempGas, varTempFilm2, mPressure);
-	const double beta = !unit->particlesGlobal ? 0 : unit->CalculateBetaPA(_time, varAvTempGas, varTempParticle2, D); // Mass transfer coefficient for film to gas [m/s]
+	const double beta = !unit->particlesGlobal ? 0 : unit->CalculateBeta(_time, varAvTempGas, varTempParticle2, D); // Mass transfer coefficient for film to gas [m/s]
 	if (beta == -1)
 		unit2->RaiseError("Mass transfer coefficient calculation error. Provided temperature = nan or < 0 K");
 
@@ -1115,7 +1117,10 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		//unit->ShowInfo(std::to_string(unit->CalcAlphaOutside(_time, h, d.front(), /*unit->TemperatureWall*/0.4 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) + unit->T_inf), unit->T_inf)));
 }
 
-/// Read, calculate and check material properties from databank
+
+///////////////////////////////////////////////////////////////////
+/// Read, calculate and check material properties from databank ///
+///////////////////////////////////////////////////////////////////
 void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 {
 	// Get general data for compounds
@@ -1159,7 +1164,7 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 	rhoParticle = tempRhoParticle;
 	C_PParticle = tempHeatCapacityParticle;
 	lambdaParticle = tempThermalConductivityParticle;
-	beta_GP = this->GetConstRealParameterValue("beta_GP");
+	//beta_GP = this->GetConstRealParameterValue("beta_GP");
 
 	/// Properties of liquids ///
 	if (m_inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID) == 0)
@@ -1280,31 +1285,16 @@ void CDryerBatch::PullCompoundDataFromDatabase(double _time)
 
 			<< "\trhoParticle: " << rhoParticle << "\n"
 			<< "\tbeta_GP: ";
-		if (beta_GP < 0)
+		/*if (beta_GP < 0)
 			os << "automatic calculation";
 		else
-			os << beta_GP;
+			os << beta_GP;*/
 		os  << "\n"
 			<< "\tC_PParticle: " << C_PParticle << "\n";
 		ShowInfo(os.str());
 		os.str("");
 	} // DEBUG
 }
-
-///CheckForSmallBiot///
-//bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform temperature distribution (Diss Soeren, chapter 2.2.2, page 27)
-//{
-//	const double Bi = CalcBiotNumber(_time);
-//	if (Bi < SmallBiotNumber)
-//		return true;
-//	else
-//		return false;
-//}
-
-//bool CDryerBatch::LoadDimensions(std::string path)
-//{
-//	return false;
-//}
 
 
 /////////////////////////////////////////////////////////////////
@@ -1421,300 +1411,11 @@ moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _tim
 //	return 0;
 //}
 
-double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq)
-{
-	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
-	if (X <= Xeq)
-	{
-		return 0;
-	}
 
-	switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
-	{
-		case 0: // REA: calculate evaporation rate in form of inverted REA
-			return 1. - REA(X - Xeq);
-			break;
-		case 1: // NCDC: calculate relative drying rate 
-			if (X < X_cr) // 2nd drying period
-			{
-				double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
-				double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
-				/*if (dnu != dnu)
-					RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
-				// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
-				return dnu;
-			}
-			else // 1st drying period
-				return 1;
-			break;
-		case 2: // No curve: only 1st drying period
-			return 1;
-			break;
-	}
-}
-
-
-/////////////////////
-/// Heat transfer ///
-/////////////////////
-double CDryerBatch::CalckAc(double alphaIn, double alphaOut, double L, std::vector<double> d/* Inner to outer diameter*/, std::vector<double> lambda) const
-{
-	double wall = 0;
-	if (lambda.size() == d.size() - 1)
-		for (int i = 0; i < lambda.size(); i++)
-			wall += log(d[i + 1] / d[i]) / lambda[i];
-	double aIn = 0;
-	if ((alphaIn * d.front()) != 0)
-		aIn = 1. / (alphaIn * d.front());
-	double aOut = 0;
-	if ((alphaOut * d.back()) != 0)
-		aIn = 1. / (alphaOut * d.back());
-	double sum = aIn + 1. / 2 * wall + aOut;
-	const double kA = 1. / (1. / MATH_PI / L * sum);
-	return kA;
-	/*
-		lambda of 1.4404 steel = 15 W/m/K at 20°C
-							T°C rho	al	cp	lam
-		S31603				-100	15.0		 [73, 217]
-		Wst-Nr. 1.4404		0		16.0 466
-		X2CrNiMoi17-12-2	20 7956	16.2 470 12.7
-		ASTM/AISI 316L		100		16.7 486 13.8
-							200		17.1 501 15.5
-							400		18.1 518 18.6
-							600		18.8 539 21.7
-							800		19.3 557 24.8
-
-		https://doi.org/10.1007/978-3-662-57572-7_3
-	*/
-}
-
-double CDryerBatch::CalckAp(double alphaIn, double alphaOut, std::vector<double> A, std::vector<double> delta, std::vector<double> lambda) const
-{
-	double wall = 0;
-	if (lambda.size() == A.size() - 2 && lambda.size() == delta.size())
-		for (int i = 0; i < lambda.size(); i++)
-			wall += delta[i] / (lambda[i] * A[i + 1]);
-	double aIn = 0;
-	if ((alphaIn * A.front()) != 0)
-		aIn = 1. / (alphaIn * A.front());
-	double aOut = 0;
-	if ((alphaOut * A.back()) != 0)
-		aIn = 1. / (alphaOut * A.back());
-	double sum = aIn + wall + aOut;
-	const double kA = 1. / sum;
-	return kA;
-}
-
-double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape) const
-{
-	const double Tstar = 0.5 * (Ts + T_inf); // Temperature for properties
-	const double C_PGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::HEAT_CAPACITY_CP, Tstar);
-	const double etaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::VISCOSITY, Tstar);
-	const double lambdaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::THERMAL_CONDUCTIVITY, Tstar);
-	const double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, Tstar);
-
-	const double nyGas = etaGas / rhoGas;
-	const double Pr = C_PGas * etaGas / lambdaGas;
-	const double beta = 1 / (Tstar);
-	const double deltaT = abs(Ts - T_inf);
-	const double Gr = beta * STANDARD_ACCELERATION_OF_GRAVITY * deltaT * pow(h, 3) / pow(nyGas, 2);
-	const double Ra = Gr * Pr;
-
-	// ToDo - Add Ra under angle
-	// ToDo - Implement surface line instead of height
-
-	const double f1 = pow(1. + pow(0.492 / Pr, 9. / 16), -16. / 9);
-	const double NuP = pow(0.825 + 0.387 * pow(Ra * f1, 1. / 6), 2);
-	const double Nu = shape==EShape::CYLINDRICAL? NuP + 0.435 * h / D:NuP;
-	const double alpha = Nu * lambdaGas / h;
-	// Expected range 2.5-25 https://www.sciencedirect.com/topics/engineering/convection-heat-transfer-coefficient
-	return alpha;
-}
-
-double CDryerBatch::CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const
-{
-	/// Get unit parameters
-	double eps_mf = eps_0;				// Bed porosity at minimum fluidization, equal to INITIAL bed porosity [-]
-	double eps_fb = CalculateBedPorosity(_time);						// Bed porosity at operating conditions [-]
-	double dp_p = CalculateHoldupSauter(_time);							// Sauter diameter of particles [m]
-
-	// Calculate modified free path of the gas molecule
-	double C_A = 2.8;
-	double gamma = 1. / (pow(10., 0.6 - (1000. / _t_g + 1.) / C_A) + 1); // gamma, A.3.85
-
-	double l = 2. * (2. / gamma - 1.) * sqrt(2. * MATH_PI * MOLAR_GAS_CONSTANT * _t_g / molarMassGas) * lambdaGas / _p / (2. * C_PGas - MOLAR_GAS_CONSTANT / molarMassGas); //modified free path of the gas molecule, A.3.84
-
-	//Calculate parameter Z and N
-	double C_k = 2.6; //C_k, A.3.82
-	double Nu_pw_max = 4. * ((1. + 2. * l / dp_p) * log(1. + dp_p / 2. / l) - 1.); //Nu_PW,max, A.3.83
-	double Z = 1. / 6. * rhoParticle * C_PParticle / lambdaGas * sqrt(STANDARD_ACCELERATION_OF_GRAVITY * pow(dp_p, 3.) * (eps_fb - eps_mf) / 5. / (1 - eps_mf) / (1 - eps_fb)); //Parameter Z, A.3.80
-	double N = Nu_pw_max / C_k / Z; //Parameter N, A.3.81
-
-	//Calculate Nusselt Number and heat transfer coefficient
-	double Nu_pw = (1. - eps_fb) * Z * (1. - exp(-N));
-	double alpha_pw = Nu_pw * lambdaGas / dp_p;
-
-	return alpha_pw;
-}
-
-double CDryerBatch::CalculateAlpha_GW(double _time) const
-{
-	const double Pr = CalculatePrandtl(_time);
-	const double Ar = CalculateArchimedes(_time);
-	const double NuG = 0.009 * pow(Pr, 1. / 3) * sqrt(Ar);
-	double d = CalculateHoldupSauter(_time);
-	const double alphaGW = NuG * lambdaGas / d;
-	return alphaGW;
-}
-
-double CDryerBatch::CalculateReynolds(double _time, size_t section) const
-{
-	double d = (chamber.at(section).dimensionsInternal.at(0).first + chamber.at(section).dimensionsInternal.at(0).second) / 2;
-	return CalculateGasVel(_time,section)* d* rhoGas / etaGas;
-}
-
-double CDryerBatch::CalculateAlpha_GW(double _time, size_t section) const
-{
-	const double Re = CalculateReynolds(_time, section);
-	const double Pr = CalculatePrandtl(_time);
-	double di = (chamber.at(section).dimensionsInternal.at(0).first + chamber.at(section).dimensionsInternal.at(0).second) / 2;
-	double Nu_m2 = 1.616 * std::cbrt(Re * Pr * di / chamber.at(section).height);
-	double Nu2300 = std::cbrt(pow(3.66, 3) + pow(0.7, 3) + pow(Nu_m2 - 0.7, 3));
-	double zeta = pow(1.8 * log10(Re) - 1.5, -2) / 8;
-	double Nu1e4 = zeta * Re * Pr * (1 + pow(di / chamber.at(section).height, 2. / 3)) / (1. + 12.7 * sqrt(zeta) * (pow(Pr, 2. / 3) - 1));
-	double Nu = 0;
-	if (Re < 2300)
-		Nu = Nu2300;
-	else if (Re > 1e4)
-		Nu = Nu1e4;
-	else
-	{
-		double gamma = (Re - 2300) / (1e4 - 2300);
-		Nu = (1 - gamma) * Nu2300 + gamma * Nu1e4;
-	}
-	const double alphaGW = Nu * lambdaGas / di;
-	return alphaGW;
-}
-
-double CDryerBatch::CalcAlphaParticleGas(double _time) const
-{
-	const double Pr = CalculatePrandtl(_time);
-	const double Re = CalculateReynolds(_time);
-	const double eps = CalculateBedPorosity(_time); // Bed porosity
-	const double Nu_lam = CalculateNusseltSherwoodLam(Re / eps, Pr);
-	const double Nu_turb = CalculateNusseltSherwoodTurb(Re / eps, Pr);
-	const double Nu_SP = CalculateNusseltSherwoodSingleParticle(Nu_lam, Nu_turb);
-	const double d32 = CalculateHoldupSauter(_time); // Sauter diameter of holdup
-	const double Nu_bed = CalculateNusseltSherwoodBed(eps, Nu_SP);
-	const double alpha = Nu_bed * lambdaWater / d32; // Heat transfer coefficient
-	return alpha;
-}
-
-std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit);
-	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
-	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
-	double heightUsage, fullSections;
-	heightUsage = modf(sectionsFilledWithBed, &fullSections);
-
-	double Q_PW = 0;
-	std::vector<double> Q_GW;
-
-	// Fully filled sections
-	for (int section = 0; section < fullSections; section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
-		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-	}
-
-	// Partilly filled section
-
-	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
-	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, fullSections, &Q_GWsection, heightUsage);
-	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-
-	// Fully empty sections
-	for (size_t section = std::max(std::ceil(sectionsFilledWithBed), 1.); section < unit->chamber.size(); section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
-		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-	}
-
-	// Top plate
-	Q_GW.back() += CalculateTopPlateHeatLoss(_time, _unit, _vars);
-	return std::make_pair(Q_PW, Q_GW);
-}
-
-
-/////////////////////
-/// Mass transfer ///
-/////////////////////
-double CDryerBatch::CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure) const
-{
-	switch (DiffCoeff)
-	{
-		case 0: // Dosta (2010): https://doi.org/10.1016/j.powtec.2010.07.018
-			return (23e-5) * pow(avgGasTemperature / T_ref, 1.81); 
-			break;
-	
-		case 1: // Tsotsas
-			return 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
-			break;
-
-		case 2: // correlation Poos & Varju (2020): https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-			const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE); // critical temperature air
-			const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE); // critical temperature of liquid on particle (water)
-			const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS) / GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
-			const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS) / GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01) * 1e6;
-			return (1.498e-6 * pow(filmTemperature, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
-				/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
-			break;
-	}
-}
-
-double CDryerBatch::CalculateBetaPA(double _time, double avgGasTemperature, double filmTemperature, double D) const
-{
-	if (avgGasTemperature != avgGasTemperature || filmTemperature != filmTemperature || avgGasTemperature < 0 || filmTemperature < 0)
-		return -1;
-	if (beta_GP >= 0)
-		return beta_GP;
-
-	//// VDI M5.2
-	//const double D_Dosta = (23e-5) * pow(avgGasTemperature / T_ref, 1.81); // Diffustion coefficient water vapor in air
-	//// Dosta 2010 A.3
-	//const double D_Poos = CalculateDiffusionCoefficient(_time,filmTemperature);
-	//// https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-	//const double D_Tsotsas = 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
-	//double D = 1;
-	//switch (DiffCoeff) {
-	//case 1:
-	//	D = D_Dosta;
-	//	break;
-	//case 2:
-	//	D = D_Tsotsas;
-	//	break;
-	//default:
-	//	D = D_Poos;
-	//	break;
-	//}
-	const double Sc = etaGas / (D * rhoGas);
-	const double Re = CalculateReynolds(_time);
-	const double eps = CalculateBedPorosity(_time); // Bed porosity
-	const double Sh_lam = CalculateNusseltSherwoodLam(Re / eps, Sc);
-	const double Sh_turb = CalculateNusseltSherwoodTurb(Re / eps, Sc);
-	const double Sh = CalculateNusseltSherwoodSingleParticle(Sh_lam, Sh_turb);
-	const double d32 = CalculateHoldupSauter(_time); // Sauter diameter of holdup
-	const double beta_FA = CalculateNusseltSherwoodBed(eps, Sh) * D / d32; // Mass transfer coefficient // ToDO - Look at this!
-	// Dosta 2010 A.3
-
-	return beta_FA;
-}
-
+///////////////////////////////////
 /// Bed and particle properties ///
-double CDryerBatch::CalculateHoldupSauter(double _time) const
+///////////////////////////////////
+length CDryerBatch::CalculateHoldupSauter(double _time) const
 {
 	std::vector<double> sizeGrid = GetNumericGrid(DISTR_SIZE);
 	std::vector<double> q3_holdup = m_holdup->GetPSD(_time, PSD_q3);
@@ -1731,17 +1432,17 @@ area CDryerBatch::CalculateParticleSurfaceArea(double _time) const
 	return A;
 }
 
-double CDryerBatch::CalculateBedHeight(double _time, double particleTemperature)
+length CDryerBatch::CalculateBedHeight(double _time, double particleTemperature)
 {
 	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
-	const double volumeSolid =  massSolid / densitySolid;
+	const double volumeSolid = massSolid / densitySolid;
 	const double eps = CalculateBedPorosity(_time);
 	const double volumeBed = volumeSolid / (1. - eps);
 	double volumeOfFilledSections = 0;
 	size_t numberOfFilledSection = 0;
 	double heightOfFilledSection = 0;
-	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection)+ volumeOfFilledSections))
+	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection) + volumeOfFilledSections))
 	{
 		volumeOfFilledSections += CalculateSectionVolume(numberOfFilledSection);
 		heightOfFilledSection += chamber.at(numberOfFilledSection).height;
@@ -1754,7 +1455,7 @@ double CDryerBatch::CalculateBedHeight(double _time, double particleTemperature)
 	double R = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).second / 2;
 	double h = chamber.at(numberOfFilledSection).height;
 	const double tanWallAngle = (R - r) / h;
-	const double heightBed = heightOfFilledSection -std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2))-r / tanWallAngle;
+	const double heightBed = heightOfFilledSection - std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2)) - r / tanWallAngle;
 	return heightBed;
 }
 
@@ -1789,17 +1490,6 @@ double CDryerBatch::CalculateBedHeightOrDetermineSectionsFilledWithBed(double _t
 		return numberOfFilledSection + bedHeight / h;
 }
 
-double CDryerBatch::CalculateBedPorosity(double _time, bool homogeniusFluidization) const
-{
-	const double Ar = CalculateArchimedes(_time);
-	const double ReL = 42.9 * (1.-eps_0)*(sqrt(1.+pow(eps_0,3)*Ar/(3214*pow(1.-eps_0,2)))-1);
-	const double ReA = homogeniusFluidization ? 18*pow(sqrt(1.+sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
-	const double Re = CalculateReynolds(_time);
-	const double n = log(ReL / ReA) / log(eps_0);
-	const double eps = pow(Re / ReA, 1 / n);
-	return eps;
-}
-
 void CDryerBatch::SetupChamber()
 {
 	if (chamber.size() == 0)
@@ -1826,132 +1516,197 @@ void CDryerBatch::SetupChamber()
 	}
 }
 
-/// testing
-//void CDryerBatch::Testing()
-//{
-//	/*std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
-//	std::vector<double> layerGasMass(N_total,0);
-//	std::vector<std::vector<double>> masses(inGasStreamTimePoints.size(), layerGasMass);
-//	for (int i = 0; i < inGasStreamTimePoints.size();i++)
-//		masses.at(i) = GetGasMassOfLayers(inGasStreamTimePoints.at(i), STANDARD_CONDITION_T, STANDARD_CONDITION_T);
-//	std::vector<double> diff1(N_total, 0);
-//	std::vector<double> diff2(N_total, 0);
-//	for (int i = 0; i < N_total; i++)
-//	{
-//		diff1.at(i) = masses.at(2).at(i) - masses.at(0).at(i);
-//		diff2.at(i) = masses.at(4).at(i) - masses.at(2).at(i);
-//	}*/
-//}
 
-double CDryerBatch::CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage)
+/////////////////////////////
+/// Dimensionless numbers ///
+/////////////////////////////
+dimensionlessNumber CDryerBatch::CalculateReynolds(double _time, length d32) const
 {
-	if (chamber.at(section).thermalConductivities.size() != chamber.at(section).wallThicknesses.size() || heightUsage > 1 || heightUsage <= -1)
-	{
-		std::ostringstream  os;
-		os << "CalculateOverallHeatTransferCoefficientCylinder has encountered an error in section: ";
-		os << section;
-		os << ".\nCheck if numer of wall thicknesses is equal to thermal conductivities.";
-		os << "\nOr heightUsage was out of bounds.";
-		RaiseError(os.str());
-	}
-		const double tanWallAngle = (chamber.at(section).dimensionsInternal.at(0).second - chamber.at(section).dimensionsInternal.at(0).first) / (2 * chamber.at(section).height);
-	
-	double h, R, r, R_Plus_r;
-
-	if (heightUsage > 0)
-	{
-		h = heightUsage * chamber.at(section).height;
-		r = chamber.at(section).dimensionsInternal.at(0).first / 2;
-		R = h * tanWallAngle + r;
-		R_Plus_r = (R + r);
-	}
-	else
-	{
-		h = (1-heightUsage) * chamber.at(section).height;
-		R = chamber.at(section).dimensionsInternal.at(0).second / 2;
-		r = R - h * tanWallAngle;
-		R_Plus_r = (R + r);
-	}
-
-	double wall = 0;
-	for (int i = 0; i < chamber.at(section).thermalConductivities.size(); i++)
-	{
-		double sumWallThicknesses = 0;
-		for (int j = 0; j < chamber.at(section).wallThicknesses.size() - 1; j++)
-			sumWallThicknesses += chamber.at(section).wallThicknesses.at(j);
-		wall += log((R_Plus_r + 2 * (chamber.at(section).wallThicknesses.at(i) + sumWallThicknesses)) / (R_Plus_r + sumWallThicknesses)) / chamber.at(section).thermalConductivities.at(i);
-	}
-	double sumWallThicknesses = 0;
-	for (int i = 0; i < chamber.at(section).wallThicknesses.size(); i++)
-		sumWallThicknesses += chamber.at(section).wallThicknesses.at(i);
-	double aIn = 0;
-	if (alphaInternal * R_Plus_r != 0)
-		aIn = 1. / (alphaInternal * R_Plus_r);
-	double aOut = 0;
-	if (alphaExternal * (R_Plus_r + sumWallThicknesses) != 0)
-		aIn = 1. / (alphaExternal * (R_Plus_r + sumWallThicknesses));
-	double sum = aIn + 1. / 2 * wall + aOut;
-
-	const double m = sqrt(pow(R - r, 2) + pow(h, 2));
-	const double kA = 1. / (sum / (MATH_PI * m));
-	return kA;
+	double u_Gas = CalculateGasVel(_time, d32);
+	return (d32 * u_Gas * rhoGas) / etaGas;
 }
 
-double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal)
+dimensionlessNumber CDryerBatch::CalculatePrandtl(double _time, temperature avgGasTemperature) const
 {
-	if (chamber.back().thermalConductivities.size() != chamber.back().wallThicknesses.size())
-		bool error = true;
-	double A = 0;
-	if (chamber.back().shape == EShape::CYLINDRICAL)
-		A = pow(chamber.back().dimensionsInternal.at(0).second,2) * MATH_PI/4;
-	else
-		A = chamber.back().dimensionsInternal.at(0).second * chamber.back().dimensionsInternal.at(1).second;
+	temperature avgGasTheta = avgGasTemperature - T_ref;
+	return 0.702 - 2.63e-4 * avgGasTheta - 1.05e-6 * pow(avgGasTheta, 2) - 1.52e-9 * pow(avgGasTheta, 3);
+}
 
-	double wall = 0;
-	for (int i = 0; i < chamber.back().thermalConductivities.size(); i++)
-		wall += chamber.back().wallThicknesses.at(i) / (chamber.back().thermalConductivities.at(i) * A);
-	double aIn = 0;
-	if ((alphaInternal * A) != 0)
-		aIn = 1. / (alphaInternal * A);
-	double aOut = 0;
-	if ((alphaExternal * A) != 0)
-		aIn = 1. / (alphaExternal * A);
-	double sum = aIn + wall + aOut;
-	if (sum == 0)
-		bool error = true;
-	const double kA = 1. / sum;
-	return kA;
+dimensionlessNumber CDryerBatch::CalculateSchmidt(double _time, double D_a) const
+{
+	return etaGas / (rhoGas * D_a);
+}
+
+dimensionlessNumber CDryerBatch::CalculateArchimedes(double _time, length d32) const
+{
+	return STANDARD_ACCELERATION_OF_GRAVITY * pow(d32, 3) * (rhoParticle - rhoGas) * rhoGas / pow(etaGas, 2);
+}
+
+dimensionlessNumber CDryerBatch::CalculateNusseltSherwoodLam(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
+{
+	return 0.664 * pow(Pr_Sc, 1 / 3) * sqrt(Re);
+}
+
+dimensionlessNumber CDryerBatch::CalculateNusseltSherwoodTurb(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
+{
+	return (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+}
+
+dimensionlessNumber CDryerBatch::CalculateNusseltSherwood(dimensionlessNumber Nu_Sh_lam, dimensionlessNumber Nu_Sh_turb) const
+{
+	return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
+}
+
+/// CalculateReynolds for discretized height, currently not in use
+//dimensionlessNumber CDryerBatch::CalculateReynolds(double _time, size_t section) const
+//{
+//	double d = (chamber.at(section).dimensionsInternal.at(0).first + chamber.at(section).dimensionsInternal.at(0).second) / 2;
+//	return CalculateGasVel(_time,section)* d* rhoGas / etaGas;
+//}
+
+/// CheckForSmallBiot, CURRENTLY NOT IN USE
+//bool CDryerBatch::CheckForSmallBiot(double _time) const // Needed for uniform temperature distribution (Diss Soeren, chapter 2.2.2, page 27)
+//{
+//	const double Bi = CalcBiotNumber(_time);
+//	if (Bi < SmallBiotNumber)
+//		return true;
+//	else
+//		return false;
+//}
+//bool CDryerBatch::LoadDimensions(std::string path)
+//{
+//	return false;
+//}
+
+
+/////////////////////
+/// Mass transfer ///
+/////////////////////
+double CDryerBatch::CalculateDiffusionCoefficient(double _time, temperature avgGasTemperature, temperature filmTemperature, pressure pressure) const
+// temperatures in [K]
+{
+	switch (DiffCoeff)
+	{
+	case 0: // Dosta (2010): https://doi.org/10.1016/j.powtec.2010.07.018
+		return (23e-5) * pow(avgGasTemperature / T_ref, 1.81);
+		break;
+
+	case 1: // Tsotsas
+		return 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
+		break;
+
+	case 2: // correlation Poos & Varju (2020): https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
+		const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE); // critical temperature air
+		const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE); // critical temperature of liquid on particle (water)
+		const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS) / GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
+		const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS) / GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01) * 1e6;
+		return (1.498e-6 * pow(filmTemperature, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
+			/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
+		break;
+	}
+}
+
+massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, temperature avgGasTemperature, temperature filmTemperature) const
+{
+	/*if (avgGasTemperature != avgGasTemperature || filmTemperature != filmTemperature || avgGasTemperature < 0 || filmTemperature < 0)
+		return -1;
+	if (beta_GP >= 0)
+		return beta_GP;*/
+
+		//// VDI M5.2
+		//const double D_Dosta = (23e-5) * pow(avgGasTemperature / T_ref, 1.81); // Diffustion coefficient water vapor in air
+		//// Dosta 2010 A.3
+		//const double D_Poos = CalculateDiffusionCoefficient(_time,filmTemperature);
+		//// https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
+		//const double D_Tsotsas = 2.252 / m_holdup->GetPressure(_time) * pow(avgGasTemperature / T_ref, 1.81);
+		//double D = 1;
+		//switch (DiffCoeff) {
+		//case 1:
+		//	D = D_Dosta;
+		//	break;
+		//case 2:
+		//	D = D_Tsotsas;
+		//	break;
+		//default:
+		//	D = D_Poos;
+		//	break;
+		//}
+	const double D_a = CalculateDiffusionCoefficient(_time, avgGasTemperature, filmTemperature);
+	const double Sc = etaGas / (D_a * rhoGas);
+	const double Re = CalculateReynolds(_time, d32);
+	const double eps = CalculateBedPorosity(_time); // Bed porosity
+	const double Sh_lam = CalculateNusseltSherwoodLam(Re / eps, Sc);
+	const double Sh_turb = CalculateNusseltSherwoodTurb(Re / eps, Sc);
+	const double Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
+	const double beta = CalculateNusseltSherwoodBed(eps, Sh) * D_a / d32; // Mass transfer coefficient // ToDO - Look at this!
+	// Dosta 2010 A.3
+	return beta;
+}
+
+/////////////////////
+/// Heat transfer ///
+/////////////////////
+double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const
+{
+	const double Pr = CalculatePrandtl(_time, avgGasTemperature);
+	const double Re = CalculateReynolds(_time, d32);
+	const double eps = CalculateBedPorosity(_time); // Bed porosity
+	const double Nu_lam = CalculateNusseltSherwoodLam(Re, Pr);
+	const double Nu_turb = CalculateNusseltSherwoodTurb(Re, Pr);
+	const double Nu_GP = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+	const double Nu_bed = CalculateNusseltSherwoodBed(eps, Nu_GP);
+	const double alpha_GP = Nu_bed * (1 + 1.5 * (1 - eps)) * lambdaGas / d32; // Heat transfer coefficient
+	return alpha_GP;
+}
+
+double CDryerBatch::CalculateAlpha_PF(double alpha_GP) const
+{
+	double f_alpha = 1;
+	return alpha_GP * f_alpha;
+	// TODO: CALCULATE FROM DISS RIECK BASED ON Nu = 2
 }
 
 
 ////////////////////
 /// Fluiddynamic ///
 ////////////////////
-double CDryerBatch::CalculateMinFluidizeVel(double _time) const
+double CDryerBatch::CalculateMinFluidizeVel(double _time, length d32) const
 {
-	double d32 = CalculateHoldupSauter(_time);
 	double u_mf = this->u_mf;
 	if (u_mf == 0)
 	{
-		double Ar_mf = CalculateArchimedes(_time);
-		double Re_mf = 33.7 * (sqrt(1. + 3.6e-5 * Ar_mf) - 1);
+		dimensionlessNumber Ar_mf = CalculateArchimedes(_time, d32);
+		dimensionlessNumber Re_mf = 33.7 * (sqrt(1. + 3.6e-5 * Ar_mf) - 1); // correlation Wen&Yu
 		u_mf = Re_mf * etaGas / (d32 * rhoGas);
 	}
 	return u_mf;
 }
 
-double CDryerBatch::CalculateGasVel(double _time, size_t section) const
+double CDryerBatch::CalculateGasVel(double _time, length d32) const
 {
-	double mFlow_gasIn = m_inGasStream->GetMassFlow(_time);
+	massFlow mFlow_gasIn = m_inGasStream->GetMassFlow(_time);
 	double VFlow_gasIn = mFlow_gasIn / rhoGas;
-	double area_bed = MATH_PI * pow(chamber.at(0).dimensionsInternal.at(0).first, 2) / 4;
+	area area_bed = MATH_PI * pow(chamber.at(0).dimensionsInternal.at(0).first, 2) / 4;
 	double u_gasIn = VFlow_gasIn / area_bed;
-	double u_mf = CalculateMinFluidizeVel(_time);
-	double u_gasHoldup = (u_gasIn - u_mf) / 3 + u_mf; // porous plate distributor
-	if (section > 0)
+	double u_mf = CalculateMinFluidizeVel(_time, d32);
+	double u_gasHoldup = (u_gasIn - u_mf) / 3 + u_mf; // porous plate distributor, from Soeren Diss page 86, eq. 4.12
+	return u_gasHoldup;
+	/*if (section > 0)
 		return u_gasHoldup * (pow(chamber.at(0).dimensionsInternal.at(0).first, 2) / pow(chamber.at(section).dimensionsInternal.at(0).first, 2));
 	else
-		return u_gasHoldup;
+		return u_gasHoldup;*/
+	
+}
+
+double CDryerBatch::CalculateBedPorosity(double _time, bool homogeniusFluidization) const // Stephan et al. (2019) VDI-Waermeatlas.
+{
+	const double Ar = CalculateArchimedes(_time, d32);
+	const double ReL = 42.9 * (1. - eps_0) * (sqrt(1. + pow(eps_0, 3) * Ar / (3214 * pow(1. - eps_0, 2))) - 1);
+	const double ReA = homogeniusFluidization ? 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
+	const double Re = CalculateReynolds(_time, d32);
+	const double n = log(ReL / ReA) / log(eps_0);
+	const double eps = pow(Re / ReA, 1 / n);
+	return eps;
 }
 
 double CDryerBatch::DetermineSectionsFilledWithBed(double _time, double particleTemperature)
@@ -1971,8 +1726,6 @@ double CDryerBatch::DetermineSectionsFilledWithBed(double _time, double particle
 	double filledHeight = chamberHeight - chamber.at(sectionFilled).height;
 	return sectionFilled -1 + (bedHeight - filledHeight) / chamber.at(sectionFilled).height;
 }
-
-
 
 
 //----------------------------------:)---- take a break ----:)-----------------------------------------//
@@ -2103,6 +1856,7 @@ double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, do
 	return -1;
 }
 
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Function related to particle X from materials database (sorption isotherm), CURRENTLY NOT IN USE ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2215,10 +1969,219 @@ bool CDryerBatch::InitializeMoistureContentDatabase(std::string path)
 	return true;
 }
 
+double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq)
+{
+	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
+	if (X <= Xeq)
+	{
+		return 0;
+	}
+
+	switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
+	{
+	case 0: // REA: calculate evaporation rate in form of inverted REA
+		return 1. - REA(X - Xeq);
+		break;
+	case 1: // NCDC: calculate relative drying rate 
+		if (X < X_cr) // 2nd drying period
+		{
+			double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
+			double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
+			/*if (dnu != dnu)
+				RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
+				// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
+			return dnu;
+		}
+		else // 1st drying period
+			return 1;
+		break;
+	case 2: // No curve: only 1st drying period
+		return 1;
+		break;
+	}
+}
+
+
+//////////////////////////////////////////////////////////
+/// Heat loss to environment, CURRENTLY NOT IN USE     ///
+//////////////////////////////////////////////////////////
+double CDryerBatch::CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const
+{
+	/// Get unit parameters
+	double eps_mf = eps_0;				// Bed porosity at minimum fluidization, equal to INITIAL bed porosity [-]
+	double eps_fb = CalculateBedPorosity(_time);						// Bed porosity at operating conditions [-]
+	double dp_p = CalculateHoldupSauter(_time);							// Sauter diameter of particles [m]
+
+	// Calculate modified free path of the gas molecule
+	double C_A = 2.8;
+	double gamma = 1. / (pow(10., 0.6 - (1000. / _t_g + 1.) / C_A) + 1); // gamma, A.3.85
+
+	double l = 2. * (2. / gamma - 1.) * sqrt(2. * MATH_PI * MOLAR_GAS_CONSTANT * _t_g / molarMassGas) * lambdaGas / _p / (2. * C_PGas - MOLAR_GAS_CONSTANT / molarMassGas); //modified free path of the gas molecule, A.3.84
+
+	//Calculate parameter Z and N
+	double C_k = 2.6; //C_k, A.3.82
+	double Nu_pw_max = 4. * ((1. + 2. * l / dp_p) * log(1. + dp_p / 2. / l) - 1.); //Nu_PW,max, A.3.83
+	double Z = 1. / 6. * rhoParticle * C_PParticle / lambdaGas * sqrt(STANDARD_ACCELERATION_OF_GRAVITY * pow(dp_p, 3.) * (eps_fb - eps_mf) / 5. / (1 - eps_mf) / (1 - eps_fb)); //Parameter Z, A.3.80
+	double N = Nu_pw_max / C_k / Z; //Parameter N, A.3.81
+
+	//Calculate Nusselt Number and heat transfer coefficient
+	double Nu_pw = (1. - eps_fb) * Z * (1. - exp(-N));
+	double alpha_pw = Nu_pw * lambdaGas / dp_p;
+
+	return alpha_pw;
+}
+
+double CDryerBatch::CalculateAlpha_GW(double _time, temperature avgGasTemperature) const
+{
+	const double Pr = CalculatePrandtl(_time, avgGasTemperature);
+	const double Ar = CalculateArchimedes(_time, d32);
+	const double NuG = 0.009 * pow(Pr, 1. / 3) * sqrt(Ar);
+	double d = CalculateHoldupSauter(_time);
+	const double alphaGW = NuG * lambdaGas / d;
+	return alphaGW;
+}
+
+double CDryerBatch::CalckAc(double alphaIn, double alphaOut, double L, std::vector<double> d/* Inner to outer diameter*/, std::vector<double> lambda) const
+{
+	double wall = 0;
+	if (lambda.size() == d.size() - 1)
+		for (int i = 0; i < lambda.size(); i++)
+			wall += log(d[i + 1] / d[i]) / lambda[i];
+	double aIn = 0;
+	if ((alphaIn * d.front()) != 0)
+		aIn = 1. / (alphaIn * d.front());
+	double aOut = 0;
+	if ((alphaOut * d.back()) != 0)
+		aIn = 1. / (alphaOut * d.back());
+	double sum = aIn + 1. / 2 * wall + aOut;
+	const double kA = 1. / (1. / MATH_PI / L * sum);
+	return kA;
+	/*
+		lambda of 1.4404 steel = 15 W/m/K at 20°C
+							T°C rho	al	cp	lam
+		S31603				-100	15.0		 [73, 217]
+		Wst-Nr. 1.4404		0		16.0 466
+		X2CrNiMoi17-12-2	20 7956	16.2 470 12.7
+		ASTM/AISI 316L		100		16.7 486 13.8
+							200		17.1 501 15.5
+							400		18.1 518 18.6
+							600		18.8 539 21.7
+							800		19.3 557 24.8
+
+		https://doi.org/10.1007/978-3-662-57572-7_3
+	*/
+}
+
+double CDryerBatch::CalckAp(double alphaIn, double alphaOut, std::vector<double> A, std::vector<double> delta, std::vector<double> lambda) const
+{
+	double wall = 0;
+	if (lambda.size() == A.size() - 2 && lambda.size() == delta.size())
+		for (int i = 0; i < lambda.size(); i++)
+			wall += delta[i] / (lambda[i] * A[i + 1]);
+	double aIn = 0;
+	if ((alphaIn * A.front()) != 0)
+		aIn = 1. / (alphaIn * A.front());
+	double aOut = 0;
+	if ((alphaOut * A.back()) != 0)
+		aIn = 1. / (alphaOut * A.back());
+	double sum = aIn + wall + aOut;
+	const double kA = 1. / sum;
+	return kA;
+}
+
+double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape) const
+{
+	const double Tstar = 0.5 * (Ts + T_inf); // Temperature for properties
+	const double C_PGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::HEAT_CAPACITY_CP, Tstar);
+	const double etaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::VISCOSITY, Tstar);
+	const double lambdaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::THERMAL_CONDUCTIVITY, Tstar);
+	const double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, Tstar);
+
+	const double nyGas = etaGas / rhoGas;
+	const double Pr = C_PGas * etaGas / lambdaGas;
+	const double beta = 1 / (Tstar);
+	const double deltaT = abs(Ts - T_inf);
+	const double Gr = beta * STANDARD_ACCELERATION_OF_GRAVITY * deltaT * pow(h, 3) / pow(nyGas, 2);
+	const double Ra = Gr * Pr;
+
+	// ToDo - Add Ra under angle
+	// ToDo - Implement surface line instead of height
+
+	const double f1 = pow(1. + pow(0.492 / Pr, 9. / 16), -16. / 9);
+	const double NuP = pow(0.825 + 0.387 * pow(Ra * f1, 1. / 6), 2);
+	const double Nu = shape == EShape::CYLINDRICAL ? NuP + 0.435 * h / D : NuP;
+	const double alpha = Nu * lambdaGas / h;
+	// Expected range 2.5-25 https://www.sciencedirect.com/topics/engineering/convection-heat-transfer-coefficient
+	return alpha;
+}
+
+std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
+{
+	auto* unit = static_cast<CDryerBatch*>(_unit);
+	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
+	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
+	double heightUsage, fullSections;
+	heightUsage = modf(sectionsFilledWithBed, &fullSections);
+
+	double Q_PW = 0;
+	std::vector<double> Q_GW;
+
+	// Fully filled sections
+	for (int section = 0; section < fullSections; section++)
+	{
+		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
+		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+	}
+
+	// Partilly filled section
+
+	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
+	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, fullSections, &Q_GWsection, heightUsage);
+	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+
+	// Fully empty sections
+	for (size_t section = std::max(std::ceil(sectionsFilledWithBed), 1.); section < unit->chamber.size(); section++)
+	{
+		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
+		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+	}
+
+	// Top plate
+	Q_GW.back() += CalculateTopPlateHeatLoss(_time, _unit, _vars);
+	return std::make_pair(Q_PW, Q_GW);
+}
+
+/// calculate alpha_GW for discretized height, CURRENLTY NOT IN USE
+//double CDryerBatch::CalculateAlpha_GW(double _time, size_t section) const
+//{
+//	const double Re = CalculateReynolds(_time, section);
+//	const double Pr = CalculatePrandtl(_time);
+//	double di = (chamber.at(section).dimensionsInternal.at(0).first + chamber.at(section).dimensionsInternal.at(0).second) / 2;
+//	double Nu_m2 = 1.616 * std::cbrt(Re * Pr * di / chamber.at(section).height);
+//	double Nu2300 = std::cbrt(pow(3.66, 3) + pow(0.7, 3) + pow(Nu_m2 - 0.7, 3));
+//	double zeta = pow(1.8 * log10(Re) - 1.5, -2) / 8;
+//	double Nu1e4 = zeta * Re * Pr * (1 + pow(di / chamber.at(section).height, 2. / 3)) / (1. + 12.7 * sqrt(zeta) * (pow(Pr, 2. / 3) - 1));
+//	double Nu = 0;
+//	if (Re < 2300)
+//		Nu = Nu2300;
+//	else if (Re > 1e4)
+//		Nu = Nu1e4;
+//	else
+//	{
+//		double gamma = (Re - 2300) / (1e4 - 2300);
+//		Nu = (1 - gamma) * Nu2300 + gamma * Nu1e4;
+//	}
+//	const double alphaGW = Nu * lambdaGas / di;
+//	return alphaGW;
+//}
+
+
 ///////////////////////////////////////////////////////////////////////////////////
 /// Calculation about sections, for height discretization, CURRENTLY NOT IN USE ///
 ///////////////////////////////////////////////////////////////////////////////////
-/// CheckHeightDiscretizationLayers ///
+/// CheckHeightDiscretizationLayers
 //void CDryerBatch::CheckHeightDiscretizationLayers(double _time)
 //{
 //	N_particle = this->GetConstIntParameterValue("N_el");
@@ -2335,6 +2298,103 @@ double CDryerBatch::CalculateSectionVolume(size_t section)
 	}
 
 	return sectionVolume;
+}
+
+/// testing
+//void CDryerBatch::Testing()
+//{
+//	/*std::vector<double> inGasStreamTimePoints = m_inGasStream->GetAllTimePoints();
+//	std::vector<double> layerGasMass(N_total,0);
+//	std::vector<std::vector<double>> masses(inGasStreamTimePoints.size(), layerGasMass);
+//	for (int i = 0; i < inGasStreamTimePoints.size();i++)
+//		masses.at(i) = GetGasMassOfLayers(inGasStreamTimePoints.at(i), STANDARD_CONDITION_T, STANDARD_CONDITION_T);
+//	std::vector<double> diff1(N_total, 0);
+//	std::vector<double> diff2(N_total, 0);
+//	for (int i = 0; i < N_total; i++)
+//	{
+//		diff1.at(i) = masses.at(2).at(i) - masses.at(0).at(i);
+//		diff2.at(i) = masses.at(4).at(i) - masses.at(2).at(i);
+//	}*/
+//}
+
+double CDryerBatch::CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage)
+{
+	if (chamber.at(section).thermalConductivities.size() != chamber.at(section).wallThicknesses.size() || heightUsage > 1 || heightUsage <= -1)
+	{
+		std::ostringstream  os;
+		os << "CalculateOverallHeatTransferCoefficientCylinder has encountered an error in section: ";
+		os << section;
+		os << ".\nCheck if numer of wall thicknesses is equal to thermal conductivities.";
+		os << "\nOr heightUsage was out of bounds.";
+		RaiseError(os.str());
+	}
+	const double tanWallAngle = (chamber.at(section).dimensionsInternal.at(0).second - chamber.at(section).dimensionsInternal.at(0).first) / (2 * chamber.at(section).height);
+
+	double h, R, r, R_Plus_r;
+
+	if (heightUsage > 0)
+	{
+		h = heightUsage * chamber.at(section).height;
+		r = chamber.at(section).dimensionsInternal.at(0).first / 2;
+		R = h * tanWallAngle + r;
+		R_Plus_r = (R + r);
+	}
+	else
+	{
+		h = (1 - heightUsage) * chamber.at(section).height;
+		R = chamber.at(section).dimensionsInternal.at(0).second / 2;
+		r = R - h * tanWallAngle;
+		R_Plus_r = (R + r);
+	}
+
+	double wall = 0;
+	for (int i = 0; i < chamber.at(section).thermalConductivities.size(); i++)
+	{
+		double sumWallThicknesses = 0;
+		for (int j = 0; j < chamber.at(section).wallThicknesses.size() - 1; j++)
+			sumWallThicknesses += chamber.at(section).wallThicknesses.at(j);
+		wall += log((R_Plus_r + 2 * (chamber.at(section).wallThicknesses.at(i) + sumWallThicknesses)) / (R_Plus_r + sumWallThicknesses)) / chamber.at(section).thermalConductivities.at(i);
+	}
+	double sumWallThicknesses = 0;
+	for (int i = 0; i < chamber.at(section).wallThicknesses.size(); i++)
+		sumWallThicknesses += chamber.at(section).wallThicknesses.at(i);
+	double aIn = 0;
+	if (alphaInternal * R_Plus_r != 0)
+		aIn = 1. / (alphaInternal * R_Plus_r);
+	double aOut = 0;
+	if (alphaExternal * (R_Plus_r + sumWallThicknesses) != 0)
+		aIn = 1. / (alphaExternal * (R_Plus_r + sumWallThicknesses));
+	double sum = aIn + 1. / 2 * wall + aOut;
+
+	const double m = sqrt(pow(R - r, 2) + pow(h, 2));
+	const double kA = 1. / (sum / (MATH_PI * m));
+	return kA;
+}
+
+double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal)
+{
+	if (chamber.back().thermalConductivities.size() != chamber.back().wallThicknesses.size())
+		bool error = true;
+	double A = 0;
+	if (chamber.back().shape == EShape::CYLINDRICAL)
+		A = pow(chamber.back().dimensionsInternal.at(0).second, 2) * MATH_PI / 4;
+	else
+		A = chamber.back().dimensionsInternal.at(0).second * chamber.back().dimensionsInternal.at(1).second;
+
+	double wall = 0;
+	for (int i = 0; i < chamber.back().thermalConductivities.size(); i++)
+		wall += chamber.back().wallThicknesses.at(i) / (chamber.back().thermalConductivities.at(i) * A);
+	double aIn = 0;
+	if ((alphaInternal * A) != 0)
+		aIn = 1. / (alphaInternal * A);
+	double aOut = 0;
+	if ((alphaExternal * A) != 0)
+		aIn = 1. / (alphaExternal * A);
+	double sum = aIn + wall + aOut;
+	if (sum == 0)
+		bool error = true;
+	const double kA = 1. / sum;
+	return kA;
 }
 
 std::vector<double> CDryerBatch::GetSectionGasMass(double _time, double gasTemperature, double particleTemperature)
@@ -2482,7 +2542,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 		return 0;
 
 	const double alphaGPipe = unit->CalculateAlpha_GW(_time, section);
-	const double alphaGFB = unit->CalculateAlpha_GW(_time);
+	//const double alphaGFB = unit->CalculateAlpha_GW(_time, );
 	size_t layersOfPrevSections = 0;
 	for (size_t i = 0; i < section; i++)
 	{
@@ -2521,7 +2581,7 @@ double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double
 			kA_P = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaPFB, alphaOut, usedLayerPercentage);
 			Q_PW = unit->particlesGlobal ? kA_P * (_vars[m_iTempParticle] - unit->T_inf) : 0;
 
-			kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGFB, alphaOut, usedLayerPercentage);
+			//kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGFB, alphaOut, usedLayerPercentage);
 			for (int i = 0; i < usedLayers; i++)
 				Q_GW->at(i) = kA_G / usedLayers * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
 
