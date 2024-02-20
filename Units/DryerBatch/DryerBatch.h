@@ -124,18 +124,21 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Inlet fluidization gas
-		massFlow mFlowInAir;
-		massFlow mFlowInAirDry;
-		moistureContent Y_in; // Moisture content of input gas stream [kg/kg]
-		specificLatentHeat h_in; // enthalpy for inlet gas: determined by user input
-		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
+		massFlow mFlowInGas;
+		massFlow mFlowInGasDry;
+		moistureContent Y_inGas; // Moisture content of input gas stream [kg/kg]
+		double RH_inGas;
+		specificLatentHeat h_inGas; // enthalpy for inlet gas: determined by user input, in [J/kg]
+		temperature theta_inGas; 
 	// Inlet nozzle gas
 		massFlow mFlowInNozzleGas;
 		massFlow mFlowInNozzleGasDry;
 		moistureContent Y_nozzle;
+		//specificLatentHeat h_inNozzle;
 		temperature thetaNozzleGas;
 	// Gas in holdup (whole plant, incl. chamber & expansion)
 		mass mGasHoldup = 0.62; // mass of gas in the plant (chamber + expansion part) [kg]
+		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
 		
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
@@ -149,7 +152,7 @@ public:
 		mass mLiquidHoldup;
 	// Spray liquid
 		massFlow mFlowSprayLiquid;
-		massFraction x_wSusp; // = 1; // water mass fraction of suspension [kg/kg] - default: 1
+		massFraction x_wSusp; 
 		temperature thetaSprayLiquid;
 	// Particle (solid) phase
 		std::vector<double> Grid; // d_min
@@ -219,7 +222,7 @@ public:
 	const temperature TempLiquidOld = T_ref;
 	const temperature TempGasOld = T_ref;
 	const temperature TempSolidOld = T_ref;
-	const moistureContent YavgOld = Y_in;
+	const moistureContent YavgOld = Y_inGas;
 	int DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
 
 	double EnergyLiquidPhaseOld = 0;
@@ -241,8 +244,8 @@ public:
 	 *	\return sauter diameter in meter*/
 	length CalculateHoldupSauter(double _time) const;
 	area CalculateParticleSurfaceArea(double _time) const;
-	massFraction CalculateMassFracFromMoistContent(moistureContent Y);
-	moistureContent CalculateMoistContentFromMassFrac(massFraction y);
+	massFraction CalculateMassFracFromMoistContent(moistureContent Y) const;
+	moistureContent CalculateMoistContentFromMassFrac(massFraction y) const;
 	// Returns gas moisture content for relativ humidity times saturation pressure [kg liquid per kg dry gas]
 	moistureContent GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas = STANDARD_CONDITION_P);
 	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
