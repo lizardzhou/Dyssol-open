@@ -145,11 +145,15 @@ void CDryerSimpleBatch::Simulate(double _timeBeg, double _timeEnd)
 void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _ders, double* _res, void* _unit)
 {
 	const auto* unit = static_cast<CDryerSimpleBatch*>(_unit);
+	const CStream* inWaterStream = unit->GetPortStream("InletWater");
+	const CStream* inGasStream = unit->GetPortStream("InletFluidizationGas");
+	const CHoldup* holdup = unit->GetHoldup("Holdup");
+
 
 	/// Read input parameters /// 
-	const double mFlowWater = unit->m_inWaterStream->GetMassFlow(_time);
-	const double mFlowGas = unit->m_inGasStream->GetMassFlow(_time);
-	const double mHoldup = unit->m_holdup->GetMass(_time);
+	const double mFlowWater = inWaterStream->GetMassFlow(_time);
+	const double mFlowGas = inGasStream->GetMassFlow(_time);
+	const double mHoldup = holdup->GetMass(_time);
 	const double Y_in = unit->GetConstRealParameterValue("Y_in") / 1000; // convert in [kg/kg]
 	const double Y_sat = unit->GetConstRealParameterValue("Y_sat") / 1000; // convert in [kg/kg]
 	const double A_P = unit->GetConstRealParameterValue("A_P");
