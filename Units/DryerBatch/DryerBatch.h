@@ -30,11 +30,11 @@ public:
 	// gas phase
 	size_t m_iYOutGas{}; // outlet gas, no height discretization
 	size_t m_iTempOutGas{}; // outlet gas, no height discretization
-	size_t m_iHOutGas{}; // outlet gas enthalpy
+	size_t m_iHFlowOutGas{}; // outlet gas enthalpy
 	// particle (solid) phase
 	size_t m_iTempParticle{};
 	size_t m_iPhi{}; // particle wetness degree
-	size_t m_iX{}; // particle moisture content
+	//size_t m_iX{}; // particle moisture content
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; // water film (on particle surface) temperature
 	// water vapor
@@ -104,6 +104,7 @@ private:
 	massTransferCoefficient beta;// = 0.02; // Water mass transfer coefficient from gas to particle in [m/s]
 	double alpha_GF;
 	double alpha_GP; // == alpha_GF
+	const double f_alpha = 1; // ratio alpha_PF / alpha_AP
 	double alpha_PF;
 	//massTransferCoefficient beta_AF;
 	//massTransferCoefficient beta_PF;
@@ -136,8 +137,9 @@ public:
 		moistureContent Y_nozzle;
 		//specificLatentHeat h_inNozzle;
 		temperature thetaNozzleGas;
+		specificLatentHeat h_nozzleGas;
 	// Gas in holdup (whole plant, incl. chamber & expansion)
-		mass mGasHoldup = 0.62; // mass of gas in the plant (chamber + expansion part) [kg]
+		mass mGasHoldup = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
 		
 	// Liquid phase
@@ -189,7 +191,6 @@ public:
 		bool calcNdc = GetCheckboxParameterValue("calcNdc");
 		size_t dryingCurveSetting = GetComboParameterValue("DryingCurve");
 		double SmallBiotNumber = 0.1;
-		double f_alpha = 1; // ratio alpha_PF / alpha_AP
 		double phiCuttOff = 0.999;
 	// REA function parameters
 		double REA1 = 0.96;
