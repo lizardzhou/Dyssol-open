@@ -13,7 +13,7 @@ private:
 	double doubleTransfer = 0;
 	double MFlowVaporLiquid = 0;
 	double curveTransfer = 0;
-	int progressCounter = 1;
+	int64_t progressCounter = 1;
 	int progressCounterTens = 1;
 	int progressCounterTotal = 0;
 	bool liquidSideLimitedGlobal = false;
@@ -156,6 +156,7 @@ public:
 		massFlow mFlowSprayLiquid;
 		massFraction x_wSusp; 
 		temperature thetaSprayLiquid;
+		specificLatentHeat h_susp;
 	// Particle (solid) phase
 		std::vector<double> Grid; // d_min
 		std::vector<double> q_3;
@@ -210,7 +211,7 @@ public:
 	CMaterialStream* m_inGasStream{}; // Input gas (fluidization air) stream
 	CMaterialStream* m_outExhaustGasStream{};	// Output of exhaust gas
 
-	CStream* m_VaporStream{};
+	//CStream* m_VaporStream{};
 	//CHoldup* m_Expander{}; //ToDo - check usage
 	//CHoldup* workingHoldup{}; //ToDo - check usage
 
