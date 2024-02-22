@@ -395,7 +395,7 @@ void CDryerBatch::Initialize(double _time)
 	temperature T_LiquidInit = 0;
 	double initPhi = 0; // wetness degree
 	mass mSolidHoldup = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-	const mass mGasHoldup = mGasHoldup;
+	//const mass mGasHoldup = mGasHoldup;
 	if (particlesGlobal)
 	{
 		// particle properties
@@ -637,7 +637,6 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const dimensionlessNumber Sh = unit->CalculateNusseltSherwood(Sh_lam, Sh_turb);
 	// heat transfer
 	const dimensionlessNumber Pr = unit->CalculatePrandtl(_time, T_gasHoldup); 	// prandtl
-	const dimensionlessNumber Re = unit->CalculateReynolds(_time, d32); // reynolds
 	const dimensionlessNumber Nu_lam = unit->CalculateNusseltSherwoodLam(Re, Pr); // nusselt
 	const dimensionlessNumber Nu_turb = unit->CalculateNusseltSherwoodTurb(Re, Pr);
 	const dimensionlessNumber Nu = unit->CalculateNusseltSherwood(Nu_lam, Nu_turb);
@@ -988,7 +987,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 
 /// Set state variables ///
 	unit->SetStateVariable("Gas temperature in holdup [degreeC]", _vars[m_iTempOutGas] - unit->T_ref, _time);
-	unit->AddStateVariable("Gas mass in holdup [kg]", mGasHoldup * (1 + _vars[m_iYOutGas]), _time);
+	unit->SetStateVariable("Gas mass in holdup [kg]", mGasHoldup * (1 + _vars[m_iYOutGas]), _time);
 	const double varThetaOutGas = _vars[m_iTempOutGas] - unit->T_ref;
 	unit->SetStateVariable("Gas temperature outlet [degreeC]", varThetaOutGas, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", _vars[m_iYOutGas] * 1e3, _time);
