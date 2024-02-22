@@ -408,11 +408,11 @@ void CDryerBatch::Initialize(double _time)
 		//m_model.m_iX = m_model.AddDAEVariable(true, initX, 0, 1.0); // Particle moisture content
 		// m_model.miA_P: A_P is constant in case of water spray, A_P as DAE variable will be used for granulation
 		//AddStateVariable("Particle mass in holdup [kg]", mSolidHoldup);
-		AddStateVariable("Particle X [%]", initX);
-		AddStateVariable("Particle w [%]", x_wInit);
+		AddStateVariable("Particle X [%]", initX * 100);
+		AddStateVariable("Particle x [%]", x_wInit * 100);
 		//AddStateVariable("Particle w calc from holdup [%]", (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) / (m_holdup->GetPhaseMass(_time, EPhase::LIQUID) + m_holdup->GetPhaseMass(_time, EPhase::SOLID))) * 100); // compare with Particle w [%]
 		AddStateVariable("Particle wetness degree [%]", initPhi * 100);
-		AddStateVariable("Particle temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]	
+		AddStateVariable("Particle temperature [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // [°C]	
 		AddStateVariable("Water mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::LIQUID));
 		AddStateVariable("Water film temperature", m_holdup->GetTemperature(_time) - T_ref); // [°C]
 		AddStateVariable("Water evaporation rate [kg/s]", 0);
@@ -963,16 +963,17 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	// calculate RH_out from Y_out
 	//"Gas RH_outlet [%]"
 
-	unit->SetStateVariable("Particle X [%]", _vars[m_iPhi] * A_P * Delta_f * rhoWater / mSolidHoldup, _time);//"Particle X [%]"
-	//"Particle wetness degree [%]"
-	//"Particle temperature"
-	//"Water mass in holdup [kg]"
-	//"Water film temperature"
-	//"Water evaporation rate [kg/s]"
+	const double varX = _vars[m_iPhi] * A_P * Delta_f * rhoWater / mSolidHoldup;
+	unit->SetStateVariable("Particle X [%]", varX * 100, _time);//"Particle X [%]"
+	unit->SetStateVariable("Particle x [%]", unit->CalculateMassFracFromMoistContent(varX) * 100, _time); //"Particle wetness degree [%]"
+	unit->SetStateVariable("Particle wetness degree [%]", _vars[m_iPhi], _time);//"Particle temperature"
+	unit->SetStateVariable("Water mass in holdup [kg]", mSolidHoldup * varX, _time); //"Water mass in holdup [kg]"
+	unit->SetStateVariable("Water film temperature [degreeC]", _vars[m_iTempFilm] - unit->T_ref, _time);//"Water film temperature"
+	unit->SetStateVariable("Water evaporation rate [kg/s]", _vars[m_iMFlowVapor], _time);//"Water evaporation rate [kg/s]"
 
 /// Set holdup properties ///
 	holdup->AddTimePoint(_time);
-	//holdup->SetPhaseMass(_time,);
+	holdup->SetPhaseMass(_time, EPhase::LIQUID, mSolidHoldup * varX);
 	//const double mHoldupTotal = holdup->GetMass(_time);
 
 /// Set outlet properties ///
