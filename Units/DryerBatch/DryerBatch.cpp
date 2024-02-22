@@ -950,13 +950,20 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		progressCounter++;
 	}
 
+/// Read parameters ///
+	const double Delta_f = unit->Delta_f;
+	const double A_P = unit->A_P;
+	const double rhoWater = unit->rhoWater;
+	const double mSolidHoldup = holdup->GetPhaseMass(_time, EPhase::SOLID);
+
 /// Set state variables ///
 	unit->SetStateVariable("Gas temperature in holdup + outlet [degreeC]", _vars[m_iTempOutGas] - unit->T_ref, _time);
 	unit->SetStateVariable("Gas temperature outlet [degreeC]", _vars[m_iTempOutGas] - unit->T_ref, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", _vars[m_iYOutGas] * 1e3, _time);
 	// calculate RH_out from Y_out
 	//"Gas RH_outlet [%]"
-	//"Particle X [%]"
+
+	unit->SetStateVariable("Particle X [%]", _vars[m_iPhi] * A_P * Delta_f * rhoWater / mSolidHoldup, _time);//"Particle X [%]"
 	//"Particle wetness degree [%]"
 	//"Particle temperature"
 	//"Water mass in holdup [kg]"
