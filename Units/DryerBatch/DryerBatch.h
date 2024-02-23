@@ -34,7 +34,7 @@ public:
 	// particle (solid) phase
 	size_t m_iTempParticle{};
 	size_t m_iPhi{}; // particle wetness degree
-	//size_t m_iX{}; // particle moisture content
+	size_t m_iX{}; // particle moisture content
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; // water film (on particle surface) temperature
 	// water vapor
@@ -309,42 +309,25 @@ public:
 	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; // == alpha_GF
 	double CalculateAlpha_PF(double alpha_GP) const;
 
+/// Mass transfer coefficient ///
+	massTransferCoefficient CalculateBeta(double _time, length d32, double D_a) const;
 
-
-
+/// X_eq, CURRENTLY NOT IN USE ///
 	moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const;
-
 	double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
-
 	double GetEquilibriumRelativeHumidity(double temperature, double X) const;
-
+	//	Initializes variables containing equilibirum moisture content date
+	bool InitializeMoistureContentDatabase(std::string path);
+	moistureContent GetParticleEquilibriumMoistureContent(double temperature, double RH) const;
 
 	//bool CheckForSmallBiot(double _time) const;
 
+///  Hydrodynamics ///
 	double CalculateMinFluidizeVel(double _time, length d32) const;
-
 	double CalculateGasVel(double _time, length d32) const;
-
-	//double CalculateGasVel(double _time, size_t section = 0) const;
-	
+	//double CalculateGasVel(double _time, size_t section = 0) const;	
 	double CalculateBedPorosity(double _time, bool homogeniusFluidization = true) const;
-
-	
-
-
-	massTransferCoefficient CalculateBeta(double _time, length d32, temperature avgGasTemperature, temperature filmTemperature) const;
-
-	moistureContent GetParticleEquilibriumMoistureContent(double temperature, double RH) const;
-	
-	//	Initializes variables containing equilibirum moisture content date
-	bool InitializeMoistureContentDatabase(std::string path);
-
-	double CalculateBedHeight(double _time, double particleTemperature);
-	
-	double CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight = true);
-
-	//double GetGasMassOfLayer(double _time, size_t layer, double gasTemperature, double particleTemperature);
-
+	double CalculateBedHeight(double _time, double particleTemperature);	
 
 ///	Setup variables containing the dimensions and information of the chamber ///
 	void SetupChamber();
@@ -371,6 +354,7 @@ public:
 	//Calculates overall heat transfer coefficient for the top plate
 	double CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal);	
 	double DetermineSectionsFilledWithBed(double _time, double particleTemperature);	
+	//double GetGasMassOfLayer(double _time, size_t layer, double gasTemperature, double particleTemperature);
 	size_t DetermineLayersInSectionFilledWithBed(size_t section, double heigthUsage) const
 	{
 		return std::ceil(chamber.at(section).layers * heigthUsage);
@@ -385,7 +369,8 @@ public:
 	double CalculateLayerVolume(size_t section, double R1, double r1)
 	{
 		return chamber.at(section).height* MATH_PI* (R1 * R1 + R1 * r1 + r1 * r1) / (3 * chamber.at(section).layers);
-	};
+	}
+	double CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight = true);
 
 	/// Other math functions ///
 	double lerp(double lowNum, double highNum, double midNum) const
