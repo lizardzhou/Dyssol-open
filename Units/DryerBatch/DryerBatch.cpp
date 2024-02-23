@@ -317,22 +317,22 @@ void CDryerBatch::Initialize(double _time)
 
 	//////////////////////////////////////////////////////////////////////////////////
 	// Calculate gas mass from initial conditions and volume // CURRENLY NOT IN USE //
-	volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
-	volume volumeChamber = 0;
-	for (size_t i = 0; i < chamber.size(); i++)
-	{
-		volumeChamber += CalculateSectionVolume(i);
-	}		
-	volume volumeGas = volumeChamber - volumeSolids;
-	mass massGas = volumeGas * rhoGas;
-	mass orignalMassGas = m_holdup->GetPhaseMass(_time, EPhase::GAS);
-	if (massGas > orignalMassGas)
-	{
-		m_holdup->SetPhaseMass(_time, EPhase::GAS, massGas);
-		os << "Adjusted mass of gas phase in holdup from " << orignalMassGas << " kg to " << massGas << " kg.";
-		ShowInfo(os.str());
-		os.str("");
-	}
+	//volume volumeSolids = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
+	//volume volumeChamber = 0;
+	//for (size_t i = 0; i < chamber.size(); i++)
+	//{
+	//	volumeChamber += CalculateSectionVolume(i);
+	//}		
+	//volume volumeGas = volumeChamber - volumeSolids;
+	//mass massGas = volumeGas * rhoGas;
+	//mass orignalMassGas = m_holdup->GetPhaseMass(_time, EPhase::GAS);
+	//if (massGas > orignalMassGas)
+	//{
+	//	m_holdup->SetPhaseMass(_time, EPhase::GAS, massGas);
+	//	os << "Adjusted mass of gas phase in holdup from " << orignalMassGas << " kg to " << massGas << " kg.";
+	//	ShowInfo(os.str());
+	//	os.str("");
+	//}
 	//////////////////////////////////////////////////////////////////////////////////
 
 	////////////////////////////////////////////////////////////
@@ -1537,63 +1537,63 @@ area CDryerBatch::CalculateParticleSurfaceArea(double _time) const
 	return A;
 }
 
-length CDryerBatch::CalculateBedHeight(double _time, double particleTemperature)
-{
-	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
-	const double volumeSolid = massSolid / densitySolid;
-	const double eps = CalculateBedPorosity(_time);
-	const double volumeBed = volumeSolid / (1. - eps);
-	double volumeOfFilledSections = 0;
-	size_t numberOfFilledSection = 0;
-	double heightOfFilledSection = 0;
-	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection) + volumeOfFilledSections))
-	{
-		volumeOfFilledSections += CalculateSectionVolume(numberOfFilledSection);
-		heightOfFilledSection += chamber.at(numberOfFilledSection).height;
-		numberOfFilledSection++;
-		if (numberOfFilledSection >= chamber.size())
-			RaiseError("Bed expands out of chamber.");
-	}
+//length CDryerBatch::CalculateBedHeight(double _time, double particleTemperature)
+//{
+//	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
+//	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
+//	const double volumeSolid = massSolid / densitySolid;
+//	const double eps = CalculateBedPorosity(_time);
+//	const double volumeBed = volumeSolid / (1. - eps);
+//	double volumeOfFilledSections = 0;
+//	size_t numberOfFilledSection = 0;
+//	double heightOfFilledSection = 0;
+//	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection) + volumeOfFilledSections))
+//	{
+//		volumeOfFilledSections += CalculateSectionVolume(numberOfFilledSection);
+//		heightOfFilledSection += chamber.at(numberOfFilledSection).height;
+//		numberOfFilledSection++;
+//		if (numberOfFilledSection >= chamber.size())
+//			RaiseError("Bed expands out of chamber.");
+//	}
+//
+//	double r = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).first / 2;
+//	double R = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).second / 2;
+//	double h = chamber.at(numberOfFilledSection).height;
+//	const double tanWallAngle = (R - r) / h;
+//	const double heightBed = heightOfFilledSection - std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2)) - r / tanWallAngle;
+//	return heightBed;
+//}
 
-	double r = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).first / 2;
-	double R = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).second / 2;
-	double h = chamber.at(numberOfFilledSection).height;
-	const double tanWallAngle = (R - r) / h;
-	const double heightBed = heightOfFilledSection - std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2)) - r / tanWallAngle;
-	return heightBed;
-}
-
-double CDryerBatch::CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight)
-{
-	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
-	const double volumeSolid = massSolid / densitySolid;
-	const double eps = CalculateBedPorosity(_time);
-	const double volumeBed = volumeSolid / (1. - eps);
-	double volumeOfFilledSections = 0;
-	size_t numberOfFilledSection = 0;
-	double heightOfFilledSection = 0;
-	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection) + volumeOfFilledSections))
-	{
-		volumeOfFilledSections += CalculateSectionVolume(numberOfFilledSection);
-		heightOfFilledSection += chamber.at(numberOfFilledSection).height;
-		numberOfFilledSection++;
-		if (numberOfFilledSection >= chamber.size())
-			RaiseError("Bed expands out of chamber.");
-	}
-
-	double r = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).first / 2;
-	double R = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).second / 2;
-	double h = chamber.at(numberOfFilledSection).height;
-	const double tanWallAngle = (R - r) / h;
-	const double bedHeight = -std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2)) - r / tanWallAngle;
-	const double totalBedHeight = heightOfFilledSection + bedHeight;
-	if (outputHeight)
-		return totalBedHeight;
-	else
-		return numberOfFilledSection + bedHeight / h;
-}
+//double CDryerBatch::CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight)
+//{
+//	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
+//	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
+//	const double volumeSolid = massSolid / densitySolid;
+//	const double eps = CalculateBedPorosity(_time);
+//	const double volumeBed = volumeSolid / (1. - eps);
+//	double volumeOfFilledSections = 0;
+//	size_t numberOfFilledSection = 0;
+//	double heightOfFilledSection = 0;
+//	while (volumeBed > (CalculateSectionVolume(numberOfFilledSection) + volumeOfFilledSections))
+//	{
+//		volumeOfFilledSections += CalculateSectionVolume(numberOfFilledSection);
+//		heightOfFilledSection += chamber.at(numberOfFilledSection).height;
+//		numberOfFilledSection++;
+//		if (numberOfFilledSection >= chamber.size())
+//			RaiseError("Bed expands out of chamber.");
+//	}
+//
+//	double r = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).first / 2;
+//	double R = chamber.at(numberOfFilledSection).dimensionsInternal.at(0).second / 2;
+//	double h = chamber.at(numberOfFilledSection).height;
+//	const double tanWallAngle = (R - r) / h;
+//	const double bedHeight = -std::cbrt(-MATH_PI * pow(r, 3) * pow(tanWallAngle, 3) - 3 * pow(tanWallAngle, 4) * volumeBed) / (std::cbrt(MATH_PI) * pow(tanWallAngle, 2)) - r / tanWallAngle;
+//	const double totalBedHeight = heightOfFilledSection + bedHeight;
+//	if (outputHeight)
+//		return totalBedHeight;
+//	else
+//		return numberOfFilledSection + bedHeight / h;
+//}
 
 void CDryerBatch::SetupChamber()
 {
@@ -2218,43 +2218,43 @@ double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double 
 	return alpha;
 }
 
-std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit);
-	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
-	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
-	double heightUsage, fullSections;
-	heightUsage = modf(sectionsFilledWithBed, &fullSections);
-
-	double Q_PW = 0;
-	std::vector<double> Q_GW;
-
-	// Fully filled sections
-	for (int section = 0; section < fullSections; section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
-		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-	}
-
-	// Partilly filled section
-
-	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
-	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, fullSections, &Q_GWsection, heightUsage);
-	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-
-	// Fully empty sections
-	for (size_t section = std::max(std::ceil(sectionsFilledWithBed), 1.); section < unit->chamber.size(); section++)
-	{
-		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
-		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
-		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
-	}
-
-	// Top plate
-	Q_GW.back() += CalculateTopPlateHeatLoss(_time, _unit, _vars);
-	return std::make_pair(Q_PW, Q_GW);
-}
+//std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
+//{
+//	auto* unit = static_cast<CDryerBatch*>(_unit);
+//	const double sectionsFilledWithBed = unit->DetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle]);
+//	//	const double sectionsFilledWithBed = unit->CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, _vars[m_iTempParticle],false);
+//	double heightUsage, fullSections;
+//	heightUsage = modf(sectionsFilledWithBed, &fullSections);
+//
+//	double Q_PW = 0;
+//	std::vector<double> Q_GW;
+//
+//	// Fully filled sections
+//	for (int section = 0; section < fullSections; section++)
+//	{
+//		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+//		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection);
+//		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+//	}
+//
+//	// Partilly filled section
+//
+//	std::vector<double> Q_GWsection(unit->chamber.at(fullSections).layers, 0);
+//	Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, fullSections, &Q_GWsection, heightUsage);
+//	Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+//
+//	// Fully empty sections
+//	for (size_t section = std::max(std::ceil(sectionsFilledWithBed), 1.); section < unit->chamber.size(); section++)
+//	{
+//		std::vector<double> Q_GWsection(unit->chamber.at(section).layers, 0);
+//		Q_PW += CalculateSectionHeatLoss(_time, _unit, _vars, section, &Q_GWsection, 0);
+//		Q_GW.insert(Q_GW.end(), Q_GWsection.begin(), Q_GWsection.end());
+//	}
+//
+//	// Top plate
+//	Q_GW.back() += CalculateTopPlateHeatLoss(_time, _unit, _vars);
+//	return std::make_pair(Q_PW, Q_GW);
+//}
 
 /// calculate alpha_GW for discretized height, CURRENLTY NOT IN USE
 //double CDryerBatch::CalculateAlpha_GW(double _time, size_t section) const
@@ -2378,30 +2378,30 @@ double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompou
 	return avgProperty;
 }
 
-double CDryerBatch::CalculateSectionVolume(size_t section)
-{
-	double sectionVolume = 0;
-	if (chamber.at(section).shape == EShape::CYLINDRICAL)
-		sectionVolume = chamber.at(section).height * MATH_PI / 3 * (
-			pow(chamber.at(section).dimensionsInternal.at(0).first / 2, 2)
-			+ (chamber.at(section).dimensionsInternal.at(0).first * chamber.at(section).dimensionsInternal.at(0).second) / 4
-			+ pow(chamber.at(section).dimensionsInternal.at(0).second / 2, 2)
-			);
-	else if (chamber.at(section).shape == EShape::RECTANGULAR)
-	{
-		std::stringstream os;
-		os << section << " has an rectengular shape.\nWhich volume has not been implemented.";
-		RaiseError(os.str());
-	}
-	else
-	{
-		std::stringstream os;
-		os << section << " has an undefind shape.";
-		RaiseError(os.str());
-	}
-
-	return sectionVolume;
-}
+//double CDryerBatch::CalculateSectionVolume(size_t section)
+//{
+//	double sectionVolume = 0;
+//	if (chamber.at(section).shape == EShape::CYLINDRICAL)
+//		sectionVolume = chamber.at(section).height * MATH_PI / 3 * (
+//			pow(chamber.at(section).dimensionsInternal.at(0).first / 2, 2)
+//			+ (chamber.at(section).dimensionsInternal.at(0).first * chamber.at(section).dimensionsInternal.at(0).second) / 4
+//			+ pow(chamber.at(section).dimensionsInternal.at(0).second / 2, 2)
+//			);
+//	else if (chamber.at(section).shape == EShape::RECTANGULAR)
+//	{
+//		std::stringstream os;
+//		os << section << " has an rectengular shape.\nWhich volume has not been implemented.";
+//		RaiseError(os.str());
+//	}
+//	else
+//	{
+//		std::stringstream os;
+//		os << section << " has an undefind shape.";
+//		RaiseError(os.str());
+//	}
+//
+//	return sectionVolume;
+//}
 
 /// testing
 //void CDryerBatch::Testing()
@@ -2500,249 +2500,249 @@ double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alpha
 	return kA;
 }
 
-std::vector<double> CDryerBatch::GetSectionGasMass(double _time, double gasTemperature, double particleTemperature)
-{
-	std::vector<double> layerMasses(N_total, 0);
-	double chamberVolume = 0;
-	for (size_t section = 0; section < chamber.size(); section++)
-		chamberVolume += CalculateSectionVolume(section);
+//std::vector<double> CDryerBatch::GetSectionGasMass(double _time, double gasTemperature, double particleTemperature)
+//{
+//	std::vector<double> layerMasses(N_total, 0);
+//	double chamberVolume = 0;
+//	for (size_t section = 0; section < chamber.size(); section++)
+//		chamberVolume += CalculateSectionVolume(section);
+//
+//	double rhoParticle = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
+//	double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, gasTemperature, m_holdup->GetPressure(_time));
+//
+//	const double particlesVolume = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
+//	const double chamberGasMass = (chamberVolume - particlesVolume) * rhoGas;
+//	double sectionsFilledWithBed = DetermineSectionsFilledWithBed(_time, particleTemperature);
+//	//	double sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, particleTemperature,false);
+//	double heightUsage, fullSections;
+//	heightUsage = modf(sectionsFilledWithBed, &fullSections);
+//	double sectionVolume = 0;
+//	double sectionGasMass = 0;
+//	std::vector<double>::reverse_iterator ritLayerMasses = layerMasses.rbegin();
+//	std::vector<chamberSection>::reverse_iterator ritChamberSections = chamber.rbegin();
+//	double assosiatedGasMass = 0;
+//	ritChamberSections++;
+//	double test = chamber.rend() - ritChamberSections;
+//
+//	// Empty section above bed
+//	for (size_t section = chamber.size() - 1; section > fullSections; section--)
+//	{
+//		sectionVolume = CalculateSectionVolume(section);
+//		sectionGasMass = sectionVolume * rhoGas;
+//		std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
+//		const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
+//		const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
+//		const double h = chamber.at(section).height;
+//		const double tanWallAngle = (R - r) / h;
+//		for (size_t layer = 0; layer < chamber.at(section).layers; layer++)
+//		{
+//			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
+//			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
+//			const double layerVolume = CalculateLayerVolume(section, R1, r1);
+//			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
+//		}
+//		std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
+//		for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
+//		{
+//			*ritLayerMasses = *ritSectionLayerMasses;
+//			ritLayerMasses++;
+//			assosiatedGasMass += *ritSectionLayerMasses;
+//		}
+//
+//	}
+//	// Should be working.
+//
+//
+//	size_t layersWithParticles = 0;
+//
+//
+//	// Last section filled with bed
+//	{
+//		size_t section = fullSections;
+//		size_t layersUsed = std::ceil(heightUsage * chamber.at(section).layers);
+//		layersWithParticles += layersUsed;
+//		for (size_t i = 0; i < fullSections; i++)
+//			layersWithParticles += chamber.at(i).layers;
+//
+//		std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
+//		const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
+//		const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
+//		const double h = chamber.at(section).height;
+//		const double tanWallAngle = (R - r) / h;
+//
+//		for (size_t layer = layersUsed; layer < chamber.at(section).layers; layer++)
+//		{
+//			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
+//			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
+//			const double layerVolume = CalculateLayerVolume(section, R1, r1);
+//			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
+//		}
+//
+//		for (size_t layer = 0; layer < layersUsed; layer++)
+//		{
+//			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
+//			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
+//			const double layerVolume = CalculateLayerVolume(section, R1, r1) - (particlesVolume / layersWithParticles);
+//			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
+//		}
+//
+//		std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
+//		for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
+//		{
+//			*ritLayerMasses = *ritSectionLayerMasses;
+//			ritLayerMasses++;
+//			assosiatedGasMass += *ritSectionLayerMasses;
+//		}
+//	}
+//
+//	// Sections filled completely with particles
+//	if (fullSections > 0)
+//		for (double section = fullSections - 1; section > -1; section--)
+//		{
+//			sectionVolume = CalculateSectionVolume(section);
+//			sectionGasMass = sectionVolume * rhoGas;
+//			std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
+//			const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
+//			const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
+//			const double h = chamber.at(section).height;
+//			const double tanWallAngle = (R - r) / h;
+//			for (size_t layer = 0; layer < chamber.at(section).layers; layer++)
+//			{
+//				const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
+//				const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
+//				const double layerVolume = CalculateLayerVolume(section, R1, r1) - (particlesVolume / layersWithParticles);
+//				sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
+//			}
+//			std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
+//			for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
+//			{
+//				*ritLayerMasses = *ritSectionLayerMasses;
+//				ritLayerMasses++;
+//				assosiatedGasMass += *ritSectionLayerMasses;
+//			}
+//
+//		}
+//
+//	if (chamberGasMass - assosiatedGasMass > 1e-16)
+//		RaiseError("Not all gas mass was accounted for in combined layer gas mass.");
+//
+//	return layerMasses;
+//}
 
-	double rhoParticle = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
-	double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, gasTemperature, m_holdup->GetPressure(_time));
+//double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double* _vars, size_t section, std::vector<double>* Q_GW, double heightUsage)
+//{
+//	auto* unit = static_cast<CDryerBatch*>(_unit);
+//
+//	bool noTemperatureDelta = unit->particlesGlobal ? ( (_vars[m_iTempParticle] - unit->T_inf) != 0 ? false : true) : true;
+//	if (noTemperatureDelta)
+//		for (int i = 0; i < Q_GW->size(); i++)
+//			if (_vars[m_iTempOutGas + (i + section * Q_GW->size())] - unit->T_inf != 0)
+//			{
+//				noTemperatureDelta = false;
+//				break;
+//			}
+//	if (noTemperatureDelta)
+//		return 0;
+//
+//	const double alphaGPipe = unit->CalculateAlpha_GW(_time, section);
+//	//const double alphaGFB = unit->CalculateAlpha_GW(_time, );
+//	size_t layersOfPrevSections = 0;
+//	for (size_t i = 0; i < section; i++)
+//	{
+//		layersOfPrevSections += unit->chamber.at(i).layers;
+//	}
+//	const double varAvTempGas = CalculateAverage(_vars, m_iTempOutGas, unit->chamber.at(section).layers+layersOfPrevSections, layersOfPrevSections);
+//	const double alphaPFB = !unit->particlesGlobal ? 0 : unit->CalculateAlpha_PW(_vars[m_iTempParticle], varAvTempGas, unit->m_holdup->GetPressure(_time), _time);
+//
+//	double sumWallThicknesses = 0;
+//	for (int i = 0; i < unit->chamber.at(section).wallThicknesses.size(); i++)
+//		sumWallThicknesses += unit->chamber.at(section).wallThicknesses.at(i);
+//	double outerDiameter = sumWallThicknesses + (unit->chamber.at(section).dimensionsInternal.at(0).first + unit->chamber.at(section).dimensionsInternal.at(0).second) / 2;
+//	double Q_PW = 0;
+//
+//	double alphaOut = 0;
+//	double kA_P = 0;
+//	double kA_G = 0;
+//
+//	size_t usedLayers = unit->DetermineLayersInSectionFilledWithBed(section, heightUsage);
+//	double usedLayerPercentage = 1. / unit->chamber.at(section).layers * usedLayers;
+//	size_t layersOfPreveusSections = 0;
+//	for (size_t i = 0; i < section; i++)
+//		layersOfPreveusSections += unit->chamber.at(i).layers;
+//
+//	double temperatureWall0 = 0;
+//	double temperatureWall = 0;
+//
+//	if (usedLayerPercentage > 0)
+//	{
+//		temperatureWall0 = 0;
+//		temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
+//		while (abs(temperatureWall - temperatureWall0) > 1/*temperatureWall * GetRTol() * 10 + GetATol(unit->N_total)*/)
+//		{
+//			alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.at(section).height, outerDiameter, temperatureWall);
+//
+//			kA_P = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaPFB, alphaOut, usedLayerPercentage);
+//			Q_PW = unit->particlesGlobal ? kA_P * (_vars[m_iTempParticle] - unit->T_inf) : 0;
+//
+//			//kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGFB, alphaOut, usedLayerPercentage);
+//			for (int i = 0; i < usedLayers; i++)
+//				Q_GW->at(i) = kA_G / usedLayers * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
+//
+//			double Q = Q_PW;
+//			for (int i = 0; i < usedLayers; i++)
+//				Q += Q_GW->at(i);
+//
+//			temperatureWall0 = temperatureWall;
+//			double alphaAout = unit->chamber.at(section).height * outerDiameter * MATH_PI * alphaOut;
+//			temperatureWall = Q / alphaAout + unit->T_inf;
+//		}
+//	}
+//	temperatureWall0 = 0;
+//	temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
+//	while (abs(temperatureWall - temperatureWall0) > /*temperatureWall * GetRTol() * 10 + GetATol(unit->N_total)*/ 1)
+//	{
+//		alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.at(section).height, outerDiameter, temperatureWall);
+//
+//		kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGPipe, alphaOut, -usedLayerPercentage);
+//		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
+//			Q_GW->at(i) = kA_G / (unit->chamber.at(section).layers -usedLayers) * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
+//
+//		double Q = 0;
+//		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
+//			Q += Q_GW->at(i);
+//
+//		temperatureWall0 = temperatureWall;
+//		double alphaAout = unit->chamber.at(section).height * outerDiameter * MATH_PI * alphaOut;
+//		temperatureWall = Q / alphaAout + unit->T_inf;
+//	}
+//
+//	return Q_PW;
+//}
 
-	const double particlesVolume = m_holdup->GetPhaseMass(_time, EPhase::SOLID) / rhoParticle;
-	const double chamberGasMass = (chamberVolume - particlesVolume) * rhoGas;
-	double sectionsFilledWithBed = DetermineSectionsFilledWithBed(_time, particleTemperature);
-	//	double sectionsFilledWithBed = CalculateBedHeightOrDetermineSectionsFilledWithBed(_time, particleTemperature,false);
-	double heightUsage, fullSections;
-	heightUsage = modf(sectionsFilledWithBed, &fullSections);
-	double sectionVolume = 0;
-	double sectionGasMass = 0;
-	std::vector<double>::reverse_iterator ritLayerMasses = layerMasses.rbegin();
-	std::vector<chamberSection>::reverse_iterator ritChamberSections = chamber.rbegin();
-	double assosiatedGasMass = 0;
-	ritChamberSections++;
-	double test = chamber.rend() - ritChamberSections;
-
-	// Empty section above bed
-	for (size_t section = chamber.size() - 1; section > fullSections; section--)
-	{
-		sectionVolume = CalculateSectionVolume(section);
-		sectionGasMass = sectionVolume * rhoGas;
-		std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
-		const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
-		const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
-		const double h = chamber.at(section).height;
-		const double tanWallAngle = (R - r) / h;
-		for (size_t layer = 0; layer < chamber.at(section).layers; layer++)
-		{
-			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
-			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
-			const double layerVolume = CalculateLayerVolume(section, R1, r1);
-			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
-		}
-		std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
-		for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
-		{
-			*ritLayerMasses = *ritSectionLayerMasses;
-			ritLayerMasses++;
-			assosiatedGasMass += *ritSectionLayerMasses;
-		}
-
-	}
-	// Should be working.
-
-
-	size_t layersWithParticles = 0;
-
-
-	// Last section filled with bed
-	{
-		size_t section = fullSections;
-		size_t layersUsed = std::ceil(heightUsage * chamber.at(section).layers);
-		layersWithParticles += layersUsed;
-		for (size_t i = 0; i < fullSections; i++)
-			layersWithParticles += chamber.at(i).layers;
-
-		std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
-		const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
-		const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
-		const double h = chamber.at(section).height;
-		const double tanWallAngle = (R - r) / h;
-
-		for (size_t layer = layersUsed; layer < chamber.at(section).layers; layer++)
-		{
-			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
-			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
-			const double layerVolume = CalculateLayerVolume(section, R1, r1);
-			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
-		}
-
-		for (size_t layer = 0; layer < layersUsed; layer++)
-		{
-			const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
-			const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
-			const double layerVolume = CalculateLayerVolume(section, R1, r1) - (particlesVolume / layersWithParticles);
-			sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
-		}
-
-		std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
-		for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
-		{
-			*ritLayerMasses = *ritSectionLayerMasses;
-			ritLayerMasses++;
-			assosiatedGasMass += *ritSectionLayerMasses;
-		}
-	}
-
-	// Sections filled completely with particles
-	if (fullSections > 0)
-		for (double section = fullSections - 1; section > -1; section--)
-		{
-			sectionVolume = CalculateSectionVolume(section);
-			sectionGasMass = sectionVolume * rhoGas;
-			std::vector<double> sectionLayerGasMasses(chamber.at(section).layers, 0);
-			const double r = chamber.at(section).dimensionsInternal.at(0).first / 2;
-			const double R = chamber.at(section).dimensionsInternal.at(0).second / 2;
-			const double h = chamber.at(section).height;
-			const double tanWallAngle = (R - r) / h;
-			for (size_t layer = 0; layer < chamber.at(section).layers; layer++)
-			{
-				const double r1 = r + h * (layer) / chamber.at(section).layers * tanWallAngle;
-				const double R1 = r + h * (layer + 1) / chamber.at(section).layers * tanWallAngle;
-				const double layerVolume = CalculateLayerVolume(section, R1, r1) - (particlesVolume / layersWithParticles);
-				sectionLayerGasMasses.at(layer) = sectionGasMass * layerVolume / sectionVolume;
-			}
-			std::vector<double>::reverse_iterator ritSectionLayerMasses = sectionLayerGasMasses.rbegin();
-			for (; ritSectionLayerMasses != sectionLayerGasMasses.rend(); ritSectionLayerMasses++)
-			{
-				*ritLayerMasses = *ritSectionLayerMasses;
-				ritLayerMasses++;
-				assosiatedGasMass += *ritSectionLayerMasses;
-			}
-
-		}
-
-	if (chamberGasMass - assosiatedGasMass > 1e-16)
-		RaiseError("Not all gas mass was accounted for in combined layer gas mass.");
-
-	return layerMasses;
-}
-
-double CUnitDAEModel::CalculateSectionHeatLoss(double _time, void* _unit, double* _vars, size_t section, std::vector<double>* Q_GW, double heightUsage)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit);
-
-	bool noTemperatureDelta = unit->particlesGlobal ? ( (_vars[m_iTempParticle] - unit->T_inf) != 0 ? false : true) : true;
-	if (noTemperatureDelta)
-		for (int i = 0; i < Q_GW->size(); i++)
-			if (_vars[m_iTempOutGas + (i + section * Q_GW->size())] - unit->T_inf != 0)
-			{
-				noTemperatureDelta = false;
-				break;
-			}
-	if (noTemperatureDelta)
-		return 0;
-
-	const double alphaGPipe = unit->CalculateAlpha_GW(_time, section);
-	//const double alphaGFB = unit->CalculateAlpha_GW(_time, );
-	size_t layersOfPrevSections = 0;
-	for (size_t i = 0; i < section; i++)
-	{
-		layersOfPrevSections += unit->chamber.at(i).layers;
-	}
-	const double varAvTempGas = CalculateAverage(_vars, m_iTempOutGas, unit->chamber.at(section).layers+layersOfPrevSections, layersOfPrevSections);
-	const double alphaPFB = !unit->particlesGlobal ? 0 : unit->CalculateAlpha_PW(_vars[m_iTempParticle], varAvTempGas, unit->m_holdup->GetPressure(_time), _time);
-
-	double sumWallThicknesses = 0;
-	for (int i = 0; i < unit->chamber.at(section).wallThicknesses.size(); i++)
-		sumWallThicknesses += unit->chamber.at(section).wallThicknesses.at(i);
-	double outerDiameter = sumWallThicknesses + (unit->chamber.at(section).dimensionsInternal.at(0).first + unit->chamber.at(section).dimensionsInternal.at(0).second) / 2;
-	double Q_PW = 0;
-
-	double alphaOut = 0;
-	double kA_P = 0;
-	double kA_G = 0;
-
-	size_t usedLayers = unit->DetermineLayersInSectionFilledWithBed(section, heightUsage);
-	double usedLayerPercentage = 1. / unit->chamber.at(section).layers * usedLayers;
-	size_t layersOfPreveusSections = 0;
-	for (size_t i = 0; i < section; i++)
-		layersOfPreveusSections += unit->chamber.at(i).layers;
-
-	double temperatureWall0 = 0;
-	double temperatureWall = 0;
-
-	if (usedLayerPercentage > 0)
-	{
-		temperatureWall0 = 0;
-		temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
-		while (abs(temperatureWall - temperatureWall0) > 1/*temperatureWall * GetRTol() * 10 + GetATol(unit->N_total)*/)
-		{
-			alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.at(section).height, outerDiameter, temperatureWall);
-
-			kA_P = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaPFB, alphaOut, usedLayerPercentage);
-			Q_PW = unit->particlesGlobal ? kA_P * (_vars[m_iTempParticle] - unit->T_inf) : 0;
-
-			//kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGFB, alphaOut, usedLayerPercentage);
-			for (int i = 0; i < usedLayers; i++)
-				Q_GW->at(i) = kA_G / usedLayers * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
-
-			double Q = Q_PW;
-			for (int i = 0; i < usedLayers; i++)
-				Q += Q_GW->at(i);
-
-			temperatureWall0 = temperatureWall;
-			double alphaAout = unit->chamber.at(section).height * outerDiameter * MATH_PI * alphaOut;
-			temperatureWall = Q / alphaAout + unit->T_inf;
-		}
-	}
-	temperatureWall0 = 0;
-	temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
-	while (abs(temperatureWall - temperatureWall0) > /*temperatureWall * GetRTol() * 10 + GetATol(unit->N_total)*/ 1)
-	{
-		alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.at(section).height, outerDiameter, temperatureWall);
-
-		kA_G = unit->CalculateOverallHeatTransferCoefficientCylinder(section, alphaGPipe, alphaOut, -usedLayerPercentage);
-		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
-			Q_GW->at(i) = kA_G / (unit->chamber.at(section).layers -usedLayers) * (_vars[m_iTempOutGas + (i + layersOfPreveusSections)] - unit->T_inf);
-
-		double Q = 0;
-		for (size_t i = usedLayers; i < unit->chamber.at(section).layers; i++)
-			Q += Q_GW->at(i);
-
-		temperatureWall0 = temperatureWall;
-		double alphaAout = unit->chamber.at(section).height * outerDiameter * MATH_PI * alphaOut;
-		temperatureWall = Q / alphaAout + unit->T_inf;
-	}
-
-	return Q_PW;
-}
-
-double CUnitDAEModel::CalculateTopPlateHeatLoss(double _time, void* _unit, double* _vars)
-{
-	auto* unit = static_cast<CDryerBatch*>(_unit);
-
-	if (_vars[m_iTempOutGas + (unit->N_total - 1)] - unit->T_inf == 0)
-		return 0;
-
-	const double alphaG = unit->CalculateAlpha_GW(_time, unit->chamber.size() - 1);
-	double temperatureWall0 = 0;
-	double temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
-	double Q_GWTop = 0;
-	double alphaOut = 0;
-	double kA_G = 0;
-
-	while (abs(temperatureWall - temperatureWall0) > 1 /*temperatureWall * GetRTol()*10 + GetATol(unit->N_total)*/)
-	{
-		alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.back().dimensionsInternal.at(0).second, 0, temperatureWall, EShape::RECTANGULAR);
-
-		kA_G = unit->CalculateOverallHeatTransferCoefficientTopPlate(alphaG, alphaOut);
-		Q_GWTop = kA_G  * (_vars[m_iTempOutGas + (unit->N_total-1)] - unit->T_inf);
-
-		temperatureWall0 = temperatureWall;
-		double alphaAout = pow(unit->chamber.back().dimensionsInternal.at(0).second,2)/4 * MATH_PI * alphaOut;
-		temperatureWall = Q_GWTop / alphaAout + unit->T_inf;
-	}
-	return Q_GWTop;
-}
+//double CUnitDAEModel::CalculateTopPlateHeatLoss(double _time, void* _unit, double* _vars)
+//{
+//	auto* unit = static_cast<CDryerBatch*>(_unit);
+//
+//	if (_vars[m_iTempOutGas + (unit->N_total - 1)] - unit->T_inf == 0)
+//		return 0;
+//
+//	const double alphaG = unit->CalculateAlpha_GW(_time, unit->chamber.size() - 1);
+//	double temperatureWall0 = 0;
+//	double temperatureWall = 0.5 * (std::max(unit->m_inGasStream->GetTemperature(_time), unit->m_holdup->GetTemperature(_time)) - unit->T_inf) + unit->T_inf;
+//	double Q_GWTop = 0;
+//	double alphaOut = 0;
+//	double kA_G = 0;
+//
+//	while (abs(temperatureWall - temperatureWall0) > 1 /*temperatureWall * GetRTol()*10 + GetATol(unit->N_total)*/)
+//	{
+//		alphaOut = unit->CalcAlphaOutside(_time, unit->chamber.back().dimensionsInternal.at(0).second, 0, temperatureWall, EShape::RECTANGULAR);
+//
+//		kA_G = unit->CalculateOverallHeatTransferCoefficientTopPlate(alphaG, alphaOut);
+//		Q_GWTop = kA_G  * (_vars[m_iTempOutGas + (unit->N_total-1)] - unit->T_inf);
+//
+//		temperatureWall0 = temperatureWall;
+//		double alphaAout = pow(unit->chamber.back().dimensionsInternal.at(0).second,2)/4 * MATH_PI * alphaOut;
+//		temperatureWall = Q_GWTop / alphaAout + unit->T_inf;
+//	}
+//	return Q_GWTop;
+//}
