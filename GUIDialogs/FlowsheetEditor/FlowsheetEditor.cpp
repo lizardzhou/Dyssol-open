@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #include "FlowsheetEditor.h"
 #include "Flowsheet.h"
@@ -15,16 +17,19 @@
 #include <sstream>
 
 
-CFlowsheetEditor::CFlowsheetEditor(CFlowsheet* _pFlowsheet, const CMaterialsDatabase* _matrialsDB, CModelsManager* _modelsManager, QSettings* _settings, QWidget* _parent)
-	: CQtDialog{ _modelsManager, _parent }
+CFlowsheetEditor::CFlowsheetEditor(CFlowsheet* _pFlowsheet, const CMaterialsDatabase* _matrialsDB, QWidget* _parent)
+	: CQtDialog{ _parent }
 	, m_pFlowsheet{ _pFlowsheet }
 	, m_materialsDB{ _matrialsDB }
 	, m_pSelectedModel{ nullptr }
 	, m_pSelectedStream{ nullptr }
-	, m_viewer{ new CFlowsheetViewer{ _pFlowsheet, _settings } }
+	, m_viewer{ new CFlowsheetViewer{ _pFlowsheet } }
 {
 	ui.setupUi(this);
 	ui.tableListValues->EnablePasting(false);
+	ui.tableListValues->setSelectionMode(QAbstractItemView::ExtendedSelection);
+	// set focus policy to enable focus to switch back to flowsheet editor
+	this->setFocusPolicy(Qt::ClickFocus);
 
 	SetHelpLink("001_ui/gui.html#sec-gui-tabs-flowsheet");
 }
@@ -32,6 +37,12 @@ CFlowsheetEditor::CFlowsheetEditor(CFlowsheet* _pFlowsheet, const CMaterialsData
 CFlowsheetEditor::~CFlowsheetEditor()
 {
 	delete m_viewer;
+}
+
+void CFlowsheetEditor::SetPointers(CModelsManager* _modelsManager, QSettings* _settings)
+{
+	CQtDialog::SetPointers(_modelsManager, _settings);
+	m_viewer->SetPointers(_modelsManager, _settings);
 }
 
 void CFlowsheetEditor::InitializeConnections()
@@ -247,7 +258,9 @@ void CFlowsheetEditor::ChangeModelName(int _iRow, int _iCol)
 {
 	if (!m_pSelectedModel) return;
 
-	m_pSelectedModel->SetName(ui.listModels->item(_iRow, _iCol)->text().simplified().toStdString());
+	const auto item = ui.listModels->item(_iRow, _iCol);
+	if (!item) return;
+	m_pSelectedModel->SetName(item->text().simplified().toStdString());
 
 	UpdateModelsView();
 
@@ -559,7 +572,7 @@ void CFlowsheetEditor::PasteParamTable(int _row, int _col)
 	case EUnitParameter::PARAM_DEPENDENT: [[fallthrough]];
 	case EUnitParameter::TIME_DEPENDENT:
 	{
-		auto* paramTD = dynamic_cast<CTDUnitParameter*>(up);
+		auto* paramTD = dynamic_cast<CDependentUnitParameter*>(up);
 
 		// new parameters (and possibly values) pasted
 		if (_col == 0)
@@ -567,7 +580,7 @@ void CFlowsheetEditor::PasteParamTable(int _row, int _col)
 			const std::vector<double> valuesOld = paramTD->GetValues();
 
 			// existing parameters that are going to be overwritten are deleted first
-			const std::vector<double> paramsOld = paramTD->GetTimes();
+			const std::vector<double> paramsOld = paramTD->GetParams();
 			for (size_t i = _row; i < paramsOld.size() && i < data.size() + _row; ++i)
 				paramTD->RemoveValue(paramsOld[i]);
 
@@ -604,7 +617,7 @@ void CFlowsheetEditor::PasteParamTable(int _row, int _col)
 		else
 		{
 			// all currently defined parameters
-			const std::vector<double> params = paramTD->GetTimes();
+			const std::vector<double> params = paramTD->GetParams();
 			// check there is enough defined parameters to paste all the values
 			if (_row + data.size() > paramTD->Size())
 				if (AskYesNoCancel(this, StrConst::FE_InvalidClipboard, StrConst::FE_NotEnoughParameters) != QMessageBox::Yes)

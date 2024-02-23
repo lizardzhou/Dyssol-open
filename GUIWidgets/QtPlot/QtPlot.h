@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #pragma once
 
@@ -24,6 +26,8 @@ namespace QtPlot
 #define MOUSE_PX_PRECISION 5
 
 #define ACCURACY 1e-15
+
+#define DEFAULT_NUM_X_GRID_LINES 10
 
 enum LabelTypes
 {
@@ -185,6 +189,9 @@ private:
 	QString m_sManualXLabelName;
 	QString m_sManualYLabelName;
 
+	QString m_numberSeparator{ "," };
+	QString m_decimalSeparator{ "." };
+
 public:
 	CQtPlot(QWidget* parent = 0, Qt::WindowFlags flags = Qt::WindowFlags());
 	~CQtPlot() override;
@@ -220,6 +227,7 @@ public:
 	void SetMinY(double _dMinY, bool bRedrawPlot = true);   // set limitation of the y axis
 	double GetMinY();										// returns value of the minimal y value
 	void SetNumXGridLines(unsigned _nNumXGridLines);		// set number of grid lines on x-axis
+	void SetDefaultNumXGridLines();							// set default number of grid lines on x-axis
 	unsigned GetNumXGridLines();							// returns number of grid lines on x-axis
 	void SetNumYGridLines(unsigned _nNumYGridLines);		// set number of grid lines on y-axis
 	unsigned GetNumYGridLines();							// returns number of grid lines on y-axis
@@ -241,7 +249,6 @@ public:
 	int8_t GetLegendPosition();
 	void SetAxisLablesVisible(bool _bIsVisible);
 	bool GetAxisLablesVisible();
-
 
 private:
 	void CreateDropMenu(QMenu* _pMenu);
@@ -285,6 +292,7 @@ protected:
 public slots:
 	void RedrawPlot(); // redraw QTPlot
 	void changeEvent(QEvent *_event) override;
+
 
 private slots:
 	void SetCurveNameSlot(int _nCurveIndex);

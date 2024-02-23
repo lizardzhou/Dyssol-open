@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #include "SimulatorTab.h"
 #include "Flowsheet.h"
@@ -6,8 +8,8 @@
 #include <QMessageBox>
 #include <QDateTime>
 
-CSimulatorTab::CSimulatorTab(CFlowsheet* _pFlowsheet, CSimulator* _pSimulator, CModelsManager* _modelsManager, QWidget* _parent)
-	: CQtDialog{ _modelsManager, _parent }
+CSimulatorTab::CSimulatorTab(CFlowsheet* _pFlowsheet, CSimulator* _pSimulator, QWidget* _parent)
+	: CQtDialog{ _parent }
 	, m_pFlowsheet{ _pFlowsheet }
 	, m_pSimulator{ _pSimulator }
 {
@@ -18,8 +20,8 @@ CSimulatorTab::CSimulatorTab(CFlowsheet* _pFlowsheet, CSimulator* _pSimulator, C
 
 CSimulatorTab::~CSimulatorTab()
 {
-	m_progressThread.Stop();
-	m_progressThread.deleteLater();
+	m_simulationThread->RequestStop();
+	m_simulationThread->deleteLater();
 }
 
 void CSimulatorTab::InitializeConnections() const
@@ -30,7 +32,7 @@ void CSimulatorTab::InitializeConnections() const
 	connect(ui.buttonClearRecycles,	          &QPushButton::clicked,	   this, &CSimulatorTab::ClearInitialRecycleStreams);
 	connect(ui.buttonClearResultsAndRecycles, &QPushButton::clicked,	   this, &CSimulatorTab::ClearAll);
 
-	connect(&m_progressThread,	&CProgressThread::Finished,		this, &CSimulatorTab::SimulationFinished);
+	connect(m_simulationThread,	&CSimulationThread::Finished,		this, &CSimulatorTab::SimulationFinished);
 	connect(&m_logTimer,	    &QTimer::timeout,				this, &CSimulatorTab::UpdateLog);
 }
 
@@ -93,7 +95,7 @@ void CSimulatorTab::StartSimulation()
 		// run simulation
 		BlockUI(true);
 		emit SimulatorStateToggled(true);
-		m_progressThread.Run();
+		m_simulationThread->Run();
 		m_logTimer.start(100);
 	}
 }
@@ -101,7 +103,7 @@ void CSimulatorTab::StartSimulation()
 void CSimulatorTab::AbortSimulation()
 {
 	// stop simulation
-	m_progressThread.RequestStop();
+	m_simulationThread->RequestStop();
 
 	// set the message to the log
 	ui.textBrowserLog->setTextColor(QColor(Qt::red));
@@ -114,11 +116,11 @@ void CSimulatorTab::SimulationFinished()
 	// stop simulation threads and timers
 	const QDateTime now = QDateTime::currentDateTime();
 	m_logTimer.stop();
-	m_progressThread.Stop();
+	m_simulationThread->Stop();
 
 	// update simulation log
 	UpdateLog();
-	if (m_progressThread.WasAborted())
+	if (m_simulationThread->WasAborted())
 	{
 		ui.textBrowserLog->setTextColor(QColor(Qt::red));
 		ui.textBrowserLog->append(StrConst::ST_LogSimUserStop);
@@ -186,11 +188,12 @@ void CSimulatorTab::UpdateLog() const
 	}
 	ui.textBrowserLog->setTextColor(QColor(Qt::black));
 
-	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_START,   0, m_pSimulator->m_dTWStart);
-	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_END,     0, m_pSimulator->m_dTWEnd);
-	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_LENGTH,  0, m_pSimulator->m_dTWLength);
-	ui.tableLog->SetItemNotEditable(EStatTable::ITERATION_NUMBER, 0, m_pSimulator->m_iTWIterationFull);
-	ui.tableLog->SetItemNotEditable(EStatTable::WINDOW_NUMBER,    0, m_pSimulator->m_iWindowNumber);
+	const auto status = m_pSimulator->GetCurrentPartitionStatus();
+	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_START,   0, status.dTWStart);
+	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_END,     0, status.dTWEnd);
+	ui.tableLog->SetItemNotEditable(EStatTable::TIME_WIN_LENGTH,  0, status.dTWLength);
+	ui.tableLog->SetItemNotEditable(EStatTable::ITERATION_NUMBER, 0, status.iTWIterationFull);
+	ui.tableLog->SetItemNotEditable(EStatTable::WINDOW_NUMBER,    0, status.iWindowNumber);
 	ui.tableLog->SetItemNotEditable(EStatTable::UNIT_NAME,        0, m_pSimulator->m_unitName);
 	ui.tableLog->SetItemNotEditable(EStatTable::ELAPSED_TIME,     0, QDateTime::fromTime_t(m_simulationTimer.elapsed() / 1000).toUTC().toString("hh:mm:ss"));
 }

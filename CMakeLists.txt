@@ -5,8 +5,8 @@
 
 cmake_minimum_required(VERSION 3.1.0)
 
-set (VERSION 1.2.0)
-set (SOVERSION 1.2)
+set (VERSION 1.3.0)
+set (SOVERSION 1.3)
 
 OPTION(BUILD_BINARIES "Whether to build binary files" ON)
 OPTION(BUILD_DOCS "Whether to build documentation" ON)
@@ -32,7 +32,7 @@ SET(INSTALL_HEADERS_PATH  ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_INCLUDEDIR}/)
 SET(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 ##################################################
-### Binaries 
+### Binaries
 IF(BUILD_BINARIES)
 
   add_executable(DyssolC
@@ -89,7 +89,7 @@ IF(BUILD_BINARIES)
   TARGET_LINK_LIBRARIES(libdyssol_shared ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES} ${SUNDIALS_LIBRARIES})
   TARGET_LINK_LIBRARIES(libdyssol_static ${HDF5_LIBRARIES} ${HDF5_HL_LIBRARIES} ${SUNDIALS_LIBRARIES})
   TARGET_LINK_LIBRARIES(DyssolC libdyssol_shared)
-  
+
   # link filesystem or experimantal/filesystem for gcc
   IF("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
     IF (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)
@@ -126,7 +126,7 @@ IF(BUILD_BINARIES)
 ENDIF(BUILD_BINARIES)
 
 ##################################################
-### Testing 
+### Testing
 IF(BUILD_TESTS)
 
   ENABLE_TESTING()
@@ -188,7 +188,7 @@ IF(BUILD_TESTS)
                 COMMAND python3 ${CMAKE_SOURCE_DIR}/tests/compare.py "${CMAKE_SOURCE_DIR}/tests/${CURRENT_TEST}/ideal.res" "${CMAKE_BINARY_DIR}/tests/${CURRENT_TEST}/real.res" -t ${TOLERANCE}
         )
       ENDIF(WIN32)
-      
+
       # _diff tests can only be run when the _run test is done
       SET_TESTS_PROPERTIES(${CURRENT_TEST}_diff PROPERTIES DEPENDS ${CURRENT_TEST}_run)
     ENDIF(NOT CMAKE_BUILD_TYPE MATCHES Debug)
@@ -198,7 +198,7 @@ IF(BUILD_TESTS)
 ENDIF(BUILD_TESTS)
 
 ##################################################
-### Documentation 
+### Documentation
 IF(BUILD_DOCS)
 
   #=================================================
@@ -209,6 +209,7 @@ IF(BUILD_DOCS)
   # List of all API headers
   SET(API_FILE_NAMES
     "MaterialsDatabase/DefinesMDB"
+    "ModelsAPI/BaseStream"
     "ModelsAPI/BaseUnit"
     "ModelsAPI/ChemicalReaction"
     "ModelsAPI/DenseMDMatrix"
@@ -225,6 +226,7 @@ IF(BUILD_DOCS)
     "BaseSolvers/AgglomerationSolver"
     "BaseSolvers/BaseSolver"
     "Utilities/DyssolDefines"
+    "Utilities/DyssolTypes"
   )
 
   # Gather all API headers
@@ -272,7 +274,7 @@ IF(BUILD_DOCS)
 
   # Replace variables inside @@ with the current values
   CONFIGURE_FILE(${SPHINX_CONFIG_IN} ${SPHINX_CONFIG_OUT} @ONLY)
-  
+
   ADD_CUSTOM_COMMAND(OUTPUT ${SPHINX_INDEX_FILE}
                     COMMAND ${SPHINX_EXECUTABLE} -b linkcheck  ${SPHINX_SOURCE_DIR} ${SPHINX_BUILD} # Check links
                     COMMAND ${SPHINX_EXECUTABLE} -b html -Dbreathe_projects.Dyssol=${DOXYGEN_OUTPUT_XML_DIR} ${SPHINX_SOURCE_DIR} ${SPHINX_BUILD}

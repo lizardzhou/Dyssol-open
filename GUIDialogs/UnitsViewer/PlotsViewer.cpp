@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #include "PlotsViewer.h"
 #include "UnitContainer.h"
@@ -121,7 +123,7 @@ void CPlotsViewer::UpdateSliderLabelName()
 
 void CPlotsViewer::UpdateSliderPosFromSelectedIndex()
 {
-	//if(!m_pModel) return;
+	if(!m_pModel) return;
 	//if(m_iPlot == -1) return;
 	//if(m_pModel->IsPlot2D(m_iPlot))	return;
 

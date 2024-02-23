@@ -78,7 +78,7 @@ void CBaseStream::SetupStructure(const CBaseStream* _other)
 {
 	// TODO: check that thermodynamic and tolerance settings are correctly set here (if they need to be set at all)
 	Clear();
-	SetMaterialsDatabasePtr(_other->m_materialsDB);
+	SetMaterialsDatabase(_other->m_materialsDB);
 	SetCacheSettings(_other->m_cacheSettings);
 	m_grid = _other->m_grid;
 	for (const auto& [type, old] : _other->m_overall)
@@ -210,20 +210,14 @@ void CBaseStream::ReduceTimePoints(double _timeBeg, double _timeEnd, double _ste
 	if (timePoints.size() <= 3) return;
 	timePoints.pop_back();
 
-	size_t iTime1 = 0;
-	size_t iTime2 = 1;
-	while (iTime1 < timePoints.size() && iTime2 < timePoints.size())
+	auto itBeg = timePoints.begin();
+	const auto itEnd = timePoints.end();
+	while (itBeg != itEnd)
 	{
-		if (std::fabs(timePoints[iTime1] - timePoints[iTime2]) < _step)
-		{
-			RemoveTimePoint(timePoints[iTime2]);
-			VectorDelete(timePoints, iTime2);
-		}
-		else
-		{
-			iTime1++;
-			iTime2++;
-		}
+		auto it = std::find_if(itBeg, itEnd, [&](double t) { return std::fabs(*itBeg - t) >= _step; });
+		if (std::distance(itBeg, it) > 2)
+			RemoveTimePoints(*itBeg, *it, false);
+		itBeg = it;
 	}
 }
 
@@ -479,6 +473,31 @@ void CBaseStream::SetCompoundsFractions(double _time, EPhase _phase, const std::
 
 	AddTimePoint(_time);
 	m_phases[_phase]->SetCompoundsDistribution(_time, _value);
+}
+
+void CBaseStream::SetCompoundMass(double _time, const std::string& _compoundKey, EPhase _phase, double _value)
+{
+	if (!HasPhase(_phase) || !HasCompound(_compoundKey)) return;
+
+	// get current masses
+	double totalPhaseMass = GetPhaseMass(_time, _phase);
+	std::map<std::string, double> compoundsMasses;
+	for (const auto& key : GetAllCompounds())
+		compoundsMasses[key] = GetCompoundMass(_time, key, _phase);
+
+	// calculate adjustment for the total mass
+	totalPhaseMass += _value - compoundsMasses[_compoundKey];
+
+	// set new phase fractions according to the changed phase masses
+	compoundsMasses[_compoundKey] = _value;
+	for (const auto& key : GetAllCompounds())
+		if (totalPhaseMass != 0.0)
+			SetCompoundFraction(_time, key, _phase, compoundsMasses[key] / totalPhaseMass);
+		else
+			SetCompoundFraction(_time, key, _phase, 0.0);
+
+	// set new phase mass
+	SetPhaseMass(_time, _phase, totalPhaseMass);
 }
 
 double CBaseStream::GetCompoundMolFraction(double _time, const std::string& _compoundKey, EPhase _phase) const
@@ -1395,11 +1414,11 @@ bool CBaseStream::AreEqual(double _time, const CBaseStream& _stream1, const CBas
 	return true;
 }
 
-bool CBaseStream::AreEqual(double _time1, double _time2, const CBaseStream& _stream)
+bool CBaseStream::AreEqual(double _time1, double _time2, const CBaseStream& _stream, double _absTol, double _relTol)
 {
 	const auto& Same = [&](double _v1, double _v2)
 	{
-		return std::fabs(_v1 - _v2) < std::fabs(_v1) * _stream.m_toleranceSettings.toleranceRel + _stream.m_toleranceSettings.toleranceAbs;
+		return std::fabs(_v1 - _v2) < std::fabs(_v1) * _relTol + _absTol;
 	};
 
 	// overall parameters
@@ -1435,6 +1454,11 @@ bool CBaseStream::AreEqual(double _time1, double _time2, const CBaseStream& _str
 	return true;
 }
 
+bool CBaseStream::AreEqual(double _time1, double _time2, const CBaseStream& _stream)
+{
+	return AreEqual(_time1, _time2, _stream, _stream.m_toleranceSettings.toleranceAbs, _stream.m_toleranceSettings.toleranceRel);
+}
+
 CMixtureEnthalpyLookup* CBaseStream::GetEnthalpyCalculator() const
 {
 	// lazy initialization
@@ -1462,7 +1486,7 @@ const CMultidimensionalGrid& CBaseStream::GetGrid() const
 	return m_grid;
 }
 
-void CBaseStream::SetMaterialsDatabasePtr(const CMaterialsDatabase* _database)
+void CBaseStream::SetMaterialsDatabase(const CMaterialsDatabase* _database)
 {
 	m_materialsDB = _database;
 	ClearEnthalpyCalculator();
@@ -1575,7 +1599,8 @@ void CBaseStream::SaveToFile(CH5Handler& _h5File, const std::string& _path)
 	m_grid.SaveToFile(_h5File, _h5File.CreateGroup(_path, StrConst::H5GroupDistrGrid));
 
 	// overall properties
-	_h5File.WriteData(_path, StrConst::Stream_H5OverallKeys, E2I(MapKeys(m_overall)));
+	// NOTE: template argument deduction for E2I does not work here for msvc 19.24 and lower, therefore - explcicite argument
+	_h5File.WriteData(_path, StrConst::Stream_H5OverallKeys, E2I<EOverall>(MapKeys(m_overall)));
 	const std::string groupOveralls = _h5File.CreateGroup(_path, StrConst::Stream_H5GroupOveralls);
 	size_t iOverall = 0;
 	for (auto& [type, param] : m_overall)
@@ -1585,7 +1610,8 @@ void CBaseStream::SaveToFile(CH5Handler& _h5File, const std::string& _path)
 	}
 
 	// phases
-	_h5File.WriteData(_path, StrConst::Stream_H5PhaseKeys, E2I(MapKeys(m_phases)));
+	// NOTE: template argument deduction for E2I does not work here for msvc 19.24 and lower, therefore - explcicite argument
+	_h5File.WriteData(_path, StrConst::Stream_H5PhaseKeys, E2I<EPhase>(MapKeys(m_phases)));
 	const std::string groupPhases = _h5File.CreateGroup(_path, StrConst::Stream_H5GroupPhases);
 	size_t iPhase = 0;
 	for (auto& [state, phase] : m_phases)

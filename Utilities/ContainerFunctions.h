@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #pragma once
 
@@ -117,6 +119,31 @@ bool VectorUniqueSorted(const std::vector<T>& _vec)
 	return std::adjacent_find(_vec.begin(), _vec.end()) == _vec.end();
 }
 
+
+// Checks if the element is unique in vector, returns indizes of duplicates
+template<typename T>
+std::vector<size_t> VectorGetDuplicates(const std::vector<T*>& _vec, size_t _index)
+{
+	T* elem = _vec[_index];
+	std::vector<size_t> indizes;
+	for (size_t i = 0; i < _vec.size(); i++)
+		if (_index != i && *elem == *_vec[i])
+			indizes.push_back(i);
+	return indizes;
+}
+
+// Checks if the element is unique in vector, returns indizes of duplicates
+template<typename T>
+std::vector<size_t> VectorGetDuplicates(const std::vector<T>& _vec, size_t _index)
+{
+	T elem = _vec[_index];
+	std::vector<size_t> indizes;
+	for (size_t i = 0; i < _vec.size(); i++)
+		if (_index != i && elem == _vec[i])
+			indizes.push_back(i);
+	return indizes;
+}
+
 // Adds two equally sized vectors element-wise and writes results to the third one.
 template<typename T>
 void AddVectors(const std::vector<T>& _vec1, const std::vector<T>& _vec2, std::vector<T>& _res)
@@ -187,6 +214,17 @@ std::vector<K> MapKeys(const std::map<K, V>& _map)
 	return keys;
 }
 
+// Returns all values defined in the map.
+template<typename K, typename V>
+std::vector<V> MapValues(const std::map<K, V>& _map)
+{
+	std::vector<V> values;
+	values.reserve(_map.size());
+	for (auto const& entry : _map)
+		values.push_back(entry.second);
+	return values;
+}
+
 // Returns a sorted copy of the vector.
 template<typename T>
 std::vector<T> VectorSort(const std::vector<T>& _v)
@@ -196,7 +234,7 @@ std::vector<T> VectorSort(const std::vector<T>& _v)
 	return res;
 }
 
-// Calculates union of two sorted vectors.
+// Calculates a sorted union of two sorted vectors.
 template<typename T>
 void VectorsUnionSorted(const std::vector<T>& _v1, const std::vector<T>& _v2, std::vector<T>& _res)
 {
@@ -204,7 +242,7 @@ void VectorsUnionSorted(const std::vector<T>& _v1, const std::vector<T>& _v2, st
 	_res.resize(std::set_union(_v1.begin(), _v1.end(), _v2.begin(), _v2.end(), _res.begin()) - _res.begin());
 }
 
-// Calculates and returns union of two sorted vectors.
+// Calculates and returns a sorted union of two sorted vectors.
 template<typename T>
 std::vector<T> VectorsUnionSorted(const std::vector<T>& _v1, const std::vector<T>& _v2)
 {
@@ -258,6 +296,7 @@ template<typename T> std::vector<T> VectorDifference(const std::vector<T>& _v1, 
 inline std::vector<double> Slice(const double* const _data, const std::vector<size_t>& _ind)
 {
 	std::vector<double> res(_ind.size());
+	if (_ind.empty()) return res;
 	if (std::adjacent_find(_ind.begin(), _ind.end(), [](size_t i1, size_t i2) { return i2 != i1 + 1; }) == _ind.end())
 		std::copy(_data + _ind.front(), _data + _ind.back() + 1, res.begin());
 	else

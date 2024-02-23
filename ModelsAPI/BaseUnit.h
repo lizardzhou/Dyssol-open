@@ -149,6 +149,14 @@ public:
 	 */
 	void SetSettings(const CMaterialsDatabase* _materialsDB, const CMultidimensionalGrid& _grid, const std::vector<SOverallDescriptor>* _overall,
 					const std::vector<SPhaseDescriptor>* _phases, const SCacheSettings* _cache, const SToleranceSettings* _tolerance, const SThermodynamicsSettings* _thermodynamics);
+
+	/**
+	 * \private
+	 * \brief Sets new pointer to global materials database.
+	 * \param _materialsDB Pointer to global materials database.
+	*/
+	void SetMaterialsDatabase(const CMaterialsDatabase* _materialsDB);
+
 	/**
 	 * \private
 	 * \brief Copies user-defined data from _unit.
@@ -1365,37 +1373,37 @@ public:
 
 	/**
 	 * \brief Returns a grid defined for the particle size distribution in terms of particle diameters.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle size grid as diameters.
 	 */
 	std::vector<double> GetPSDGridDiameters() const;
 	/**
 	 * \brief Returns a grid defined for the particle size distribution in terms of particle surfaces.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle size grid as surfaces.
 	 */
 	std::vector<double> GetPSDGridSurfaces() const;
 	/**
 	 * \brief Returns a grid defined for the particle size distribution in terms of particle volumes.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle size grid as volumes.
 	 */
 	std::vector<double> GetPSDGridVolumes() const;
 	/**
 	 * \brief Returns mean values of classes defined for the particle size distribution in terms of particle diameters.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle mean diameters.
 	 */
 	std::vector<double> GetPSDMeanDiameters() const;
 	/**
 	 * \brief Returns mean values of classes defined for the particle size distribution in terms of particle surfaces.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle mean surfaces.
 	 */
 	std::vector<double> GetPSDMeanSurfaces() const;
 	/**
 	 * \brief Returns mean values of classes defined for the particle size distribution in terms of particle volumes.
-	 * \details Returns an empty vector if EDistrTypes::DISTR_SIZE distribution has not been defined.
+	 * \details Returns an empty vector if ::DISTR_SIZE distribution has not been defined.
 	 * \return Particle mean volumes.
 	 */
 	std::vector<double> GetPSDMeanVolumes() const;

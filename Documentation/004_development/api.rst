@@ -10,6 +10,7 @@ All functions, classes, their member variables and methods, needed to develop ne
 	:titlesonly:
 
 	class_baseunit
+	class_basestream
 	class_stream
 	class_holdup
 	class_portsmanager
@@ -21,11 +22,14 @@ All functions, classes, their member variables and methods, needed to develop ne
 	class_basesolver
 	class_statevariablesmanager
 	class_statevariable
+	class_point
+	class_curve
 	class_plot
+	class_plotmanager
 	class_mixtureenthalpylookup
-	class_transformmatrix
-	class_densemdmatrix
 	class_matrix2d
+	class_densemdmatrix
+	class_transformmatrix
 	distr_functions
 	thermodynamics
 	solver_dae

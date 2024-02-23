@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2023, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 /**
 \file DyssolDefines.h
@@ -13,38 +15,40 @@
 // ========== Initial values
 
 // Simulator
-#define DEFAULT_MAX_ITERATIONS_NUMBER		500
-#define DEFAULT_SIMULATION_TIME				60
-#define DEFAULT_INIT_TIME_WINDOW			1
-#define DEFAULT_MIN_TIME_WINDOW				1e-9
-#define DEFAULT_MAX_TIME_WINDOW				1000000
-#define DEFAULT_ITERS_UPPER_LIMIT			7
-#define DEFAULT_ITERS_LOWER_LIMIT			3
-#define DEFAULT_ITERS_1ST_UPPER_LIMIT		20
-#define DEFAULT_WINDOW_MAGNIFICATION_RATIO	1.2
-#define	DEFAULT_WEGSTEIN_ACCEL_PARAM		-0.5
-#define DEFAULT_RELAXATION_PARAM			1
-
-// Cache
-#define DEFAULT_CACHE_FLAG_STREAMS		true
-#define DEFAULT_CACHE_FLAG_HOLDUPS		false
-#define DEFAULT_CACHE_FLAG_INTERNAL		false
-#define DEFAULT_CACHE_WINDOW			100
+#define DEFAULT_MAX_ITERATIONS_NUMBER		500     ///< Default value.
+#define DEFAULT_SIMULATION_TIME				60      ///< Default value.
+#define DEFAULT_INIT_TIME_WINDOW			1		///< Default value.
+#define DEFAULT_MIN_TIME_WINDOW				1e-9	///< Default value.
+#define DEFAULT_MAX_TIME_WINDOW				1000000	///< Default value.
+#define DEFAULT_ITERS_UPPER_LIMIT			7		///< Default value.
+#define DEFAULT_ITERS_LOWER_LIMIT			3		///< Default value.
+#define DEFAULT_ITERS_1ST_UPPER_LIMIT		20		///< Default value.
+#define DEFAULT_WINDOW_MAGNIFICATION_RATIO	1.2		///< Default value.
+#define	DEFAULT_WEGSTEIN_ACCEL_PARAM		-0.5	///< Default value.
+#define DEFAULT_RELAXATION_PARAM			1		///< Default value.
 
 // Initial tolerances
-#define DEFAULT_A_TOL	1e-6
-#define DEFAULT_R_TOL	1e-3
+#define DEFAULT_A_TOL	1e-6                        ///< Default value.
+#define DEFAULT_R_TOL	1e-3                        ///< Default value.
+
+// Cache
+#define DEFAULT_CACHE_FLAG_STREAMS		true        ///< Default value.
+#define DEFAULT_CACHE_FLAG_HOLDUPS		false       ///< Default value.
+#define DEFAULT_CACHE_FLAG_INTERNAL		false       ///< Default value.
+#define DEFAULT_CACHE_WINDOW			100	        ///< Default value.
 
 // Initial minimal fraction
-#define DEFAULT_MIN_FRACTION	0
+#define DEFAULT_MIN_FRACTION	0                   ///< Default value.
 
 // Enthalpy calculator
-#define DEFAULT_ENTHALPY_MIN_T     173
-#define DEFAULT_ENTHALPY_MAX_T     1273
-#define DEFAULT_ENTHALPY_INTERVALS 100
+#define DEFAULT_ENTHALPY_MIN_T     173              ///< Default value.
+#define DEFAULT_ENTHALPY_MAX_T     1273             ///< Default value.
+#define DEFAULT_ENTHALPY_INTERVALS 100              ///< Default value.
 
 
-// ========== Convergence methods
+/**
+ * Convergence methods.
+ */
 enum class EConvergenceMethod : uint32_t
 {
 	DIRECT_SUBSTITUTION	= 0,
@@ -52,7 +56,9 @@ enum class EConvergenceMethod : uint32_t
 	STEFFENSEN			= 2
 };
 
-// ========== Extrapolation methods
+/**
+ * Extrapolation methods.
+ */
 enum class EExtrapolationMethod : uint32_t
 {
 	LINEAR	= 0,
@@ -61,11 +67,11 @@ enum class EExtrapolationMethod : uint32_t
 };
 
 //======== SOLID DISTRIBUTIONS DATABASE [0; 50] ===============
-#define DISTRIBUTIONS_NUMBER 15
+#define DISTRIBUTIONS_NUMBER 16
 
 // TODO: make enum class
 /**
- * \brief Types of distributed parameters of the solid phase.
+ * \brief Types of distributed properties of the solid phase.
  */
 enum EDistrTypes : uint32_t
 {
@@ -85,11 +91,23 @@ enum EDistrTypes : uint32_t
 	DISTR_USER_DEFINED_08 = 27,	///< User-defined distribution.
 	DISTR_USER_DEFINED_09 = 28,	///< User-defined distribution.
 	DISTR_USER_DEFINED_10 = 29,	///< User-defined distribution.
-	DISTR_UNDEFINED		  = 31,	///< Type is undefined.
+	DISTR_UNDEFINED		  = 31,	///< Distribution type is undefined.
 };
 
+/**
+ * \brief Names of all distributed properties.
+ * \details Must be in the same order as DISTR_TYPES.
+ */
 #define DISTR_NAMES { "Compounds", "Size", "Particle porosity", "Form factor", "Color", "Moisture", "Distribution 1", "Distribution 2", "Distribution 3", "Distribution 4", "Distribution 5", "Distribution 6", "Distribution 7", "Distribution 8", "Distribution 9", "Distribution 10" }
+/**
+ * \brief Types of all distributed properties.
+ * \details Must be in the same order as DISTR_NAMES.
+ */
 #define DISTR_TYPES { DISTR_COMPOUNDS,  DISTR_SIZE, DISTR_PART_POROSITY, DISTR_FORM_FACTOR, DISTR_COLOR, DISTR_MOISTURE, DISTR_USER_DEFINED_01, DISTR_USER_DEFINED_02, DISTR_USER_DEFINED_03, DISTR_USER_DEFINED_04, DISTR_USER_DEFINED_05, DISTR_USER_DEFINED_06, DISTR_USER_DEFINED_07, DISTR_USER_DEFINED_08, DISTR_USER_DEFINED_09, DISTR_USER_DEFINED_10}
+/**
+ * \brief Calculates index of the distributed property from its type.
+ * \details Indices from DISTR_TYPES.
+ */
 inline int GetDistributionTypeIndex(EDistrTypes _nType)
 {
 	EDistrTypes vTypes[] = DISTR_TYPES;
@@ -99,23 +117,25 @@ inline int GetDistributionTypeIndex(EDistrTypes _nType)
 	return -1;
 }
 
-
+// TODO: Remove
 // ========== m_StreamMTP indexes
-#define MTP_MASS		0
-#define MTP_TEMPERATURE	1
-#define MTP_PRESSURE	2
+#define MTP_MASS		0 ///< Index of mass in MTP.
+#define MTP_TEMPERATURE	1 ///< Index of temperature in MTP.
+#define MTP_PRESSURE	2 ///< Index of pressure in MTP.
 
 /**
- * \brief Types of grid entries of distributed parameters of the solid phase.
+ * \brief Types of grid entries for distributed properties of the solid phase.
  */
 enum class EGridEntry : uint32_t
 {
 	GRID_NUMERIC	= 0,  ///< Numeric grid.
 	GRID_SYMBOLIC	= 2,  ///< Symbolic grid.
-	GRID_UNDEFINED  = 15, ///< Type is undefined.
+	GRID_UNDEFINED  = 15, ///< Grid type is undefined.
 };
 
-// ========== TYPES OF GRID FUNCTIONAL DISTRIBUTIONS
+/**
+ * Types of grid functional distributions.
+ */
 enum class EGridFunction : uint32_t
 {
 	GRID_FUN_MANUAL	         = 0,
@@ -127,26 +147,58 @@ enum class EGridFunction : uint32_t
 	GRID_FUN_UNDEFINED		 = 15,
 };
 
-// ========== TYPES OF SOLVING STRATEGIES FOR NLSOLVER
+/**
+ * Types of solving strategies for NLSolver.
+ */
 enum class ENLSolverStrategy : uint32_t
 {
 	Newton, Linesearch, Picard, Fixedpoint
 };
 
-// ========== PSD TYPES
+/**
+* \brief Identifiers of PSD types.
+* \details
+* \note
+* - \f$i\f$ - index of size classes
+* - \f$j\f$ - index of compounds
+* - \f$k\f$ - index of porosities
+* - \f$d_i\f$ - particle diameter of class \f$i\f$
+* - \f$\Delta d_i\f$ - size of the class \f$i\f$
+* - \f$m_i\f$ - mass of particles of class \f$i\f$
+* - \f$M_{tot}\f$ - total mass of particles
+* - \f$N_i\f$ - number of particles of class \f$i\f$
+* - \f$N_{i,j}\f$ - number of particles of compound \f$j\f$ of size class \f$i\f$
+* - \f$N_{tot}\f$ - total number of particles
+* - \f$w_i\f$ - mass fraction of particles of class \f$i\f$
+* - \f$w_{i,j}\f$ - mass fraction of particles of compound \f$j\f$ of size class \f$i\f$
+* - \f$w_{i,j,k}\f$ - mass fraction of particles of compound \f$j\f$ of size class \f$i\f$ and porosity \f$k\f$
+* - \f$\rho_{j}\f$ - density of compound \f$j\f$
+* - \f$\varepsilon_{k}\f$ - porosity of class \f$k\f$
+* - \f$q_0\f$ - number-related density distribution
+* - \f$Q_0\f$ - number-related cumulative distribution
+* - \f$q_2\f$ - surface-related density distribution
+* - \f$Q_2\f$ - surface-related cumulative distribution
+* - \f$q_3\f$ - mass-related density distribution
+* - \f$Q_3\f$ - mass-related cumulative distribution
+*/
 enum EPSDTypes
 {
-	PSD_q3       = 0,
-	PSD_Q3       = 1,
-	PSD_q0       = 2,
-	PSD_Q0       = 3,
-	PSD_MassFrac = 4,
-	PSD_Number   = 5,
-	PSD_q2       = 6,
-	PSD_Q2       = 7
+	PSD_q3       = 0, ///< Mass-related density distribution: \f$q_{3,i} = \frac{w_i}{\Delta d_i}\f$.
+	PSD_Q3       = 1, ///< Mass-related cumulative distribution: \f$Q_{3,0} = w_0\f$, \f$Q_{3,i} = Q_{3,i-1} + w_i\f$.
+	PSD_q0       = 2, ///< Number-related density distribution: \f$q_{0,i} = \frac{N_i}{N_{tot} \Delta d_i}\f$.
+	PSD_Q0       = 3, ///< Number-related cumulative distribution: \f$Q_{0,i} = Q_{0,i-1} + q_{0,i} \Delta d_i\f$.
+	PSD_MassFrac = 4, ///< Size distribution in the form of mass fractions with the total sum of 1.
+	PSD_Number   = 5, ///< Number-related distribution of particles, depends on several conditions:
+					  ///< -# If only one compound is specified: \f$N_i = \frac{m_i}{\rho \frac{\pi}{6} d_i^3}\f$.
+					  ///< -# For several compounds: \f$N_i = \sum_j \frac{M_{tot} w_{i,j}}{\frac{\pi d_i^3}{6} \rho_j}\f$.
+					  ///< -# If distribution by particle porosity defined: \f$N_i = \sum_j N_{i,j}\f$, with \f$N_{i, j} = \sum_k \frac{M_{tot} w_{i,j,k}}{\frac{\pi d_i^3}{6} \rho_j (1 - \varepsilon_k)}\f$.
+	PSD_q2       = 6, ///< Surface-area-related density distribution: \f$q_{2,i} = \frac{Q_{2,i} - Q_{2,i-1}}{\Delta d_i}\f$.
+	PSD_Q2       = 7  ///< Surface-area-related cumulative distribution: \f$Q_{2,i} = \frac{\sum_{j=0}^i N_j \pi d_j^2}{\sum_j N_j \pi d_j^2}\f$.
 };
 
-// ========== For lookup table creation
+/**
+ * For lookup table creation.
+ */
 enum class EDependencyTypes
 {
 	DEPENDENCE_UNKNOWN = 0,
@@ -158,31 +210,31 @@ enum class EDependencyTypes
 // ========== Non-constant single-phase mixture properties and overall properties [300..399]
 
 // TODO: remove them
-//#define ENTHALPY				308 // overall
-#define FLOW					320	// overall (stream)
-#define MASS					320	// overall (holdup)
-#define FRACTION				321
-#define PHASE_FRACTION			327
-#define PRESSURE				338	// overall
-#define TEMPERATURE				340	// overall
-#define TOTAL_FLOW				342	// overall (stream)
-#define TOTAL_MASS				342	// overall (holdup)
+//#define ENTHALPY				308 ///< overall
+#define FLOW					320	///< overall (stream)
+#define MASS					320	///< overall (holdup)
+#define FRACTION				321 ///< phase fraction
+#define PHASE_FRACTION			327	///< phase fraction
+#define PRESSURE				338	///< overall
+#define TEMPERATURE				340	///< overall
+#define TOTAL_FLOW				342	///< overall (stream)
+#define TOTAL_MASS				342	///< overall (holdup)
 
 // ========== Universal constants
 
-#define AVOGADRO_CONSTANT					6.022141994747e+23
-#define BOLTZMANN_CONSTANT					1.38065032424e-23
-#define IDEAL_GAS_STATE_REFERENCE_PRESSURE	101325
-#define MOLAR_GAS_CONSTANT					8.314459848
-#define SPEED_OF_LIGHT_IN_VACUUM			2.9979245811e+8
-#define STANDARD_ACCELERATION_OF_GRAVITY	9.80665
+#define AVOGADRO_CONSTANT					6.022141994747e+23     ///< Avogadro constant [1/mol].
+#define BOLTZMANN_CONSTANT					1.38065032424e-23	   ///< Boltzmann constant [J/K].
+#define MOLAR_GAS_CONSTANT					8.314459848			   ///< Molar gas constant [J/mol/K].
+#define SPEED_OF_LIGHT_IN_VACUUM			2.9979245811e+8		   ///< Speed of light in vacuum [m/s].
+#define STANDARD_ACCELERATION_OF_GRAVITY	9.80665				   ///< Standard acceleration of gravity [m/s<sup>2</sup>].
 #define STANDARD_CONDITION_T				298.15	               ///< Standard condition temperature [K].
 #define STANDARD_CONDITION_P				101325	               ///< Standard condition pressure [Pa].
-#define STEFAN_BOLTZMANN_CONSTANT			5.670374419e-8		   // W/m^2.K^4
-#define MATH_PI								3.14159265358979323846
+#define STEFAN_BOLTZMANN_CONSTANT			5.670374419e-8		   ///< Stefan-Boltzmann constant [W/m<sup>2</sup>/K<sup>4</sup>].
+#define MATH_PI								3.14159265358979323846 ///< \f$\pi\f$ constant.
 
-// ========== Value basis
-
+/**
+ * Value basis.
+ */
 enum eValueBasises
 {
 	BASIS_MASS, BASIS_MOLL
@@ -192,6 +244,9 @@ enum eValueBasises
 //////////////////////////////////////////////////////////////////////////
 /// Common enumerators
 //////////////////////////////////////////////////////////////////////////
+/**
+ * Types of distribution functions.
+ */
 enum class EDistrFunction : unsigned
 {
 	Manual = 0,
@@ -201,10 +256,13 @@ enum class EDistrFunction : unsigned
 	LogNormal = 4
 };
 
+/**
+ * \brief Identifiers of grid unit types.
+ */
 enum class EPSDGridType : unsigned
 {
-	DIAMETER = 0,
-	VOLUME = 1
+	DIAMETER = 0, ///< Diameter-based size-grid [m].
+	VOLUME = 1	  ///< Volume-based size-grid [m<sup>3</sup>].
 };
 
 /**
@@ -219,23 +277,25 @@ enum class EPhase : uint32_t
 	GAS       = 3, ///< Gas phase.
 };
 
-// Identifiers of time-dependent overall parameters.
+/**
+ * \brief Identifiers of time-dependent overall properties.
+ */
 enum class EOverall : uint32_t
 {
 	// TODO: rename when corresponding defines are removed
-	OVERALL_MASS,
-	OVERALL_TEMPERATURE,
-	OVERALL_PRESSURE,
-	OVERALL_USER_DEFINED_01 = 201,
-	OVERALL_USER_DEFINED_02 = 202,
-	OVERALL_USER_DEFINED_03 = 203,
-	OVERALL_USER_DEFINED_04 = 204,
-	OVERALL_USER_DEFINED_05 = 205,
-	OVERALL_USER_DEFINED_06 = 206,
-	OVERALL_USER_DEFINED_07 = 207,
-	OVERALL_USER_DEFINED_08 = 208,
-	OVERALL_USER_DEFINED_09 = 209,
-	OVERALL_USER_DEFINED_10 = 210,
+	OVERALL_MASS,					///< Overall mass or mass flow.
+	OVERALL_TEMPERATURE,			///< Overall temperature.
+	OVERALL_PRESSURE,				///< Overall pressure.
+	OVERALL_USER_DEFINED_01 = 201,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_02 = 202,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_03 = 203,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_04 = 204,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_05 = 205,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_06 = 206,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_07 = 207,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_08 = 208,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_09 = 209,	///< User-defined overall property.
+	OVERALL_USER_DEFINED_10 = 210,	///< User-defined overall property.
 };
 
 /**
@@ -252,7 +312,9 @@ enum class EUnitPort : uint32_t
 ////////////////////////////////////////////////////////////////////////////////
 /// Deprecated types
 
-// Identifiers of phase types
+/**
+ * Identifiers of phase types.
+ */
 enum EPhaseTypes : unsigned
 {
 	SOA_SOLID,
@@ -262,6 +324,9 @@ enum EPhaseTypes : unsigned
 	SOA_UNDEFINED
 };
 
+/**
+ * Identifiers of unit ports types.
+ */
 enum EPortType
 {
 	INPUT_PORT = 0,
