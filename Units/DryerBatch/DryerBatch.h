@@ -353,19 +353,19 @@ public:
 	double CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage = 0);
 	//Calculates overall heat transfer coefficient for the top plate
 	double CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal);	
-	double DetermineSectionsFilledWithBed(double _time, double particleTemperature);	
+	//double DetermineSectionsFilledWithBed(double _time, double particleTemperature);	
 	//double GetGasMassOfLayer(double _time, size_t layer, double gasTemperature, double particleTemperature);
-	size_t DetermineLayersInSectionFilledWithBed(size_t section, double heigthUsage) const
-	{
-		return std::ceil(chamber.at(section).layers * heigthUsage);
-	};
+	//size_t DetermineLayersInSectionFilledWithBed(size_t section, double heigthUsage) const
+	//{
+	//	return std::ceil(chamber.at(section).layers * heigthUsage);
+	//};
 	//	Calculates volume of a section
-	double CalculateSectionVolume(size_t section);	
+	//double CalculateSectionVolume(size_t section);	
 	/**	Determine into which section a layer falls
 	 *	\param index of layer
 	 *	\return index of section*/
 	//size_t DetermineSectionForLayer(size_t layer) const;
-	std::vector<double> GetSectionGasMass(double _time, double gasTemperature, double particleTemperature);
+	//std::vector<double> GetSectionGasMass(double _time, double gasTemperature, double particleTemperature);
 	double CalculateLayerVolume(size_t section, double R1, double r1)
 	{
 		return chamber.at(section).height* MATH_PI* (R1 * R1 + R1 * r1 + r1 * r1) / (3 * chamber.at(section).layers);
