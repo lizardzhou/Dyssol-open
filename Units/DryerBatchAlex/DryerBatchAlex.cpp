@@ -27,7 +27,7 @@ void CDryerBatch::CreateBasicInfo()
 	/// Set basic unit info ///
 	SetUnitName("Dryer batch (most recent version of Alex)");
 	SetAuthorName("Alexander Hanke, Xiye Zhou");
-	SetUniqueID("8CA9B8E5-8418-4EB5-8070-AA9C157A3167");
+	SetUniqueID("D4CE623E-47A7-483B-A036-8EE0D1409650");
 }
 
 void CDryerBatch::CreateStructure()
