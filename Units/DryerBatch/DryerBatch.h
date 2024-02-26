@@ -97,7 +97,7 @@ private:
 
 private:
 	std::vector<std::pair< EPhase, int>> CompoundsKeyIndexPhasePartnerIndex; // Storage vector for phase and phase change partner, index same as compoundKeys variable
-	void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
+	//void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
 	//void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
 	double minMoistureContent = 0;
 	double moistureScaler = 1;
@@ -125,22 +125,22 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Inlet fluidization gas
-		massFlow mFlowInGas;
-		massFlow mFlowInGasDry;
-		moistureContent Y_inGas; // Moisture content of input gas stream [kg/kg]
-		double RH_inGas;
-		specificLatentHeat h_inGas; // enthalpy for inlet gas: determined by user input, in [J/kg]
-		temperature theta_inGas; 
+		//massFlow mFlowInGas;
+		//massFlow mFlowInGasDry;
+		//moistureContent Y_inGas; // Moisture content of input gas stream [kg/kg]
+		//double RH_inGas;
+		//specificLatentHeat h_inGas; // enthalpy for inlet gas: determined by user input, in [J/kg]
+		//temperature theta_inGas; 
 	// Inlet nozzle gas
-		massFlow mFlowInNozzleGas;
-		massFlow mFlowInNozzleGasDry;
-		moistureContent Y_nozzle;
+		//massFlow mFlowInNozzleGas;
+		//massFlow mFlowInNozzleGasDry;
+		//moistureContent Y_nozzle;
 		//specificLatentHeat h_inNozzle;
-		temperature thetaNozzleGas;
-		specificLatentHeat h_nozzleGas;
+		//temperature thetaNozzleGas;
+		//specificLatentHeat h_nozzleGas;
 	// Gas in holdup (whole plant, incl. chamber & expansion)
 		mass mGasHoldup = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
-		moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
+		//moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
 		
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
@@ -151,46 +151,47 @@ public:
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	double ratioMM; // = molarMassPhaseChangingLiquid / molarMassGas;
 	// Liquid in holdup
-		mass mLiquidHoldup;
+		//mass mLiquidHoldup;
 	// Spray liquid
-		massFlow mFlowSprayLiquid;
-		massFraction x_wSusp; 
-		temperature thetaSprayLiquid;
-		specificLatentHeat h_susp;
+		//massFlow mFlowSprayLiquid;
+		//massFraction x_wSusp; 
+		//temperature thetaSprayLiquid;
+		//specificLatentHeat h_susp;
 	// Particle (solid) phase
-		std::vector<double> Grid; // d_min
-		std::vector<double> q_3;
-		std::vector<double> avgClassDiam; // d_m,i
-		std::vector<double> classSize; // Delta d
+		//std::vector<double> Grid; // d_min
+		//std::vector<double> q_3;
+		//std::vector<double> avgClassDiam; // d_m,i
+		//std::vector<double> classSize; // Delta d
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
 		thermalConductivity lambdaParticle = 0.58;
 	// Particle in holdup
-		mass mSolidHoldup;
-		length d32; // Sauter diameter
-		area A_P; // = 4; // total surface area of particle mass [m^2]
-		length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
-		moistureContent initX = 0;
+		//mass mSolidHoldup;
+		//length d32; // Sauter diameter
+		//area A_P; // = 4; // total surface area of particle mass [m^2]
+		//length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
+		//moistureContent initX = 0;
 		//drying kinetic parameters, CURRENTLY NOT IN USE
-		double k_dc; // = 3.5; // k for normalized drying curve
-		moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
+		//double k_dc; // = 3.5; // k for normalized drying curve
+		//moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
 	// Bed
-		length heightOfBed;
-		length diamOfBed;
-		double eps_0; // = 0.4;
-		double u_mf; // = 0;
+		//length heightOfBed;
+		//length diamOfBed;
+		//double eps_0; // = 0.4;
+		//double u_mf; // = 0;
 	// process chamber
-		std::vector<chamberSection> chamber;
-		double heightOfChamber;
-		double heightOfChamberTemperatureProbe;// = 0.070;
-		double heightOfNozzle;
-		double heighestFlowTimepoint = 0;
+		//std::vector<chamberSection> chamber;
+		//double heightOfChamber;
+		//double heightOfChamberTemperatureProbe;// = 0.070;
+		//double heightOfNozzle;
+		//double heighestFlowTimepoint = 0;
 
 	// Settings
-		bool calcBeta = GetCheckboxParameterValue("calcBeta");
-		bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
-		bool calcNdc = GetCheckboxParameterValue("calcNdc");
-		size_t dryingCurveSetting = GetComboParameterValue("DryingCurve");
+		//bool calcBeta = GetCheckboxParameterValue("calcBeta");
+		//bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
+		//bool calcNdc = GetCheckboxParameterValue("calcNdc");
+		//size_t dryingCurveSetting = GetComboParameterValue("DryingCurve");
+		size_t dryingCurveSetting{};
 		double SmallBiotNumber = 0.1;
 		double phiCuttOff = 0.999;
 	// REA function parameters
@@ -225,7 +226,7 @@ public:
 	const temperature TempGasOld = T_ref;
 	const temperature TempSolidOld = T_ref;
 	const moistureContent YavgOld = Y_inGas;
-	int DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
+	size_t DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
 
 	double EnergyLiquidPhaseOld = 0;
 	double EnergySolidPhaseOld = 0;

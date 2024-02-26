@@ -644,6 +644,14 @@ Global
 		{9E33ACE6-5DDA-400C-8242-6BE0B8569221}.Debug|x64.ActiveCfg = Debug|x64
 		{9E33ACE6-5DDA-400C-8242-6BE0B8569221}.Release|Win32.ActiveCfg = Release|Win32
 		{9E33ACE6-5DDA-400C-8242-6BE0B8569221}.Release|x64.ActiveCfg = Release|x64
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|Win32.Build.0 = Debug|Win32
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|x64.ActiveCfg = Debug|x64
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|x64.Build.0 = Debug|x64
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|Win32.ActiveCfg = Release|Win32
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|Win32.Build.0 = Release|Win32
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|x64.ActiveCfg = Release|x64
+		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|x64.Build.0 = Release|x64
 		{105F146A-CADE-478D-B55A-4F21402A316E}.Debug|Win32.ActiveCfg = Debug|Win32
 		{105F146A-CADE-478D-B55A-4F21402A316E}.Debug|Win32.Build.0 = Debug|Win32
 		{105F146A-CADE-478D-B55A-4F21402A316E}.Debug|x64.ActiveCfg = Debug|x64
@@ -684,14 +692,6 @@ Global
 		{FB44A78F-E8FD-47BA-9B1B-CF9BFCA2D3F4}.Release|Win32.Build.0 = Release|Win32
 		{FB44A78F-E8FD-47BA-9B1B-CF9BFCA2D3F4}.Release|x64.ActiveCfg = Release|x64
 		{FB44A78F-E8FD-47BA-9B1B-CF9BFCA2D3F4}.Release|x64.Build.0 = Release|x64
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|Win32.ActiveCfg = Debug|Win32
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|Win32.Build.0 = Debug|Win32
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|x64.ActiveCfg = Debug|x64
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Debug|x64.Build.0 = Debug|x64
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|Win32.ActiveCfg = Release|Win32
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|Win32.Build.0 = Release|Win32
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|x64.ActiveCfg = Release|x64
-		{0F7B1A52-7766-4E37-9ACD-AC76AB000000}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -765,7 +765,7 @@ Global
 		{0F7B1A52-7766-4E37-9ACD-AC76AB000000} = {8B7A2AEC-46DD-47CE-937E-767D7692C15F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		Qt5Version = msvc2019_64
 		SolutionGuid = {CAC327DA-BA65-4990-BEC0-618347D67688}
+		Qt5Version = msvc2019_64
 	EndGlobalSection
 EndGlobal
