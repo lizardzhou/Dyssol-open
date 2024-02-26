@@ -53,10 +53,10 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("Y_in", 10, "g/kg dry air", "Absolute humidity of inlet fluidization gas.", 0, 50);
 	//AddConstRealParameter("Y_in"	, 5		, "g/kg dry gas", "Moisture content of the fluidization gas."	, 0, 30);
 	std::vector<size_t>	items = { 0, 1, 2 };
-	std::vector<std::string> itemNames = { "RH_in","Y_in","Input stream" };
-	AddComboParameter("Y_in_Value", 0, items, itemNames, "How Y_in should be calculated."); // defalut: calculate from RH_in
+	std::vector<std::string> itemNames; //= { "RH_in","Y_in","Input stream" };
+	//AddComboParameter("Y_in_Value", 0, items, itemNames, "How Y_in should be calculated."); // defalut: calculate from RH_in
 	AddConstRealParameter("RH_in"	, 48.99	, "%"			, "Relative humidity of the fluidization gas"	, 0, 100);
-	AddConstRealParameter("Y_sat"	, 0		, "g/kg dry gas", "Saturation moisture content of the fluidization air\nIf 0, material database will be used to cacluate Y_sat.", 0);
+	//AddConstRealParameter("Y_sat"	, 0		, "g/kg dry gas", "Saturation moisture content of the fluidization air\nIf 0, material database will be used to cacluate Y_sat.", 0);
 	//AddCheckBoxParameter("Y_eq", 1, "If unticked, omits reduced saturation vapor pressure.");
 	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf 0, calculated using correlation from Gnielinski");
 	// Selection of correlation for calculating diffusion coefficient
@@ -71,33 +71,33 @@ void CDryerBatch::CreateStructure()
 	AddStringParameter	 ("Chamber information"	, ""		, "");
 	AddConstRealParameter("H_tempProbe"		, 0.07			, "m"	, "Height of temperature probe for chamber temperature over distributor.", 0, 0.35);
 	AddConstRealParameter("H_nozzle"		, 0.25			, "m"	, "Height of two-fluid nozzle over gas distributor.", 0, 0.35);
-	AddConstRealParameter("d_bed"			, 0.2			, "m"	, "Bed diameter", 1e-3, 1);
+	AddConstRealParameter("d_bed"			, 0.18			, "m"	, "Bed diameter", 0.1, 1);
 	AddConstRealParameter("H_bed"			, 0.106			, "m"	, "Bed height without fluidization", 1e-3, 0.2);
 	AddConstRealParameter("H_chamber"		, 0.35			, "m"	, "Process chamber height", 1e-3, 0.4);
 	// Bed properties, use for development of further models
 	AddStringParameter("Bed properties", ""	, "Currently not in use, designed for further development");
 	AddConstRealParameter("eps_0"			, 0.4			, "-"	, "Bed porosity without fluidization"										, 0, 1);
 	AddConstRealParameter("u_mf"			, 0				, "m/s"	, "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
-	AddConstIntParameter ("N_el"			, 1				, ""	, "Number of hight discretization layers"									, 1); // # of height discretization layers
+	//AddConstIntParameter ("N_el"			, 1				, ""	, "Number of hight discretization layers"									, 1); // # of height discretization layers
 	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
 	
 	////////////////////////////////////////////////////////////
-	// Drying kinetics calculation, currently not in use
-	AddStringParameter("Drying kinetics calculation, currently not in use!", "", "");
-	AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
-	AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
-	AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
-	AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
-	AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", 0, 5); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
-	AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
+	/// Drying kinetics calculation, currently not in use
+	//AddStringParameter("Drying kinetics calculation, currently not in use!", "", "");
+	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
+	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
+	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
+	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
+	//AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", 0, 5); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
+	//AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
 	// Selection of calculating method for drying kinetics
-	itemNames = { "REA", "Normalized drying curve", "No curve" };
-	AddComboParameter("DryingCurve", 0, items, itemNames, "How drying curve should be determined.");
+	//itemNames = { "REA", "Normalized drying curve", "No curve" };
+	//AddComboParameter("DryingCurve", 0, items, itemNames, "How drying curve should be determined.");
 	// Reaction Engineering Approach for drying curve
-	AddStringParameter("REA parameters", "", "Values used for funtion fit for Reaction Engineering Approach to drying phases\n Normalized activation energy = REA1 * exp(REA2 * (X - Xeq)^REA3)");
-	AddConstRealParameter("REA1", 0.96, "", "");
-	AddConstRealParameter("REA2", -19.63, "", "");
-	AddConstRealParameter("REA3", 0.73, "", "");
+	//AddStringParameter("REA parameters", "", "Values used for funtion fit for Reaction Engineering Approach to drying phases\n Normalized activation energy = REA1 * exp(REA2 * (X - Xeq)^REA3)");
+	//AddConstRealParameter("REA1", 0.96, "", "");
+	//AddConstRealParameter("REA2", -19.63, "", "");
+	//AddConstRealParameter("REA3", 0.73, "", "");
 	////////////////////////////////////////////////////////////
 
 	// Tolerance for solver
@@ -129,7 +129,7 @@ void CDryerBatch::Initialize(double _time)
 	//bool calcNdc = GetCheckboxParameterValue("calcNdc");
 	//ignoreVaporInput = GetCheckboxParameterValue("ignoreVaporInput");
 	//useREA = GetCheckboxParameterValue("useREA");
-	dryingCurveSetting = GetComboParameterValue("DryingCurve");
+	//dryingCurveSetting = GetComboParameterValue("DryingCurve");
 
 	/// Get holdup ///
 	m_holdup = GetHoldup("Holdup");
@@ -219,31 +219,6 @@ void CDryerBatch::Initialize(double _time)
 	//	//moistureScaler = minMoistureContent / X_eqMinBase;
 	//}
 	// Show particle properties in DEBUG mode
-	if (debugToggle)
-	{
-		/// Get number of classes for PSD ///
-		size_t m_classesNum = GetClassesNumber(DISTR_SIZE); //n
-		/// Get grid of PSD ///
-		const std::vector<double> avgClassDiam = GetClassesMeans(DISTR_SIZE); //d_m,i
-		const std::vector<double> classSize = GetClassesSizes(DISTR_SIZE); //Delta d
-		// output of read data in simulation window
-		os << "\nPSD info\n" << "\tNumber of classes: " << m_classesNum << "\n\tSize Grid\n";
-		for (int i = 0; i < Grid.size(); i++)
-			os << "\t\tSize Grid: " << i << " = " << Grid[i] << " m\n";
-		os << "\tAvg diam\n";
-		for (int i = 0; i < avgClassDiam.size(); i++)
-			os << "\t\tAvg diam: " << i << " = " << avgClassDiam[i] << " m\n";
-		os << "\tClass size\n";
-		for (int i = 0; i < classSize.size(); i++)
-			os << "\t\tClass size: " << i << " = " << classSize[i] << " m\n";
-		os << "\tSauter diameter:" << d32 << "m\n";
-		os << "\tToal surface area: " << A_Calculated << " m^2\n" << "\tTotal particle mass: " << mSolidHoldup << " kg\n";
-		if (particlesGlobal)
-		{
-			ShowInfo(os.str());
-		}
-		os.str("");
-	}
 
 /// environment temperature
 	T_inf = T_ref + GetConstRealParameterValue("theta_env"); // T_ref = 0 degreeC
@@ -252,7 +227,8 @@ void CDryerBatch::Initialize(double _time)
 	const temperature theta_inGas = m_inGasStream->GetTemperature(_time) - T_ref;
 	const double RH_inGas = GetConstRealParameterValue("RH_in") / 100;
 	//size_t Y_in_Value = GetComboParameterValue("Y_in_Value");
-	const moistureContent Y_inGas = GetConstRealParameterValue("Y_in");
+	const moistureContent Y_inGas = GetConstRealParameterValue("Y_in") * 1e-3; // convert in [kg/kg]
+
 	//switch (Y_in_Value)
 	//{
 	//	case 0: // calculate from RH and saturation vapor pressure at the given temperature
@@ -282,17 +258,17 @@ void CDryerBatch::Initialize(double _time)
 	//	}
 	//}
 	const massFlow mFlowInGas = m_inGasStream->GetMassFlow(_time);
-	const massFraction y_in = CalculateMoistContentFromMassFrac(Y_inGas);
+	const massFraction y_in = ConvertMoistContentToMassFrac(Y_inGas);
 	const massFlow mFlowInGasDry = mFlowInGas * (1 - y_in);
-	const moistureContent Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
+	//const moistureContent Y_sat = GetConstRealParameterValue("Y_sat") * 1e-3; // convert into [kg/kg]
 	//m_model.Y_eq = GetCheckboxParameterValue("Y_eq");	
 	const specificLatentHeat h_inGas = C_PGas * theta_inGas + Y_inGas * (C_PWaterVapor * theta_inGas + Delta_h0);
-	DiffCoeff = GetComboParameterValue("Diff_coeff"); //calculation of DiffCoeff in function - double CDryerBatch::CalculateDiffusionCoefficient
+	const int DiffCoeff = GetComboParameterValue("Diff_coeff"); //calculation of DiffCoeff in function - double CDryerBatch::CalculateDiffusionCoefficient
 
 /// nozzle gas condition
 	const massFlow mFlowInNozzleGas = m_inNozzleAirStream->GetMassFlow(_time);
 	const moistureContent Y_nozzle = GetConstRealParameterValue("Y_nozzle") * 1e-3; // convert to [kg/kg]
-	const massFraction y_nozzle = CalculateMassFracFromMoistContent(Y_nozzle);
+	const massFraction y_nozzle = ConvertMoistContentToMassFrac(Y_nozzle);
 	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * (1 - y_nozzle);
 	const temperature thetaNozzleGas = m_inNozzleAirStream->GetTemperature(_time) - T_ref; // in degreeC
 	const specificLatentHeat h_nozzleGas = C_PGas * thetaNozzleGas + Y_nozzle * (C_PWaterVapor * thetaNozzleGas + Delta_h0);
@@ -373,11 +349,11 @@ void CDryerBatch::Initialize(double _time)
 	m_holdup->SetPhaseMass(_time, EPhase::VAPOR, mGasHoldup * (1 + Y_inGas));
 	AddStateVariable("Gas temperature in holdup [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // gas temperature in hold up == in outlet. Further with height discretization
 	AddStateVariable("Gas mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
-	ratioMM = ratio(molarMassPhaseChangingLiquid, molarMassGas);
+	//const double ratioMM = ratio(molarMassPhaseChangingLiquid, molarMassGas);
 /// gas in outlet ///
-	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_inGas * 1e3, 0, 1.0);
+	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_inGas, 0, 1.0);
 	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); // Temperature of gas in [degreeC]
-	m_model.m_iHFlowOutGas = m_model.AddDAEVariable(false, m_inGasStream->GetMassFlow(_time) * h_inGas, 0, 1.0); // Enthaly of gas in [J/s]
+	m_model.m_iHFlowOutGas = m_model.AddDAEVariable(false, mFlowInGas * h_inGas + mFlowInNozzleGas * h_nozzleGas, 0, 1.0); // Enthaly of gas in [J/s]
 	AddStateVariable("Gas temperature outlet [degreeC]", m_holdup->GetTemperature(_time) - T_ref); // exhaust gas temperature in degreeC
 	AddStateVariable("Gas Y_outlet [g/kg]", Y_inGas * 1e3);
 	AddStateVariable("Gas RH_outlet [%]", RH_inGas * 100);
@@ -479,12 +455,12 @@ void CDryerBatch::Initialize(double _time)
 	//DiffCoefWarning = true;
 
 	//m_model.unit = static_cast<CDryerBatch*>(this);
-	if (particlesGlobal)
-	{
-		this->EnergyLiquidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * this->C_PWaterLiquid * T_LiquidInit;
-		this->EnergySolidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * this->C_PParticle * T_ParticleInit;
-	}
-	this->EnergyGasPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((this->C_PGas + this->C_PWaterVapor * Y_inGas) * m_holdup->GetTemperature(_time) + this->Delta_h0 * Y_inGas);
+	//if (particlesGlobal)
+	//{
+	//	this->EnergyLiquidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::LIQUID) * this->C_PWaterLiquid * T_LiquidInit;
+	//	this->EnergySolidPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::SOLID) * this->C_PParticle * T_ParticleInit;
+	//}
+	//this->EnergyGasPhaseOld = this->m_holdup->GetPhaseMass(_time, EPhase::GAS) * ((this->C_PGas + this->C_PWaterVapor * Y_inGas) * m_holdup->GetTemperature(_time) + this->Delta_h0 * Y_inGas);
 
 	//GetStringParameterValue("Path")
 
@@ -510,10 +486,33 @@ void CDryerBatch::Initialize(double _time)
 		RaiseError(m_solver.GetError());
 
 	if (debugToggle)
-	{
-		os << "Phase masses:\nsolid: " << m_holdup->GetPhaseMass(_time, EPhase::SOLID);
-		os << "\nliquid: " << m_holdup->GetPhaseMass(_time, EPhase::LIQUID);
-		os << "\ngas/vapor: " << m_holdup->GetPhaseMass(_time, EPhase::GAS) << "\n";
+	{	
+		/// Get number of classes for PSD ///
+		size_t m_classesNum = GetClassesNumber(DISTR_SIZE); //n
+		/// Get grid of PSD ///
+		const std::vector<double> avgClassDiam = GetClassesMeans(DISTR_SIZE); //d_m,i
+		const std::vector<double> classSize = GetClassesSizes(DISTR_SIZE); //Delta d
+		// output of read data in simulation window
+		os << "\nPSD info\n" << "\tNumber of classes: " << m_classesNum << "\n\tSize Grid\n";
+		for (int i = 0; i < Grid.size(); i++)
+			os << "\t\tSize Grid: " << i << " = " << Grid[i] << " m\n";
+		os << "\tAvg diam\n";
+		for (int i = 0; i < avgClassDiam.size(); i++)
+			os << "\t\tAvg diam: " << i << " = " << avgClassDiam[i] << " m\n";
+		os << "\tClass size\n";
+		for (int i = 0; i < classSize.size(); i++)
+			os << "\t\tClass size: " << i << " = " << classSize[i] << " m\n";
+		os << "\tSauter diameter:" << d32 << " m\n";
+		os << "\tToal surface area: " << A_Calculated << " m^2\n" << "\tTotal particle mass: " << mSolidHoldup << " kg\n";
+		if (particlesGlobal)
+		{
+			ShowInfo(os.str());
+		}
+		os.str("");
+		/// Phase mass ///
+		os << "Phase mass:\n- Solid: " << m_holdup->GetPhaseMass(_time, EPhase::SOLID) << " kg";
+		os << "\n- Liquid: " << m_holdup->GetPhaseMass(_time, EPhase::LIQUID) << " kg";
+		os << "\n- Gas: " << m_holdup->GetPhaseMass(_time, EPhase::VAPOR) << " kg\n";
 		ShowInfo(os.str());
 		os.str("");
 	}
@@ -582,8 +581,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature theta_holdupLiquid = T_holdupLiquid - unit->T_ref; // in degreeC
 
 	/// Inlet fluidization gas
-	const moistureContent Y_inGas = unit->GetConstRealParameterValue(""); // Y in [kg/kg dry]
-	const massFraction y_inGas = unit->CalculateMassFracFromMoistContent(Y_inGas);
+	const moistureContent Y_inGas = unit->GetConstRealParameterValue("Y_in") * 1e-3; // Y in [kg/kg dry air]
+	const massFraction y_inGas = unit->ConvertMoistContentToMassFrac(Y_inGas);
 	const massFlow mFlowInGas = inGasStream->GetMassFlow(_time); // Gas mass flow [kg/s]
 	const massFlow mFlowInGasDry = mFlowInGas * y_inGas;
 	const temperature theta_inGas = inGasStream->GetTemperature(_time); // temperature in [degreeC]
@@ -592,8 +591,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 
 	/// Inlet nozzle gas
 	const massFlow mFlowInNozzleGas = inNozzleAirStream->GetMassFlow(_time);
-	const moistureContent Y_nozzle = unit->Y_nozzle;
-	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * unit->CalculateMassFracFromMoistContent(Y_nozzle);
+	const moistureContent Y_nozzle = unit->GetConstRealParameterValue("Y_nozzle") * 1e-3; // convert to [kg/kg dry air]
+	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * unit->ConvertMoistContentToMassFrac(Y_nozzle);
 	const temperature T_nozzleGas = inNozzleAirStream->GetTemperature(_time); // in [K]
 	const temperature thetaNozzleGas = T_nozzleGas - unit->T_ref;
 	const specificLatentHeat h_nozzleGas = C_PGas * thetaNozzleGas + Y_nozzle * (C_PWaterVapor * thetaNozzleGas + Delta_h0);
@@ -603,8 +602,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature T_gasHoldup = holdup->GetTemperature(_time);
 	const temperature theta_gasHoldup = T_gasHoldup - unit->T_ref;
 	const pressure pressureGasHoldup = holdup->GetPressure(_time); // Pressure holdup [Pa]
-	const double ratioMM = unit->ratioMM;
-	const moistureContent Y_sat = unit->CalculateGasEquilibriumMoistureContent(T_gasHoldup, pressureGasHoldup, ratioMM);
+	const moistureContent Y_sat = unit->CalculateGasSaturationMoistureContent(T_gasHoldup, pressureGasHoldup);
 
 	/// Spray liquid
 	const massFlow mFlowSprayLiquid = inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
@@ -934,13 +932,14 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 
 /// Print simulation time ///
 	std::ostringstream  os;
-	if (debugToggle) 
-	{
-		if (_time <= 1) {
-			unit->ShowInfo(std::to_string(counter));
-			counter = 0;
-		}
-	} //_DEBUG
+	//if (debugToggle) 
+	//{
+	//	if (_time <= 1) 
+	//	{
+	//		unit->ShowInfo(std::to_string(counter));
+	//		counter = 0;
+	//	}
+	//} //_DEBUG
 	if (_time / (100 * progressCounter) >= 1)
 	{
 		os << "SimTime: " << 100 * progressCounter << " s has passed.";
@@ -950,28 +949,29 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	}
 
 /// Read parameters ///
-	const length Delta_f = unit->Delta_f;
-	const area A_P = unit->A_P;
+	const length Delta_f = unit->GetConstRealParameterValue("Delta_f");
+	const area A_P = unit->GetConstRealParameterValue("A_P");
 	const density rhoWater = unit->rhoWater;
 	const mass mSolidHoldup = holdup->GetPhaseMass(_time, EPhase::SOLID);
 	const mass mGasHoldup = unit->mGasHoldup;
 	const pressure pressureHoldup = holdup->GetPressure(_time);
 	// nozzle air
-	const moistureContent Y_nozzle = unit->Y_nozzle;
+	const moistureContent Y_nozzle = unit->GetConstIntParameterValue("Y_nozzle");
 	const massFlow mFlowInNozzleGas = inNozzleAirStream->GetMassFlow(_time);
-	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * unit->CalculateMassFracFromMoistContent(Y_nozzle);
+	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * unit->ConvertMoistContentToMassFrac(Y_nozzle);
 	const temperature thetaNozzleGas = inNozzleAirStream->GetTemperature(_time) - unit->T_ref;
 	const specificLatentHeat h_nozzleGas = unit->C_PGas * thetaNozzleGas + (unit->C_PWaterVapor * thetaNozzleGas + unit->Delta_h0);
 	// inlet fluidization air
-	const moistureContent Y_inGas = unit->Y_inGas;
+	const moistureContent Y_inGas = unit->GetConstRealParameterValue("Y_in");
 	const massFlow mFlowInGas = inGasStream->GetMassFlow(_time);
-	const massFlow mFlowInGasDry = mFlowInGas * unit->CalculateMassFracFromMoistContent(Y_inGas);
+	const massFlow mFlowInGasDry = mFlowInGas * unit->ConvertMoistContentToMassFrac(Y_inGas);
 	const temperature theta_inGas = inGasStream->GetTemperature(_time) - unit->T_ref;
-	const specificLatentHeat h_inGas = unit->C_PWaterLiquid * theta_inGas + unit->CalculateMassFracFromMoistContent(Y_inGas) * (unit->C_PWaterVapor * theta_inGas + unit->Delta_h0);
+	const specificLatentHeat h_inGas = unit->C_PWaterLiquid * theta_inGas + unit->ConvertMoistContentToMassFrac(Y_inGas) * (unit->C_PWaterVapor * theta_inGas + unit->Delta_h0);
 	// spray liquid
 	const massFlow mFlowSprayLiquid = inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
 	const temperature thetaSprayLiquid = inLiquidStream->GetTemperature(_time) - unit->T_ref; 
-	const specificLatentHeat h_susp = thetaSprayLiquid * (unit->C_PParticle * (1 - unit->x_wSusp) + unit->C_PWaterLiquid * unit->x_wSusp);
+	const massFraction x_wSusp = inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);
+	const specificLatentHeat h_susp = thetaSprayLiquid * (unit->C_PParticle * (1 - x_wSusp) + unit->C_PWaterLiquid * x_wSusp);
 	// time point
 	const double prevTime = unit->m_holdup->GetPreviousTimePoint(_time);
 
@@ -981,9 +981,9 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varThetaOutGas = _vars[m_iTempOutGas] - unit->T_ref;
 	unit->SetStateVariable("Gas temperature outlet [degreeC]", varThetaOutGas, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", _vars[m_iYOutGas] * 1e3, _time);
-	unit->SetStateVariable("Gas RH_outlet [%]", unit->GetRelativeHumidity(_vars[m_iYOutGas], _vars[m_iTempOutGas], pressureHoldup));//"Gas RH_outlet [%]"
+	unit->SetStateVariable("Gas RH_outlet [%]", unit->CalculateGasRelativeHumidity(_vars[m_iYOutGas], _vars[m_iTempOutGas], pressureHoldup));//"Gas RH_outlet [%]"
 	unit->SetStateVariable("Particle moisture content [%]", _vars[m_iX] * 100, _time);
-	unit->SetStateVariable("Particle water mass fraction [%]", unit->CalculateMassFracFromMoistContent(_vars[m_iX]) * 100, _time);
+	unit->SetStateVariable("Particle water mass fraction [%]", unit->ConvertMoistContentToMassFrac(_vars[m_iX]) * 100, _time);
 	unit->SetStateVariable("Particle wetness degree [%]", _vars[m_iPhi], _time);
 	unit->SetStateVariable("Particle temperature [degreeC]", _vars[m_iTempParticle], _time);
 	unit->SetStateVariable("Water mass in holdup [kg]", mSolidHoldup * _vars[m_iX], _time);
@@ -996,7 +996,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->AddStateVariable("OUTLET energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)));
 
 /// Set holdup properties ///
-	const massFraction var_x = unit->CalculateMassFracFromMoistContent(_vars[m_iX]);
+	const massFraction var_x = unit->ConvertMoistContentToMassFrac(_vars[m_iX]);
 	holdup->AddTimePoint(_time);
 	holdup->RemoveTimePointsAfter(_time);
 	holdup->SetPhaseMass(_time, EPhase::SOLID, mSolidHoldup);
@@ -1410,55 +1410,47 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 /// Functions to calculate/return moisture-related properties ///
 ///						for gas and solid					  ///
 /////////////////////////////////////////////////////////////////
-massFraction CDryerBatch::CalculateMassFracFromMoistContent(moistureContent Y) const
+massFraction CDryerBatch::ConvertMoistContentToMassFrac(moistureContent Y) const
 {
 	return Y / (1. + Y);
 }
 
-moistureContent CDryerBatch::CalculateMoistContentFromMassFrac(massFraction y) const
+moistureContent CDryerBatch::ConvertMassFracToMoistContent(massFraction y) const
 {
 	return y / (1. - y);
 }
 
-moistureContent CDryerBatch::GetGasSaturationMoistureContent(temperature temperatureGas, pressure pressureGas) // temperature in [K]
+moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas) const // temperature in [K]
 {
-	ratioMM = ratio(molarMassPhaseChangingLiquid, molarMassGas);
-	if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
-	{
-		pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
-		/*
-		int i = 0;
-		while (pressureGas - P_sat < 0)
-		{
-			P_sat = P_sat * 0.999;
-			i++;
-		}
-		*/
-		//bool pressureReductionWarning = false;
-		//if (pressureReductionWarning)
-		//	RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
-		const moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
-		return Y_sat;
-	}
-	else // same as user input
-	{
-		return Y_sat;
-	}
+	std::string waterLiquidCompoundKey = "4b3f8A1A71A315EFB4E5";
+	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
+	pressure P_sat = GetCompoundProperty(waterLiquidCompoundKey, ECompoundTPProperties::VAPOR_PRESSURE, T_Gas, pressureGas);
+	return ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
+	
+	//if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
+	//{
+	//	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
+	//	/*
+	//	int i = 0;
+	//	while (pressureGas - P_sat < 0)
+	//	{
+	//		P_sat = P_sat * 0.999;
+	//		i++;
+	//	}
+	//	*/
+	//	//bool pressureReductionWarning = false;
+	//	//if (pressureReductionWarning)
+	//	//	RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
+	//	moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
+	//	return Y_sat;
+	//}
+	//else // same as user input
+	//{
+	//	return Y_sat;
+	//}
 }
 
-moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH) const // Gas moisture content under assumption of ideal gas law
-{
-	if (RH == 0)
-	{
-		return 0;
-	}
-	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
-	const pressure P_eq = P_sat * RH;
-	const moistureContent Y_eq = ratioMM * P_eq / (pressureGas - P_eq); // Moisture content in kg per kg dry gas
-	return Y_eq;
-}
-
-double CDryerBatch::GetRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure) //const
+double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure) //const
 {
 	/*
 	// To Do: make variables fit
@@ -1473,7 +1465,7 @@ double CDryerBatch::GetRelativeHumidity(moistureContent Y, temperature temperatu
 
 	const double phi = P_wg / P_sat; // Relative humidity [-]
 	*/
-	const moistureContent Y_sat = GetGasSaturationMoistureContent(temperature, pressure);
+	const moistureContent Y_sat = CalculateGasSaturationMoistureContent(temperature, pressure);
 	double RH = Y / Y_sat; // relative humidity
 	if (RH > 1)
 		RH = 1;
@@ -1482,37 +1474,49 @@ double CDryerBatch::GetRelativeHumidity(moistureContent Y, temperature temperatu
 	return RH;
 }
 
-moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH)
-{
-	std::vector<moistureContent> EquilibriumMoistures(compoundKeys.size());
-	moistureContent particleEquilibriumMoistureContent = 0;
-	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
-	for (int i = 0; i < compoundKeys.size(); i++)
-	{
-		if (compoundKeys.at(i) == eqData.compoundKey)
-			EquilibriumMoistures[i] = GetParticleEquilibriumMoistureContent(temperature, RH);
-		else
-			EquilibriumMoistures[i] = GetCompoundProperty(compoundKeys[i], ECompoundTPProperties::EQUILIBRIUM_MOISTURE_CONTENT, temperature, RH);
-	}		
-	// Equilibrium moisture content depends on temperatur and humidity
-	for (int i = 0; i < compoundKeys.size(); i++)
-	{
-		if (EquilibriumMoistures.at(i) < 0)
-		{
-			std::stringstream os;
-			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at " << RH * 100 << "%.";
-			RaiseError(os.str());
-			os.str() = "";
-		}
-	}
-		
-	for (int i = 0; i < compoundKeys.size(); i++)
-	{
-		particleEquilibriumMoistureContent += SolidCompoundsDistribution[i] * EquilibriumMoistures[i];
-	}
-	particleEquilibriumMoistureContent *= moistureScaler;
-	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
-}
+//moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH) const // Gas moisture content under assumption of ideal gas law
+//{
+//	if (RH == 0)
+//	{
+//		return 0;
+//	}
+//	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
+//	const pressure P_eq = P_sat * RH;
+//	const moistureContent Y_eq = ratioMM * P_eq / (pressureGas - P_eq); // Moisture content in kg per kg dry gas
+//	return Y_eq;
+//}
+
+//moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH)
+//{
+//	std::vector<moistureContent> EquilibriumMoistures(compoundKeys.size());
+//	moistureContent particleEquilibriumMoistureContent = 0;
+//	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		if (compoundKeys.at(i) == eqData.compoundKey)
+//			EquilibriumMoistures[i] = GetParticleEquilibriumMoistureContent(temperature, RH);
+//		else
+//			EquilibriumMoistures[i] = GetCompoundProperty(compoundKeys[i], ECompoundTPProperties::EQUILIBRIUM_MOISTURE_CONTENT, temperature, RH);
+//	}		
+//	// Equilibrium moisture content depends on temperatur and humidity
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		if (EquilibriumMoistures.at(i) < 0)
+//		{
+//			std::stringstream os;
+//			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at " << RH * 100 << "%.";
+//			RaiseError(os.str());
+//			os.str() = "";
+//		}
+//	}
+//		
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		particleEquilibriumMoistureContent += SolidCompoundsDistribution[i] * EquilibriumMoistures[i];
+//	}
+//	particleEquilibriumMoistureContent *= moistureScaler;
+//	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
+//}
 
 /// CalcuateEquilibriumRelativeHumidity
 //double CDryerBatch::CalcuateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const
@@ -1599,31 +1603,31 @@ area CDryerBatch::CalculateParticleSurfaceArea(double _time) const
 //		return numberOfFilledSection + bedHeight / h;
 //}
 
-void CDryerBatch::SetupChamber()
-{
-	if (chamber.size() == 0)
-	{
-		chamberSection section;
-		section.name = "main";
-		section.shape = EShape::CYLINDRICAL;
-		section.dimensionsInternal = { std::make_pair(diamOfBed, 0.250) };
-		section.height = { heightOfChamber };
-		section.wallThicknesses = { 0.005 };
-		section.thermalConductivities = { 15 };
-		section.layers = 1;
-		chamber.push_back(section);
-
-		section.name = "adapter";
-		section.dimensionsInternal = { std::make_pair(0.250, 0.500) };
-		section.height = { 0.345 };
-		chamber.push_back(section);
-
-		section.name = "expander";
-		section.dimensionsInternal = { std::make_pair(0.500, 0.500) };
-		section.height = { 0.950 }; // 0.500 from Glatt, 0.95 measured
-		chamber.push_back(section);
-	}
-}
+//void CDryerBatch::SetupChamber()
+//{
+//	if (chamber.size() == 0)
+//	{
+//		chamberSection section;
+//		section.name = "main";
+//		section.shape = EShape::CYLINDRICAL;
+//		section.dimensionsInternal = { std::make_pair(diamOfBed, 0.250) };
+//		section.height = { heightOfChamber };
+//		section.wallThicknesses = { 0.005 };
+//		section.thermalConductivities = { 15 };
+//		section.layers = 1;
+//		chamber.push_back(section);
+//
+//		section.name = "adapter";
+//		section.dimensionsInternal = { std::make_pair(0.250, 0.500) };
+//		section.height = { 0.345 };
+//		chamber.push_back(section);
+//
+//		section.name = "expander";
+//		section.dimensionsInternal = { std::make_pair(0.500, 0.500) };
+//		section.height = { 0.950 }; // 0.500 from Glatt, 0.95 measured
+//		chamber.push_back(section);
+//	}
+//}
 
 
 /////////////////////////////
@@ -1693,25 +1697,28 @@ dimensionlessNumber CDryerBatch::CalculateNusseltSherwood(dimensionlessNumber Nu
 double CDryerBatch::CalculateDiffusionCoefficient(double _time, temperature T_avgGas, temperature T_holdupLiquid, pressure pressure) const
 // temperatures in [K]
 {
+	const int DiffCoeff = GetComboParameterValue("Diff_coeff");
+	double Y_sat = 0;
 	switch (DiffCoeff)
 	{
 	case 0: // Dosta (2010): https://doi.org/10.1016/j.powtec.2010.07.018
-		return (23e-5) * pow(T_avgGas / T_ref, 1.81);
+		Y_sat = (23e-5) * pow(T_avgGas / T_ref, 1.81);
 		break;
 
 	case 1: // Tsotsas
-		return 2.252 / m_holdup->GetPressure(_time) * pow(T_avgGas / T_ref, 1.81);
+		Y_sat = 2.252 / m_holdup->GetPressure(_time) * pow(T_avgGas / T_ref, 1.81);
 		break;
 
-	case 2: // correlation Poos & Varju (2020): https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500
-		const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE); // critical temperature air
-		const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE); // critical temperature of liquid on particle (water)
-		const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS) / GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
-		const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS) / GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01) * 1e6;
-		return (1.498e-6 * pow(T_holdupLiquid, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
-			/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));
+	case 2: // correlation Poos & Varju (2020): https://doi.org/10.1016/j.ijheatmasstransfer.2020.119500 CURRETNLY NOT AVAIALBLE
+		//const double T_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, CRITICAL_TEMPERATURE); // critical temperature air
+		//const double T_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CRITICAL_TEMPERATURE); // critical temperature of liquid on particle (water)
+		//const double V_critGas = GetAvgConstCompoundProperty(_time, EPhase::GAS, MOLAR_MASS) / GetAvgConstCompoundProperty(_time, EPhase::GAS, CONST_PROP_USER_DEFINED_01) * 1e6;
+		//const double V_critPcL = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], MOLAR_MASS) / GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], CONST_PROP_USER_DEFINED_01) * 1e6;
+		Y_sat = 1; /*(1.498e-6 * pow(T_holdupLiquid, 1.81) * pow(1 / (molarMassGas * 1000) + 1 / (molarMassPhaseChangingLiquid * 1000), 0.5))
+			/ ((pressure / STANDARD_CONDITION_P) * pow(T_critGas * T_critPcL, 0.1405) * pow(pow(V_critGas, 0.4) + pow(V_critPcL, 0.4), 2));*/
 		break;
 	}
+	return Y_sat;
 }
 
 massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, double D_a) const
@@ -1740,12 +1747,13 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 		//	break;
 		//}
 	//const double D_a = CalculateDiffusionCoefficient(_time, avgGasTemperature, filmTemperature);
-	const double Sc = etaGas / (D_a * rhoGas);
-	const double Re = CalculateReynolds(_time, d32);
-	const double eps = CalculateBedPorosity(_time); // Bed porosity
-	const double Sh_lam = CalculateNusseltSherwoodLam(Re / eps, Sc);
-	const double Sh_turb = CalculateNusseltSherwoodTurb(Re / eps, Sc);
-	const double Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
+	const double eps_0 = this->GetConstRealParameterValue("eps_0");
+	const dimensionlessNumber Sc = etaGas / (D_a * rhoGas);
+	const dimensionlessNumber Re = CalculateReynolds(_time, d32);
+	const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
+	const dimensionlessNumber Sh_lam = CalculateNusseltSherwoodLam(Re / eps, Sc);
+	const dimensionlessNumber Sh_turb = CalculateNusseltSherwoodTurb(Re / eps, Sc);
+	const dimensionlessNumber Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
 	const double beta = CalculateNusseltSherwoodBed(eps, Sh) * D_a / d32; // Mass transfer coefficient // ToDO - Look at this!
 	// Dosta 2010 A.3
 	return beta;
@@ -1756,9 +1764,10 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 /////////////////////
 double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, length d32) const
 {
+	const double eps_0 = this->GetConstRealParameterValue("eps_0");
 	const double Pr = CalculatePrandtl(_time, avgGasTheta);
 	const double Re = CalculateReynolds(_time, d32);
-	const double eps = CalculateBedPorosity(_time); // Bed porosity
+	const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
 	const double Nu_lam = CalculateNusseltSherwoodLam(Re, Pr);
 	const double Nu_turb = CalculateNusseltSherwoodTurb(Re, Pr);
 	const double Nu_GP = CalculateNusseltSherwood(Nu_lam, Nu_turb);
@@ -1779,7 +1788,7 @@ double CDryerBatch::CalculateAlpha_PF(double alpha_GP) const
 ////////////////////
 double CDryerBatch::CalculateMinFluidizeVel(double _time, length d32) const
 {
-	double u_mf = this->u_mf;
+	double u_mf = this->GetConstRealParameterValue("u_mf");
 	if (u_mf == 0)
 	{
 		dimensionlessNumber Ar_mf = CalculateArchimedes(_time, d32);
@@ -1791,12 +1800,13 @@ double CDryerBatch::CalculateMinFluidizeVel(double _time, length d32) const
 
 double CDryerBatch::CalculateGasVel(double _time, length d32) const
 {
-	massFlow mFlow_gasIn = m_inGasStream->GetMassFlow(_time);
+	const length d_bed = this->GetConstRealParameterValue("d_bed");
+	const massFlow mFlow_gasIn = m_inGasStream->GetMassFlow(_time);
 	double VFlow_gasIn = mFlow_gasIn / rhoGas;
-	area area_bed = MATH_PI * pow(chamber.at(0).dimensionsInternal.at(0).first, 2) / 4;
-	double u_gasIn = VFlow_gasIn / area_bed;
-	double u_mf = CalculateMinFluidizeVel(_time, d32);
-	double u_gasHoldup = (u_gasIn - u_mf) / 3 + u_mf; // porous plate distributor, from Soeren Diss page 86, eq. 4.12
+	const area area_bed = MATH_PI * pow(d_bed, 2) / 4;
+	const double u_gasIn = VFlow_gasIn / area_bed;
+	const double u_mf = CalculateMinFluidizeVel(_time, d32);
+	const double u_gasHoldup = (u_gasIn - u_mf) / 3 + u_mf; // porous plate distributor, from Soeren Diss page 86, eq. 4.12
 	return u_gasHoldup;
 	/*if (section > 0)
 		return u_gasHoldup * (pow(chamber.at(0).dimensionsInternal.at(0).first, 2) / pow(chamber.at(section).dimensionsInternal.at(0).first, 2));
@@ -1805,13 +1815,14 @@ double CDryerBatch::CalculateGasVel(double _time, length d32) const
 	
 }
 
-double CDryerBatch::CalculateBedPorosity(double _time, bool homogeniusFluidization) const // Stephan et al. (2019) VDI-Waermeatlas.
+double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogeniusFluidization) const // Stephan et al. (2019) VDI-Waermeatlas.
 {
-	const double Ar = CalculateArchimedes(_time, d32);
-	const double ReL = 42.9 * (1. - eps_0) * (sqrt(1. + pow(eps_0, 3) * Ar / (3214 * pow(1. - eps_0, 2))) - 1);
-	const double ReA = homogeniusFluidization ? 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
-	const double Re = CalculateReynolds(_time, d32);
-	const double n = log(ReL / ReA) / log(eps_0);
+	const double eps_0 = this->GetConstRealParameterValue("eps_0");
+	const dimensionlessNumber Ar = CalculateArchimedes(_time, d32);
+	const dimensionlessNumber ReL = 42.9 * (1. - eps_0) * (sqrt(1. + pow(eps_0, 3) * Ar / (3214 * pow(1. - eps_0, 2))) - 1);
+	const dimensionlessNumber ReA = homogeniusFluidization ? 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
+	const dimensionlessNumber Re = CalculateReynolds(_time, d32);
+	const dimensionlessNumber n = log(ReL / ReA) / log(eps_0);
 	const double eps = pow(Re / ReA, 1 / n);
 	return eps;
 }
@@ -1840,313 +1851,316 @@ double CDryerBatch::CalculateBedPorosity(double _time, bool homogeniusFluidizati
 /////////////////////////////////////////////////////////////////
 /// function related to drying kinetics, CURRENTLY NOT IN USE ///
 /////////////////////////////////////////////////////////////////
-double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, double RH) const
-{
-	if (eqData.RHs.empty() || eqData.temperatures.empty() || eqData.equilibriumMoistureContents.empty() || temperature != temperature || RH != RH)
-		return -1; // Error
-	std::set<double>::iterator itRHmax = eqData.RHs.end();
-	std::advance(itRHmax, -1);
-	// RH bounds [0,1] check
-	if (RH > 1)
-		RH = 1;
-	if (RH < 0)
-		RH = 0;
 
-	// Temperature bounds [0,] check
-	if (temperature < 0)
-		temperature = 0;
-
-	std::set<double>::iterator itT, itRH, itlowT, itupT, itlowRH, itupRH;
-
-	itlowT = eqData.temperatures.lower_bound(temperature);
-	if (itlowT == eqData.temperatures.end() || *itlowT != temperature)
-		std::advance(itlowT, -1);
-	itupT = eqData.temperatures.upper_bound(temperature);
-	if (itlowT == eqData.temperatures.end())
-	{
-		itlowT = itupT;
-		std::advance(itupT, 1);
-	}
-	if (itupT == eqData.temperatures.end())
-	{
-		itupT = itlowT;
-		std::advance(itlowT, -1);
-	}
-
-	itlowRH = eqData.RHs.lower_bound(RH);
-	if (itlowRH == eqData.RHs.end() || *itlowRH != RH)
-		std::advance(itlowRH, -1);
-	itupRH = eqData.RHs.upper_bound(RH);
-	if (itlowRH == eqData.RHs.end())
-	{
-		itlowRH = itupRH;
-		std::advance(itupRH, 1);
-	}
-	if (itupRH == eqData.RHs.end())
-	{
-		itupRH = itlowRH;
-		std::advance(itlowRH, -1);
-	}
-
-	double Xeq;
-	if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end() || itlowRH == eqData.RHs.end() || itupRH == eqData.RHs.end())
-	{
-
-		if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end())
-		{
-			itT = itlowT != eqData.temperatures.end() ? itlowT : itupT;
-			if (itlowRH == eqData.RHs.end() || itupRH == eqData.RHs.end())
-			{
-				itRH = itlowRH != eqData.RHs.end() ? itlowRH : itupRH;
-				Xeq = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
-				return Xeq;
-			}
-			else
-			{
-				double XeqTRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itlowRH));
-				double XeqTRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itupRH));
-				Xeq = lerp(XeqTRHl, XeqTRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
-				return Xeq;
-			}
-
-		}
-		else
-		{
-			itRH = itlowRH != eqData.RHs.end() ? itlowRH : itupRH;
-			double XeqTlRH = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
-			double XeqTuRH = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
-			Xeq = lerp(XeqTlRH, XeqTuRH, (temperature - *itlowT) / (*itupT - *itlowT));
-			return Xeq;
-		}
-		return -1;
-	}
-	else
-	{
-		double XeqTlRHl, XeqTuRHl, XeqTlRHu, XeqTuRHu, XeqTl, XeqTu;
-
-		XeqTlRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itlowRH));
-		XeqTuRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itlowRH));
-
-		/*if (eqData.equilibriumMoistureContents.contains(std::make_pair(*itlowT, *itupRH)))
-			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itupRH));
-		else
-			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *eqData.maxRH.at(*itlowT)));*/
-
-		try
-		{
-			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itupRH));
-		}
-		catch (std::out_of_range const& e)
-		{
-			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *eqData.maxRH.at(*itlowT)));
-		}
-
-		/*if (eqData.equilibriumMoistureContents.contains(std::make_pair(*itupT, *itupRH)))
-			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itupRH));
-		else
-			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *eqData.maxRH.at(*itupT)));*/
-
-		try
-		{
-			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itupRH));
-		}
-		catch (std::out_of_range const& e)
-		{
-			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *eqData.maxRH.at(*itupT)));
-		}
-
-		XeqTl = lerp(XeqTlRHl, XeqTlRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
-		XeqTu = lerp(XeqTuRHl, XeqTuRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
-		Xeq = lerp(XeqTl, XeqTu, (temperature - *itlowT) / (*itupT - *itlowT));
-		return Xeq;
-	}
-	return -1;
-}
+//double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, double RH) const
+//{
+//	if (eqData.RHs.empty() || eqData.temperatures.empty() || eqData.equilibriumMoistureContents.empty() || temperature != temperature || RH != RH)
+//		return -1; // Error
+//	std::set<double>::iterator itRHmax = eqData.RHs.end();
+//	std::advance(itRHmax, -1);
+//	// RH bounds [0,1] check
+//	if (RH > 1)
+//		RH = 1;
+//	if (RH < 0)
+//		RH = 0;
+//
+//	// Temperature bounds [0,] check
+//	if (temperature < 0)
+//		temperature = 0;
+//
+//	std::set<double>::iterator itT, itRH, itlowT, itupT, itlowRH, itupRH;
+//
+//	itlowT = eqData.temperatures.lower_bound(temperature);
+//	if (itlowT == eqData.temperatures.end() || *itlowT != temperature)
+//		std::advance(itlowT, -1);
+//	itupT = eqData.temperatures.upper_bound(temperature);
+//	if (itlowT == eqData.temperatures.end())
+//	{
+//		itlowT = itupT;
+//		std::advance(itupT, 1);
+//	}
+//	if (itupT == eqData.temperatures.end())
+//	{
+//		itupT = itlowT;
+//		std::advance(itlowT, -1);
+//	}
+//
+//	itlowRH = eqData.RHs.lower_bound(RH);
+//	if (itlowRH == eqData.RHs.end() || *itlowRH != RH)
+//		std::advance(itlowRH, -1);
+//	itupRH = eqData.RHs.upper_bound(RH);
+//	if (itlowRH == eqData.RHs.end())
+//	{
+//		itlowRH = itupRH;
+//		std::advance(itupRH, 1);
+//	}
+//	if (itupRH == eqData.RHs.end())
+//	{
+//		itupRH = itlowRH;
+//		std::advance(itlowRH, -1);
+//	}
+//
+//	double Xeq;
+//	if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end() || itlowRH == eqData.RHs.end() || itupRH == eqData.RHs.end())
+//	{
+//
+//		if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end())
+//		{
+//			itT = itlowT != eqData.temperatures.end() ? itlowT : itupT;
+//			if (itlowRH == eqData.RHs.end() || itupRH == eqData.RHs.end())
+//			{
+//				itRH = itlowRH != eqData.RHs.end() ? itlowRH : itupRH;
+//				Xeq = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
+//				return Xeq;
+//			}
+//			else
+//			{
+//				double XeqTRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itlowRH));
+//				double XeqTRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itupRH));
+//				Xeq = lerp(XeqTRHl, XeqTRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
+//				return Xeq;
+//			}
+//
+//		}
+//		else
+//		{
+//			itRH = itlowRH != eqData.RHs.end() ? itlowRH : itupRH;
+//			double XeqTlRH = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
+//			double XeqTuRH = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
+//			Xeq = lerp(XeqTlRH, XeqTuRH, (temperature - *itlowT) / (*itupT - *itlowT));
+//			return Xeq;
+//		}
+//		return -1;
+//	}
+//	else
+//	{
+//		double XeqTlRHl, XeqTuRHl, XeqTlRHu, XeqTuRHu, XeqTl, XeqTu;
+//
+//		XeqTlRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itlowRH));
+//		XeqTuRHl = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itlowRH));
+//
+//		/*if (eqData.equilibriumMoistureContents.contains(std::make_pair(*itlowT, *itupRH)))
+//			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itupRH));
+//		else
+//			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *eqData.maxRH.at(*itlowT)));*/
+//
+//		try
+//		{
+//			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itupRH));
+//		}
+//		catch (std::out_of_range const& e)
+//		{
+//			XeqTlRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *eqData.maxRH.at(*itlowT)));
+//		}
+//
+//		/*if (eqData.equilibriumMoistureContents.contains(std::make_pair(*itupT, *itupRH)))
+//			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itupRH));
+//		else
+//			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *eqData.maxRH.at(*itupT)));*/
+//
+//		try
+//		{
+//			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itupRH));
+//		}
+//		catch (std::out_of_range const& e)
+//		{
+//			XeqTuRHu = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *eqData.maxRH.at(*itupT)));
+//		}
+//
+//		XeqTl = lerp(XeqTlRHl, XeqTlRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
+//		XeqTu = lerp(XeqTuRHl, XeqTuRHu, (RH - *itlowRH) / (*itupRH - *itlowRH));
+//		Xeq = lerp(XeqTl, XeqTu, (temperature - *itlowT) / (*itupT - *itlowT));
+//		return Xeq;
+//	}
+//	return -1;
+//}
 
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 /// Function related to particle X from materials database (sorption isotherm), CURRENTLY NOT IN USE ///
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-double CDryerBatch::GetEquilibriumRelativeHumidity(double temperature, double X) const
-{
-	if (eqData.RHs.empty() || eqData.temperatures.empty() || eqData.equilibriumMoistureContents.empty() || temperature != temperature || X != X)
-		return -1; // Error
-	//X = X / moistureScaler;
 
-	if (X < 0)
-		return 0;
+//double CDryerBatch::GetEquilibriumRelativeHumidity(double temperature, double X) const
+//{
+//	if (eqData.RHs.empty() || eqData.temperatures.empty() || eqData.equilibriumMoistureContents.empty() || temperature != temperature || X != X)
+//		return -1; // Error
+//	//X = X / moistureScaler;
+//
+//	if (X < 0)
+//		return 0;
+//
+//	std::set<double>::iterator itlowT, itupT, itT, itRH;
+//	double XlowT, XupT, Xpolated, XT;
+//
+//	itRH = eqData.RHs.end();
+//	std::advance(itRH, -1);
+//
+//	itlowT = eqData.temperatures.lower_bound(temperature);
+//	if (itlowT == eqData.temperatures.end() || *itlowT != temperature)
+//		std::advance(itlowT, -1);
+//	itupT = eqData.temperatures.upper_bound(temperature);
+//	if (itlowT == eqData.temperatures.end())
+//	{
+//		itlowT = itupT;
+//		std::advance(itupT, 1);
+//	}
+//	if (itupT == eqData.temperatures.end())
+//	{
+//		itupT = itlowT;
+//		std::advance(itlowT, -1);
+//	}
+//
+//	if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end())
+//	{
+//		itT = itlowT != eqData.temperatures.end() ? itlowT : itupT;
+//		//if (*itRH > *eqData.maxRH.at(*itT))
+//		//	itRH = eqData.maxRH.at(*itT);
+//		XT = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
+//		if (X > XT)
+//			return 1;
+//		while (X < XT)
+//		{
+//			std::advance(itRH, -1);
+//			if (itRH == eqData.RHs.end())
+//				return -1;
+//			XT = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
+//			if (X > XT)
+//				return *itRH;
+//		}
+//	}
+//	else
+//	{
+//		XlowT = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
+//		XupT = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
+//		Xpolated = unit->lerp(XlowT, XupT, (temperature - *itlowT) / (*itupT - *itlowT));
+//		if (X > Xpolated)
+//			return 1;
+//		while (X < XlowT)
+//		{
+//			std::advance(itRH, -1);
+//			if (itRH == eqData.RHs.end())
+//				return -1;
+//			XlowT = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
+//			XupT = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
+//			Xpolated = lerp(XlowT, XupT, (temperature - *itlowT) / (*itupT - *itlowT));
+//			if (X > Xpolated)
+//				return *itRH;
+//		}
+//	}
+//	return -1;
+//}
 
-	std::set<double>::iterator itlowT, itupT, itT, itRH;
-	double XlowT, XupT, Xpolated, XT;
+//bool CDryerBatch::InitializeMoistureContentDatabase(std::string path)
+//{
+//	//CCorrelation::GetParameters();
+//	std::ifstream  file(path);
+//	if (!file.is_open())
+//		RaiseError("Moisture content data file has incorrect path.");
+//	std::string line;
+//	std::vector<std::vector<std::string>> parsedCsv;
+//	while (std::getline(file, line))
+//	{
+//		std::stringstream lineStream(line);
+//		std::string cell;
+//		std::vector<std::string> parsedRow;
+//		while (std::getline(lineStream, cell, ','))
+//			parsedRow.push_back(cell);
+//
+//		parsedCsv.push_back(parsedRow);
+//	}
+//
+//	for (auto& element : parsedCsv.at(0))
+//		if (element != "")
+//			eqData.RHs.insert(std::stod(element));
+//
+//	for (auto& element : parsedCsv)
+//		if (element.at(0) != "")
+//			eqData.temperatures.insert(std::stod(element.at(0)));
+//
+//	for (int i = 1; i < parsedCsv.size(); i++)
+//	{
+//		for (int j = 1; j < parsedCsv.at(i).size(); j++)
+//			eqData.equilibriumMoistureContents.insert(std::make_pair(std::make_pair(std::stod(parsedCsv.at(i).at(0)), std::stod(parsedCsv.at(0).at(j))), std::stod(parsedCsv.at(i).at(j))));
+//		std::set<double>::iterator itRHmax = eqData.RHs.end();
+//		int fromMaxRH = eqData.RHs.size() - parsedCsv.at(i).size() + 2;
+//		std::advance(itRHmax, -fromMaxRH);
+//		eqData.maxRH.insert(std::make_pair(std::stod(parsedCsv.at(i).at(0)), itRHmax));
+//	}
+//	return true;
+//}
 
-	itRH = eqData.RHs.end();
-	std::advance(itRH, -1);
-
-	itlowT = eqData.temperatures.lower_bound(temperature);
-	if (itlowT == eqData.temperatures.end() || *itlowT != temperature)
-		std::advance(itlowT, -1);
-	itupT = eqData.temperatures.upper_bound(temperature);
-	if (itlowT == eqData.temperatures.end())
-	{
-		itlowT = itupT;
-		std::advance(itupT, 1);
-	}
-	if (itupT == eqData.temperatures.end())
-	{
-		itupT = itlowT;
-		std::advance(itlowT, -1);
-	}
-
-	if (itlowT == eqData.temperatures.end() || itupT == eqData.temperatures.end())
-	{
-		itT = itlowT != eqData.temperatures.end() ? itlowT : itupT;
-		//if (*itRH > *eqData.maxRH.at(*itT))
-		//	itRH = eqData.maxRH.at(*itT);
-		XT = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
-		if (X > XT)
-			return 1;
-		while (X < XT)
-		{
-			std::advance(itRH, -1);
-			if (itRH == eqData.RHs.end())
-				return -1;
-			XT = eqData.equilibriumMoistureContents.at(std::make_pair(*itT, *itRH));
-			if (X > XT)
-				return *itRH;
-		}
-	}
-	else
-	{
-		XlowT = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
-		XupT = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
-		Xpolated = lerp(XlowT, XupT, (temperature - *itlowT) / (*itupT - *itlowT));
-		if (X > Xpolated)
-			return 1;
-		while (X < XlowT)
-		{
-			std::advance(itRH, -1);
-			if (itRH == eqData.RHs.end())
-				return -1;
-			XlowT = eqData.equilibriumMoistureContents.at(std::make_pair(*itlowT, *itRH));
-			XupT = eqData.equilibriumMoistureContents.at(std::make_pair(*itupT, *itRH));
-			Xpolated = lerp(XlowT, XupT, (temperature - *itlowT) / (*itupT - *itlowT));
-			if (X > Xpolated)
-				return *itRH;
-		}
-	}
-	return -1;
-}
-
-bool CDryerBatch::InitializeMoistureContentDatabase(std::string path)
-{
-	//CCorrelation::GetParameters();
-	std::ifstream  file(path);
-	if (!file.is_open())
-		RaiseError("Moisture content data file has incorrect path.");
-	std::string line;
-	std::vector<std::vector<std::string>> parsedCsv;
-	while (std::getline(file, line))
-	{
-		std::stringstream lineStream(line);
-		std::string cell;
-		std::vector<std::string> parsedRow;
-		while (std::getline(lineStream, cell, ','))
-			parsedRow.push_back(cell);
-
-		parsedCsv.push_back(parsedRow);
-	}
-
-	for (auto& element : parsedCsv.at(0))
-		if (element != "")
-			eqData.RHs.insert(std::stod(element));
-
-	for (auto& element : parsedCsv)
-		if (element.at(0) != "")
-			eqData.temperatures.insert(std::stod(element.at(0)));
-
-	for (int i = 1; i < parsedCsv.size(); i++)
-	{
-		for (int j = 1; j < parsedCsv.at(i).size(); j++)
-			eqData.equilibriumMoistureContents.insert(std::make_pair(std::make_pair(std::stod(parsedCsv.at(i).at(0)), std::stod(parsedCsv.at(0).at(j))), std::stod(parsedCsv.at(i).at(j))));
-		std::set<double>::iterator itRHmax = eqData.RHs.end();
-		int fromMaxRH = eqData.RHs.size() - parsedCsv.at(i).size() + 2;
-		std::advance(itRHmax, -fromMaxRH);
-		eqData.maxRH.insert(std::make_pair(std::stod(parsedCsv.at(i).at(0)), itRHmax));
-	}
-	return true;
-}
-
-double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq)
-{
-	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
-	if (X <= Xeq)
-	{
-		return 0;
-	}
-
-	switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
-	{
-	case 0: // REA: calculate evaporation rate in form of inverted REA
-		return 1. - REA(X - Xeq);
-		break;
-	case 1: // NCDC: calculate relative drying rate 
-		if (X < X_cr) // 2nd drying period
-		{
-			double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
-			double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
-			/*if (dnu != dnu)
-				RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
-				// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
-			return dnu;
-		}
-		else // 1st drying period
-			return 1;
-		break;
-	case 2: // No curve: only 1st drying period
-		return 1;
-		break;
-	}
-}
+//double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq)
+//{
+//	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
+//	if (X <= Xeq)
+//	{
+//		return 0;
+//	}
+//
+//	switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
+//	{
+//	case 0: // REA: calculate evaporation rate in form of inverted REA
+//		return 1. - REA(X - Xeq);
+//		break;
+//	case 1: // NCDC: calculate relative drying rate 
+//		if (X < X_cr) // 2nd drying period
+//		{
+//			double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
+//			double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
+//			/*if (dnu != dnu)
+//				RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
+//				// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
+//			return dnu;
+//		}
+//		else // 1st drying period
+//			return 1;
+//		break;
+//	case 2: // No curve: only 1st drying period
+//		return 1;
+//		break;
+//	}
+//}
 
 
 //////////////////////////////////////////////////////////
 /// Heat loss to environment, CURRENTLY NOT IN USE     ///
 //////////////////////////////////////////////////////////
-double CDryerBatch::CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const
-{
-	/// Get unit parameters
-	double eps_mf = eps_0;				// Bed porosity at minimum fluidization, equal to INITIAL bed porosity [-]
-	double eps_fb = CalculateBedPorosity(_time);						// Bed porosity at operating conditions [-]
-	double dp_p = CalculateHoldupSauter(_time);							// Sauter diameter of particles [m]
 
-	// Calculate modified free path of the gas molecule
-	double C_A = 2.8;
-	double gamma = 1. / (pow(10., 0.6 - (1000. / _t_g + 1.) / C_A) + 1); // gamma, A.3.85
+//double CDryerBatch::CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const
+//{
+//	/// Get unit parameters
+//	double eps_mf = eps_0;				// Bed porosity at minimum fluidization, equal to INITIAL bed porosity [-]
+//	double eps_fb = CalculateBedPorosity(_time);						// Bed porosity at operating conditions [-]
+//	double dp_p = CalculateHoldupSauter(_time);							// Sauter diameter of particles [m]
+//
+//	// Calculate modified free path of the gas molecule
+//	double C_A = 2.8;
+//	double gamma = 1. / (pow(10., 0.6 - (1000. / _t_g + 1.) / C_A) + 1); // gamma, A.3.85
+//
+//	double l = 2. * (2. / gamma - 1.) * sqrt(2. * MATH_PI * MOLAR_GAS_CONSTANT * _t_g / molarMassGas) * lambdaGas / _p / (2. * C_PGas - MOLAR_GAS_CONSTANT / molarMassGas); //modified free path of the gas molecule, A.3.84
+//
+//	//Calculate parameter Z and N
+//	double C_k = 2.6; //C_k, A.3.82
+//	double Nu_pw_max = 4. * ((1. + 2. * l / dp_p) * log(1. + dp_p / 2. / l) - 1.); //Nu_PW,max, A.3.83
+//	double Z = 1. / 6. * rhoParticle * C_PParticle / lambdaGas * sqrt(STANDARD_ACCELERATION_OF_GRAVITY * pow(dp_p, 3.) * (eps_fb - eps_mf) / 5. / (1 - eps_mf) / (1 - eps_fb)); //Parameter Z, A.3.80
+//	double N = Nu_pw_max / C_k / Z; //Parameter N, A.3.81
+//
+//	//Calculate Nusselt Number and heat transfer coefficient
+//	double Nu_pw = (1. - eps_fb) * Z * (1. - exp(-N));
+//	double alpha_pw = Nu_pw * lambdaGas / dp_p;
+//
+//	return alpha_pw;
+//}
 
-	double l = 2. * (2. / gamma - 1.) * sqrt(2. * MATH_PI * MOLAR_GAS_CONSTANT * _t_g / molarMassGas) * lambdaGas / _p / (2. * C_PGas - MOLAR_GAS_CONSTANT / molarMassGas); //modified free path of the gas molecule, A.3.84
-
-	//Calculate parameter Z and N
-	double C_k = 2.6; //C_k, A.3.82
-	double Nu_pw_max = 4. * ((1. + 2. * l / dp_p) * log(1. + dp_p / 2. / l) - 1.); //Nu_PW,max, A.3.83
-	double Z = 1. / 6. * rhoParticle * C_PParticle / lambdaGas * sqrt(STANDARD_ACCELERATION_OF_GRAVITY * pow(dp_p, 3.) * (eps_fb - eps_mf) / 5. / (1 - eps_mf) / (1 - eps_fb)); //Parameter Z, A.3.80
-	double N = Nu_pw_max / C_k / Z; //Parameter N, A.3.81
-
-	//Calculate Nusselt Number and heat transfer coefficient
-	double Nu_pw = (1. - eps_fb) * Z * (1. - exp(-N));
-	double alpha_pw = Nu_pw * lambdaGas / dp_p;
-
-	return alpha_pw;
-}
-
-double CDryerBatch::CalculateAlpha_GW(double _time, temperature avgGasTemperature) const
-{
-	const double Pr = CalculatePrandtl(_time, avgGasTemperature);
-	const double Ar = CalculateArchimedes(_time, d32);
-	const double NuG = 0.009 * pow(Pr, 1. / 3) * sqrt(Ar);
-	double d = CalculateHoldupSauter(_time);
-	const double alphaGW = NuG * lambdaGas / d;
-	return alphaGW;
-}
+//double CDryerBatch::CalculateAlpha_GW(double _time, temperature avgGasTemperature) const
+//{
+//	const double Pr = CalculatePrandtl(_time, avgGasTemperature);
+//	const double Ar = CalculateArchimedes(_time, d32);
+//	const double NuG = 0.009 * pow(Pr, 1. / 3) * sqrt(Ar);
+//	double d = CalculateHoldupSauter(_time);
+//	const double alphaGW = NuG * lambdaGas / d;
+//	return alphaGW;
+//}
 
 //double CDryerBatch::CalckAc(double alphaIn, double alphaOut, double L, std::vector<double> d/* Inner to outer diameter*/, std::vector<double> lambda) const
 //{
@@ -2196,31 +2210,31 @@ double CDryerBatch::CalculateAlpha_GW(double _time, temperature avgGasTemperatur
 //	return kA;
 //}
 
-double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape) const
-{
-	const double Tstar = 0.5 * (Ts + T_inf); // Temperature for properties
-	const double C_PGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::HEAT_CAPACITY_CP, Tstar);
-	const double etaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::VISCOSITY, Tstar);
-	const double lambdaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::THERMAL_CONDUCTIVITY, Tstar);
-	const double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, Tstar);
-
-	const double nyGas = etaGas / rhoGas;
-	const double Pr = C_PGas * etaGas / lambdaGas;
-	const double beta = 1 / (Tstar);
-	const double deltaT = abs(Ts - T_inf);
-	const double Gr = beta * STANDARD_ACCELERATION_OF_GRAVITY * deltaT * pow(h, 3) / pow(nyGas, 2);
-	const double Ra = Gr * Pr;
-
-	// ToDo - Add Ra under angle
-	// ToDo - Implement surface line instead of height
-
-	const double f1 = pow(1. + pow(0.492 / Pr, 9. / 16), -16. / 9);
-	const double NuP = pow(0.825 + 0.387 * pow(Ra * f1, 1. / 6), 2);
-	const double Nu = shape == EShape::CYLINDRICAL ? NuP + 0.435 * h / D : NuP;
-	const double alpha = Nu * lambdaGas / h;
-	// Expected range 2.5-25 https://www.sciencedirect.com/topics/engineering/convection-heat-transfer-coefficient
-	return alpha;
-}
+//double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double D, const double Ts, EShape shape) const
+//{
+//	const double Tstar = 0.5 * (Ts + T_inf); // Temperature for properties
+//	const double C_PGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::HEAT_CAPACITY_CP, Tstar);
+//	const double etaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::VISCOSITY, Tstar);
+//	const double lambdaGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::THERMAL_CONDUCTIVITY, Tstar);
+//	const double rhoGas = GetAvgTPCompoundProperty(_time, EPhase::GAS, ECompoundTPProperties::DENSITY, Tstar);
+//
+//	const double nyGas = etaGas / rhoGas;
+//	const double Pr = C_PGas * etaGas / lambdaGas;
+//	const double beta = 1 / (Tstar);
+//	const double deltaT = abs(Ts - T_inf);
+//	const double Gr = beta * STANDARD_ACCELERATION_OF_GRAVITY * deltaT * pow(h, 3) / pow(nyGas, 2);
+//	const double Ra = Gr * Pr;
+//
+//	// ToDo - Add Ra under angle
+//	// ToDo - Implement surface line instead of height
+//
+//	const double f1 = pow(1. + pow(0.492 / Pr, 9. / 16), -16. / 9);
+//	const double NuP = pow(0.825 + 0.387 * pow(Ra * f1, 1. / 6), 2);
+//	const double Nu = shape == EShape::CYLINDRICAL ? NuP + 0.435 * h / D : NuP;
+//	const double alpha = Nu * lambdaGas / h;
+//	// Expected range 2.5-25 https://www.sciencedirect.com/topics/engineering/convection-heat-transfer-coefficient
+//	return alpha;
+//}
 
 //std::pair<double, std::vector<double>> CUnitDAEModel::CalculateChamberHeatLoss(double _time, void* _unit, double* _vars)
 //{
@@ -2344,43 +2358,43 @@ double CDryerBatch::CalcAlphaOutside(double _time, const double h, const double 
 //		N_total += section.layers;
 //}
 
-double CUnitDAEModel::CalculateAverage(double* _vars, size_t variableKey, int64_t end, int64_t start) const
-{
-	double tempAvg = 0;
-	for (int64_t i = start; i < end; i++)
-		tempAvg += _vars[variableKey + i];
-	if (end - start != 0)
-		tempAvg = tempAvg / (end - start);
-	return tempAvg;
-}
+//double CUnitDAEModel::CalculateAverage(double* _vars, size_t variableKey, int64_t end, int64_t start) const
+//{
+//	double tempAvg = 0;
+//	for (int64_t i = start; i < end; i++)
+//		tempAvg += _vars[variableKey + i];
+//	if (end - start != 0)
+//		tempAvg = tempAvg / (end - start);
+//	return tempAvg;
+//}
 
-double CDryerBatch::GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const
-{
-	std::vector<double> CompoundProperties(compoundKeys.size());
-	for (int i = 0; i < compoundKeys.size(); i++)
-		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property);
+//double CDryerBatch::GetAvgConstCompoundProperty(double _time, EPhase phase, ECompoundConstProperties  property) const
+//{
+//	std::vector<double> CompoundProperties(compoundKeys.size());
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property);
+//
+//	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
+//
+//	double avgProperty = 0;
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
+//	return avgProperty;
+//}
 
-	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
-
-	double avgProperty = 0;
-	for (int i = 0; i < compoundKeys.size(); i++)
-		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
-	return avgProperty;
-}
-
-double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties  property, double temperature, double pressure) const
-{
-	std::vector<double> CompoundProperties(compoundKeys.size());
-	for (int i = 0; i < compoundKeys.size(); i++)
-		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property, temperature, pressure);
-
-	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
-
-	double avgProperty = 0;
-	for (int i = 0; i < compoundKeys.size(); i++)
-		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
-	return avgProperty;
-}
+//double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompoundTPProperties  property, double temperature, double pressure) const
+//{
+//	std::vector<double> CompoundProperties(compoundKeys.size());
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//		CompoundProperties[i] = GetCompoundProperty(compoundKeys[i], property, temperature, pressure);
+//
+//	std::vector<double> PhaseCompoundsDistribution = m_holdup->GetPhase(phase)->GetCompoundsDistribution(_time);
+//
+//	double avgProperty = 0;
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//		avgProperty += PhaseCompoundsDistribution[i] * CompoundProperties[i];
+//	return avgProperty;
+//}
 
 //double CDryerBatch::CalculateSectionVolume(size_t section)
 //{
@@ -2424,85 +2438,85 @@ double CDryerBatch::GetAvgTPCompoundProperty(double _time, EPhase phase, ECompou
 //	}*/
 //}
 
-double CDryerBatch::CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage)
-{
-	if (chamber.at(section).thermalConductivities.size() != chamber.at(section).wallThicknesses.size() || heightUsage > 1 || heightUsage <= -1)
-	{
-		std::ostringstream  os;
-		os << "CalculateOverallHeatTransferCoefficientCylinder has encountered an error in section: ";
-		os << section;
-		os << ".\nCheck if numer of wall thicknesses is equal to thermal conductivities.";
-		os << "\nOr heightUsage was out of bounds.";
-		RaiseError(os.str());
-	}
-	const double tanWallAngle = (chamber.at(section).dimensionsInternal.at(0).second - chamber.at(section).dimensionsInternal.at(0).first) / (2 * chamber.at(section).height);
+//double CDryerBatch::CalculateOverallHeatTransferCoefficientCylinder(size_t section, double alphaInternal, double alphaExternal, double heightUsage)
+//{
+//	if (chamber.at(section).thermalConductivities.size() != chamber.at(section).wallThicknesses.size() || heightUsage > 1 || heightUsage <= -1)
+//	{
+//		std::ostringstream  os;
+//		os << "CalculateOverallHeatTransferCoefficientCylinder has encountered an error in section: ";
+//		os << section;
+//		os << ".\nCheck if numer of wall thicknesses is equal to thermal conductivities.";
+//		os << "\nOr heightUsage was out of bounds.";
+//		RaiseError(os.str());
+//	}
+//	const double tanWallAngle = (chamber.at(section).dimensionsInternal.at(0).second - chamber.at(section).dimensionsInternal.at(0).first) / (2 * chamber.at(section).height);
+//
+//	double h, R, r, R_Plus_r;
+//
+//	if (heightUsage > 0)
+//	{
+//		h = heightUsage * chamber.at(section).height;
+//		r = chamber.at(section).dimensionsInternal.at(0).first / 2;
+//		R = h * tanWallAngle + r;
+//		R_Plus_r = (R + r);
+//	}
+//	else
+//	{
+//		h = (1 - heightUsage) * chamber.at(section).height;
+//		R = chamber.at(section).dimensionsInternal.at(0).second / 2;
+//		r = R - h * tanWallAngle;
+//		R_Plus_r = (R + r);
+//	}
+//
+//	double wall = 0;
+//	for (int i = 0; i < chamber.at(section).thermalConductivities.size(); i++)
+//	{
+//		double sumWallThicknesses = 0;
+//		for (int j = 0; j < chamber.at(section).wallThicknesses.size() - 1; j++)
+//			sumWallThicknesses += chamber.at(section).wallThicknesses.at(j);
+//		wall += log((R_Plus_r + 2 * (chamber.at(section).wallThicknesses.at(i) + sumWallThicknesses)) / (R_Plus_r + sumWallThicknesses)) / chamber.at(section).thermalConductivities.at(i);
+//	}
+//	double sumWallThicknesses = 0;
+//	for (int i = 0; i < chamber.at(section).wallThicknesses.size(); i++)
+//		sumWallThicknesses += chamber.at(section).wallThicknesses.at(i);
+//	double aIn = 0;
+//	if (alphaInternal * R_Plus_r != 0)
+//		aIn = 1. / (alphaInternal * R_Plus_r);
+//	double aOut = 0;
+//	if (alphaExternal * (R_Plus_r + sumWallThicknesses) != 0)
+//		aIn = 1. / (alphaExternal * (R_Plus_r + sumWallThicknesses));
+//	double sum = aIn + 1. / 2 * wall + aOut;
+//
+//	const double m = sqrt(pow(R - r, 2) + pow(h, 2));
+//	const double kA = 1. / (sum / (MATH_PI * m));
+//	return kA;
+//}
 
-	double h, R, r, R_Plus_r;
-
-	if (heightUsage > 0)
-	{
-		h = heightUsage * chamber.at(section).height;
-		r = chamber.at(section).dimensionsInternal.at(0).first / 2;
-		R = h * tanWallAngle + r;
-		R_Plus_r = (R + r);
-	}
-	else
-	{
-		h = (1 - heightUsage) * chamber.at(section).height;
-		R = chamber.at(section).dimensionsInternal.at(0).second / 2;
-		r = R - h * tanWallAngle;
-		R_Plus_r = (R + r);
-	}
-
-	double wall = 0;
-	for (int i = 0; i < chamber.at(section).thermalConductivities.size(); i++)
-	{
-		double sumWallThicknesses = 0;
-		for (int j = 0; j < chamber.at(section).wallThicknesses.size() - 1; j++)
-			sumWallThicknesses += chamber.at(section).wallThicknesses.at(j);
-		wall += log((R_Plus_r + 2 * (chamber.at(section).wallThicknesses.at(i) + sumWallThicknesses)) / (R_Plus_r + sumWallThicknesses)) / chamber.at(section).thermalConductivities.at(i);
-	}
-	double sumWallThicknesses = 0;
-	for (int i = 0; i < chamber.at(section).wallThicknesses.size(); i++)
-		sumWallThicknesses += chamber.at(section).wallThicknesses.at(i);
-	double aIn = 0;
-	if (alphaInternal * R_Plus_r != 0)
-		aIn = 1. / (alphaInternal * R_Plus_r);
-	double aOut = 0;
-	if (alphaExternal * (R_Plus_r + sumWallThicknesses) != 0)
-		aIn = 1. / (alphaExternal * (R_Plus_r + sumWallThicknesses));
-	double sum = aIn + 1. / 2 * wall + aOut;
-
-	const double m = sqrt(pow(R - r, 2) + pow(h, 2));
-	const double kA = 1. / (sum / (MATH_PI * m));
-	return kA;
-}
-
-double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal)
-{
-	if (chamber.back().thermalConductivities.size() != chamber.back().wallThicknesses.size())
-		bool error = true;
-	double A = 0;
-	if (chamber.back().shape == EShape::CYLINDRICAL)
-		A = pow(chamber.back().dimensionsInternal.at(0).second, 2) * MATH_PI / 4;
-	else
-		A = chamber.back().dimensionsInternal.at(0).second * chamber.back().dimensionsInternal.at(1).second;
-
-	double wall = 0;
-	for (int i = 0; i < chamber.back().thermalConductivities.size(); i++)
-		wall += chamber.back().wallThicknesses.at(i) / (chamber.back().thermalConductivities.at(i) * A);
-	double aIn = 0;
-	if ((alphaInternal * A) != 0)
-		aIn = 1. / (alphaInternal * A);
-	double aOut = 0;
-	if ((alphaExternal * A) != 0)
-		aIn = 1. / (alphaExternal * A);
-	double sum = aIn + wall + aOut;
-	if (sum == 0)
-		bool error = true;
-	const double kA = 1. / sum;
-	return kA;
-}
+//double CDryerBatch::CalculateOverallHeatTransferCoefficientTopPlate(double alphaInternal, double alphaExternal)
+//{
+//	if (chamber.back().thermalConductivities.size() != chamber.back().wallThicknesses.size())
+//		bool error = true;
+//	double A = 0;
+//	if (chamber.back().shape == EShape::CYLINDRICAL)
+//		A = pow(chamber.back().dimensionsInternal.at(0).second, 2) * MATH_PI / 4;
+//	else
+//		A = chamber.back().dimensionsInternal.at(0).second * chamber.back().dimensionsInternal.at(1).second;
+//
+//	double wall = 0;
+//	for (int i = 0; i < chamber.back().thermalConductivities.size(); i++)
+//		wall += chamber.back().wallThicknesses.at(i) / (chamber.back().thermalConductivities.at(i) * A);
+//	double aIn = 0;
+//	if ((alphaInternal * A) != 0)
+//		aIn = 1. / (alphaInternal * A);
+//	double aOut = 0;
+//	if ((alphaExternal * A) != 0)
+//		aIn = 1. / (alphaExternal * A);
+//	double sum = aIn + wall + aOut;
+//	if (sum == 0)
+//		bool error = true;
+//	const double kA = 1. / sum;
+//	return kA;
+//}
 
 //std::vector<double> CDryerBatch::GetSectionGasMass(double _time, double gasTemperature, double particleTemperature)
 //{
