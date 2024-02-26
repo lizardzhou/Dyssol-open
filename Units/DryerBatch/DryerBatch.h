@@ -26,24 +26,24 @@ public:
 	void* m_unit{};
 	//bool Y_eq = true;
 
-	/// Indices of state variables for DAE solver ///
+	/// Indices of state variables for DAE solver: 12 DAE variables ///
 	// gas phase
-	size_t m_iYOutGas{}; // outlet gas, no height discretization
-	size_t m_iTempOutGas{}; // outlet gas, no height discretization
-	size_t m_iHFlowOutGas{}; // outlet gas enthalpy
+	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
+	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
+	size_t m_iHFlowOutGas{}; //2 - outlet gas enthalpy
 	// particle (solid) phase
-	size_t m_iTempParticle{};
-	size_t m_iPhi{}; // particle wetness degree
-	size_t m_iX{}; // particle moisture content
+	size_t m_iTempParticle{}; //3
+	size_t m_iPhi{}; //4 - particle wetness degree
+	size_t m_iX{}; //5 - particle moisture content
 	// liquid phase (water film)
-	size_t m_iTempFilm{}; // water film (on particle surface) temperature
+	size_t m_iTempFilm{}; //6 - water film (on particle surface) temperature
 	// water vapor
-	size_t m_iMFlowVapor{}; // vapor flow (evaporation) rate
-	size_t m_iHFlowVapor{}; // vapor flow enthalpy
+	size_t m_iMFlowVapor{}; //7 - vapor flow (evaporation) rate
+	size_t m_iHFlowVapor{}; //8 - vapor flow enthalpy
 	// heat transfer
-	size_t m_iQFlow_GF{}; // heat transfer from air to water film, == Q_AP
-	size_t m_iQFlow_GP{}; // heat transfer from air to particle, == Q_AF
-	size_t m_iQFlow_PF{}; // heat transfer from particle to water film
+	size_t m_iQFlow_GF{}; //9 - heat transfer from air to water film, == Q_AP
+	size_t m_iQFlow_GP{}; //10 - heat transfer from air to particle, == Q_AF
+	size_t m_iQFlow_PF{}; //11 - heat transfer from particle to water film
 	//size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
 
 	// Debug
@@ -243,10 +243,10 @@ public:
 	/**	Calculates sauter diameter of the particles
 	 *	\param time stamp
 	 *	\return sauter diameter in meter*/
-	length CalculateHoldupSauter(double _time) const;
-	area CalculateParticleSurfaceArea(double _time) const;
 	massFraction ConvertMoistContentToMassFrac(moistureContent Y) const;
 	moistureContent ConvertMassFracToMoistContent(massFraction y) const;
+	length CalculateHoldupSauter(double _time) const;
+	area CalculateParticleSurfaceArea(double _time) const;
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
 	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
@@ -274,16 +274,25 @@ public:
 	dimensionlessNumber CalculateReynolds(double _time, length d32) const;
 	// Reynolds number with height discretization for each layer
 	//dimensionlessNumber CalculateReynolds(double _time, size_t section) const;
-	dimensionlessNumber CalculatePrandtl(double _time, temperature avgGasTemperature) const;
-	dimensionlessNumber CalculateSchmidt(double _time, double D_a) const;
-	dimensionlessNumber CalculateArchimedes(double _time, length d32) const;
+	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
+	dimensionlessNumber CalculateSchmidt(double D_a) const;
+	dimensionlessNumber CalculateArchimedes(length d32) const;
 	dimensionlessNumber CalculateNusseltSherwoodBed(double porosity, double Nu_Sh_SingleParticle) const
 	{
 		return (1. + 1.5 * (1. - porosity)) * Nu_Sh_SingleParticle;
 	};
-	dimensionlessNumber CalculateNusseltSherwood(double Nu_Sh_lam, double Nu_Sh_turb) const;
-	dimensionlessNumber CalculateNusseltSherwoodLam(double Re, double Pr_Sc) const;
-	dimensionlessNumber CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const;
+	dimensionlessNumber CalculateNusseltSherwood(double Nu_Sh_lam, double Nu_Sh_turb) const
+	{
+		return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
+	};
+	dimensionlessNumber CalculateNusseltSherwoodLam(double Re, double Pr_Sc) const
+	{
+		return 0.664 * pow(Pr_Sc, 1 / 3) * sqrt(Re);
+	};
+	dimensionlessNumber CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const
+	{
+		return (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+	};
 	//	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
 	//{
