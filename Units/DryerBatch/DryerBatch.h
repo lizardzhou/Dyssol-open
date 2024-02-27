@@ -30,21 +30,25 @@ public:
 	// gas phase
 	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
 	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
-	size_t m_iHFlowOutGas{}; //2 - outlet gas enthalpy
+	size_t m_iHFlowOutGas{}; //outlet gas enthalpy
 	// particle (solid) phase
-	size_t m_iTempParticle{}; //3
-	size_t m_iPhi{}; //4 - particle wetness degree
-	size_t m_iX{}; //5 - particle moisture content
+	size_t m_iTempParticle{}; //2
+	size_t m_iPhi{}; //3 - particle wetness degree
+	//size_t m_iX{}; //particle moisture content
 	// liquid phase (water film)
-	size_t m_iTempFilm{}; //6 - water film (on particle surface) temperature
+	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
 	// water vapor
-	size_t m_iMFlowVapor{}; //7 - vapor flow (evaporation) rate
-	size_t m_iHFlowVapor{}; //8 - vapor flow enthalpy
+	size_t m_iMFlowVapor{}; //vapor flow (evaporation) rate
+	size_t m_iHFlowVapor{}; //vapor flow enthalpy
 	// heat transfer
-	size_t m_iQFlow_GF{}; //9 - heat transfer from air to water film, == Q_AP
-	size_t m_iQFlow_GP{}; //10 - heat transfer from air to particle, == Q_AF
-	size_t m_iQFlow_PF{}; //11 - heat transfer from particle to water film
+	size_t m_iQFlow_GF{}; //heat transfer from air to water film, == Q_AP
+	size_t m_iQFlow_GP{}; //heat transfer from air to particle, == Q_AF
+	size_t m_iQFlow_PF{}; //heat transfer from particle to water film
 	//size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
+	// transfer coefficients
+	//size_t m_iPr{}; //Prandtl number
+	//size_t m_iDa{}; //water diffusion coefficient from liquid to gas
+
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -112,7 +116,7 @@ private:
 	//std::map< std::pair<double, double>, double> equilibriumMoistureContents;
 
 public:
-	bool debugToggle = false;
+	//bool debugToggle = false;
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
 	//mass mTotHoldup; // mass of solid + liquid in holdup, == user input
@@ -277,10 +281,6 @@ public:
 	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
 	dimensionlessNumber CalculateSchmidt(double D_a) const;
 	dimensionlessNumber CalculateArchimedes(length d32) const;
-	dimensionlessNumber CalculateNusseltSherwoodBed(double porosity, double Nu_Sh_SingleParticle) const
-	{
-		return (1. + 1.5 * (1. - porosity)) * Nu_Sh_SingleParticle;
-	};
 	dimensionlessNumber CalculateNusseltSherwood(double Nu_Sh_lam, double Nu_Sh_turb) const
 	{
 		return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
