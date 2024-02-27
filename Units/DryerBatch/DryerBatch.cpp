@@ -66,7 +66,6 @@ void CDryerBatch::CreateStructure()
 	AddStringParameter("Spray nozzle gas properties", "","");
 	AddConstRealParameter("Y_nozzle", 0, "g/kg dry gas", "Absolute humidity of nozzle gas", 0, 5);
 
-
 	// Process chamber information
 	AddStringParameter	 ("Chamber information"	, ""		, "");
 	AddConstRealParameter("H_tempProbe"		, 0.07			, "m"	, "Height of temperature probe for chamber temperature over distributor.", 0, 0.35);
@@ -107,8 +106,7 @@ void CDryerBatch::CreateStructure()
 	//AddConstRealParameter("Absolute tolerance T", 0.0, "-", "Solver absolute tolerance for eqData.temperatures T.\nSet to 0 to use flowsheet-set value", 0);
 
 	// Debug information 
-	AddStringParameter("Debug information","","");
-	AddCheckBoxParameter("Toggle debug mode", true, "Tick this box to generate debug console outputs.");
+	AddCheckBoxParameter("Print intermediate results", true, "Tick this box to print intermediate results on simulation window.");
 
 	/// Set this unit as user data of model ///
 	m_model.SetUserData(this);
@@ -123,7 +121,7 @@ void CDryerBatch::Initialize(double _time)
 	if (!IsPhaseDefined(EPhase::VAPOR))		RaiseError("Gas phase has not been defined.");
 	if (!IsDistributionDefined(DISTR_SIZE))	RaiseError("Size distribution has not been defined.");
 
-	debugToggle = m_model.debugToggle = GetCheckboxParameterValue("Toggle debug mode");
+	const bool printResult = GetCheckboxParameterValue("Print intermediate results");
 
 	/// Settings
 	//bool calcNdc = GetCheckboxParameterValue("calcNdc");
@@ -351,9 +349,9 @@ void CDryerBatch::Initialize(double _time)
 	AddStateVariable("Gas mass in holdup [kg]", m_holdup->GetPhaseMass(_time, EPhase::VAPOR));
 	//const double ratioMM = ratio(molarMassPhaseChangingLiquid, molarMassGas);
 /// gas in outlet ///
-	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_inGas, 0, 1.0); //idx 0
-	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 1.0); //idx 1. Temperature of gas in [degreeC]
-	m_model.m_iHFlowOutGas = m_model.AddDAEVariable(false, mFlowInGas * h_inGas + mFlowInNozzleGas * h_nozzleGas, 0, 1.0); //idx 2. Enthaly of gas in [J/s]
+	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_inGas, 0, 0.0); //idx 0
+	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, m_inGasStream->GetTemperature(_time), 0, 0.0); //idx 1. Temperature of gas in [degreeC]
+	m_model.m_iHFlowOutGas = m_model.AddDAEVariable(false, mFlowInGas * h_inGas + mFlowInNozzleGas * h_nozzleGas, 0, 0.0); //idx 2. Enthaly of gas in [J/s]
 	AddStateVariable("Gas temperature outlet [degreeC]", m_holdup->GetTemperature(_time) - T_ref); //Exhaust gas temperature in degreeC
 	AddStateVariable("Gas Y_outlet [g/kg]", Y_inGas * 1e3);
 	AddStateVariable("Gas RH_outlet [%]", RH_inGas * 100);
@@ -371,9 +369,9 @@ void CDryerBatch::Initialize(double _time)
 		//initX = x_wHoldupInit / (1. - x_wHoldupInit);
 		m_holdup->SetPhaseMass(_time, EPhase::LIQUID, initX * mSolidHoldup); // set water mass in particle as liquid mass in holdup
 		const double initPhi = initX * mSolidHoldup / rhoWater / Delta_f / A_P;
-		m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 0, 1.0); //idx 3. Particle temperature in [K]
-		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0, 1.0); //idx 4. Particle degree of wetness
-		m_model.m_iX = m_model.AddDAEVariable(false, initX, 0, 1.0); //idx 5. Particle moisture content
+		m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 0, 0.0); //idx 3. Particle temperature in [K]
+		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0, 0.0); //idx 4. Particle degree of wetness
+		//m_model.m_iX = m_model.AddDAEVariable(false, initX, 0, 0.0); 
 		// m_model.miA_P: A_P is constant in case of water spray, A_P as DAE variable will be used for granulation
 		AddStateVariable("Particle moisture content [%]", initX * 100);
 		AddStateVariable("Particle water mass fraction [%]", x_wInit * 100);
@@ -397,15 +395,17 @@ void CDryerBatch::Initialize(double _time)
 		{
 			T_LiquidInit = m_holdup->GetTemperature(_time);
 		}
-		m_model.m_iTempFilm = m_model.AddDAEVariable(true, T_LiquidInit, 0, 1.0); //idx 6. Temperature of liquid film in [K]
+		m_model.m_iTempFilm = m_model.AddDAEVariable(true, T_LiquidInit, 0, 0.0); //idx 5. Temperature of liquid film in [K]	
 		// water vapor: == 0 at the beginning
-		m_model.m_iMFlowVapor = m_model.AddDAEVariable(false, 0, 0, 1.0); //idx 7. Vapor flow (evaporation) rate [kg/s]
-		m_model.m_iHFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 8 Vapor flow enthalpy [J/s]
+		m_model.m_iMFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 6. Vapor flow (evaporation) rate [kg/s]
+		m_model.m_iHFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 7. Vapor flow enthalpy [J/s]
 		// heat transfer: == 0 at the beginning
-		m_model.m_iQFlow_GF = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 9
-		m_model.m_iQFlow_GP = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 10
-		m_model.m_iQFlow_PF = m_model.AddDAEVariable(false, 0, 0, 0.0); //dix 11
+		m_model.m_iQFlow_GF = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 8
+		m_model.m_iQFlow_GP = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 9
+		m_model.m_iQFlow_PF = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 10
 		//m_model.m_iQFlow_WE = m_model.AddDAEVariable(false, 0, 0, 0.0);
+		//m_model.m_iPr = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 12
+		//m_model.m_iDa = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 13
 	}
 
 	AddStateVariable("INLET Water mass flow [kg/s]", mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle);
@@ -486,7 +486,7 @@ void CDryerBatch::Initialize(double _time)
 	if (!m_solver.SetModel(&m_model))
 		RaiseError(m_solver.GetError());
 
-	if (debugToggle)
+	if (printResult)
 	{	
 		/// Get number of classes for PSD ///
 		size_t m_classesNum = GetClassesNumber(DISTR_SIZE); //n
@@ -556,8 +556,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const CStream* inNozzleAirStream = unit->GetPortStream("InletNozzleAir");
 	const CHoldup* holdup = unit->GetHoldup("Holdup");
 	
-
 /// Read input parameters ///
+	const bool printResult = unit->GetComboParameterValue("Print intermediate results");
 	/// Phase properties
 	const heatCapacity C_PGas = unit->C_PGas;
 	const thermalConductivity lambdaGas = unit->lambdaGas;
@@ -568,23 +568,19 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const density rhoGas = unit->rhoGas;
 	const density rhoLiquid = unit->rhoWater;
 	const density rhoParticle = unit->rhoParticle;
-	
 	/// Particle in holdup
 	const mass mHoldupSolid = holdup->GetPhaseMass(_time, EPhase::SOLID); // Solid mass holdup [kg] - constant for fluidization with water
 	const length Delta_f = unit->GetConstRealParameterValue("Delta_f") * 1e-6; // convert in [m]
 	const area A_P = unit->CalculateParticleSurfaceArea(_time);
 	const double derA_p = 0; // Time change of total particle surface area, constant for fluidization with water
 	const length d32 = unit->CalculateHoldupSauter(_time);
-
 	/// Hydrodynamics
 	const double eps_0 = unit->GetConstRealParameterValue("eps_0");
 	const double u_Gas = unit->CalculateGasVel(_time, d32); 
-
 	/// Liquid in holdup
 	const mass mHoldupLiquid = holdup->GetPhaseMass(_time, EPhase::LIQUID);
 	const temperature T_holdupLiquid = holdup->GetTemperature(_time); // in [K]
 	const temperature theta_holdupLiquid = T_holdupLiquid - unit->T_ref; // in degreeC
-
 	/// Inlet fluidization gas
 	const moistureContent Y_inGas = unit->GetConstRealParameterValue("Y_in") * 1e-3; // Y in [kg/kg dry air]
 	const massFraction y_inGas = unit->ConvertMoistContentToMassFrac(Y_inGas);
@@ -593,7 +589,6 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature theta_inGas = inGasStream->GetTemperature(_time); // temperature in [degreeC]
 	const temperature T_inGas = theta_inGas + unit->T_ref; // temperature in [K]
 	const specificLatentHeat h_inGas = C_PWaterLiquid * theta_inGas + y_inGas * (C_PWaterVapor * theta_inGas + Delta_h0);
-
 	/// Inlet nozzle gas
 	const massFlow mFlowInNozzleGas = inNozzleAirStream->GetMassFlow(_time);
 	const moistureContent Y_nozzle = unit->GetConstRealParameterValue("Y_nozzle") * 1e-3; // convert to [kg/kg dry air]
@@ -601,110 +596,104 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature T_nozzleGas = inNozzleAirStream->GetTemperature(_time); // in [K]
 	const temperature thetaNozzleGas = T_nozzleGas - unit->T_ref;
 	const specificLatentHeat h_nozzleGas = C_PGas * thetaNozzleGas + Y_nozzle * (C_PWaterVapor * thetaNozzleGas + Delta_h0);
-
-	///  Gas in holdup
+	///  Gas in holdup: temperature == outlet gas without height discretization
 	const mass mGasHoldup = unit->mGasHoldup;
-	const temperature T_gasHoldup = holdup->GetTemperature(_time);
-	const temperature theta_gasHoldup = T_gasHoldup - unit->T_ref;
+	const temperature varT_gasHoldup = _vars[m_iTempOutGas]; //holdup->GetTemperature(_time);
+	const temperature varTheta_gasHoldup = varT_gasHoldup - unit->T_ref;
 	const pressure pressureGasHoldup = holdup->GetPressure(_time); // Pressure holdup [Pa]
-	const moistureContent Y_sat = unit->CalculateGasSaturationMoistureContent(T_gasHoldup, pressureGasHoldup);
-
+	const moistureContent varY_sat_Formula = unit->CalculateGasSaturationMoistureContent(varTheta_gasHoldup, pressureGasHoldup);
 	/// Spray liquid
 	const massFlow mFlowSprayLiquid = inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
 	const massFraction x_wSusp = inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);
 	const temperature thetaSprayLiquid = inLiquidStream->GetTemperature(_time) - unit->T_ref;
 	const specificLatentHeat h_susp = thetaSprayLiquid * (C_PParticle * (1 - x_wSusp) + C_PWaterLiquid * x_wSusp);
 
-	/// Diffusion coefficient
-	const double D_a = unit->CalculateDiffusionCoefficient(_time, T_gasHoldup, T_holdupLiquid);
-
 	/// Dimensionless numbers
-	const dimensionlessNumber Re = unit->CalculateReynolds(_time, d32); // reynolds
+	//const dimensionlessNumber Re = unit->CalculateReynolds(_time, d32); // reynolds
 	// mass transfer
-	const dimensionlessNumber Sc = unit->CalculateSchmidt(D_a); // schmidt
-	const dimensionlessNumber Sh_lam = unit->CalculateNusseltSherwoodLam(Re, Sc); // sherwood
-	const dimensionlessNumber Sh_turb = unit->CalculateNusseltSherwoodTurb(Re, Sc);
-	const dimensionlessNumber Sh = unit->CalculateNusseltSherwood(Sh_lam, Sh_turb);
+	//const dimensionlessNumber Sc = unit->CalculateSchmidt(D_a); // schmidt
+	//const dimensionlessNumber Sh_lam = unit->CalculateNusseltSherwoodLam(Re, Sc); // sherwood
+	//const dimensionlessNumber Sh_turb = unit->CalculateNusseltSherwoodTurb(Re, Sc);
+	//const dimensionlessNumber Sh = unit->CalculateNusseltSherwood(Sh_lam, Sh_turb);
 	// heat transfer
-	const dimensionlessNumber Pr = unit->CalculatePrandtl(theta_gasHoldup); 	// prandtl
-	const dimensionlessNumber Nu_lam = unit->CalculateNusseltSherwoodLam(Re, Pr); // nusselt
-	const dimensionlessNumber Nu_turb = unit->CalculateNusseltSherwoodTurb(Re, Pr);
-	const dimensionlessNumber Nu = unit->CalculateNusseltSherwood(Nu_lam, Nu_turb);
+	//const dimensionlessNumber Pr = unit->CalculatePrandtl(theta_gasHoldup); 	// prandtl
+	//const dimensionlessNumber Nu_lam = unit->CalculateNusseltSherwoodLam(Re, Pr); // nusselt
+	//const dimensionlessNumber Nu_turb = unit->CalculateNusseltSherwoodTurb(Re, Pr);
+	//const dimensionlessNumber Nu = unit->CalculateNusseltSherwood(Nu_lam, Nu_turb);
 
-	/// Mass transfer coefficient
-	const double beta_FG = unit->CalculateBeta(_time, d32, D_a);
-
-	/// Heat transfer coefficients
-	const double alpha_GP = unit->CalculateAlpha_GP(_time, theta_gasHoldup, d32);
-	const double alpha_GF = alpha_GP;
-	const double alpha_PF = unit->CalculateAlpha_PF(alpha_GP);
-
-/// DAE system: 12 equations ///
+	
+/// DAE system: ? equations ///
 	/// _vars: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
 	const double varYOutGas = _vars[m_iYOutGas];
 	const double varTempOutGas = _vars[m_iTempOutGas];
 	const double varThetaOutGas = varTempOutGas - unit->T_ref;
 	const double varHFlowOutGas = _vars[m_iHFlowOutGas];
-	const double varHFlowOutGasFormula = mFlowInGasDry * (C_PWaterVapor * varThetaOutGas + Delta_h0);
+	const double varHFlowOutGasFormula = (mFlowInGasDry + mFlowInNozzleGasDry) * (C_PGas * varThetaOutGas + varYOutGas * (C_PWaterVapor * varThetaOutGas + Delta_h0));
 	// particle (solid) phase
 	const double varTempParticle = _vars[m_iTempParticle];
 	const double varThetaParticle = varTempParticle - unit->T_ref;
 	const double varPhi = _vars[m_iPhi];
-	const double varX = _vars[m_iX];
-	const double varXFormula = varPhi * (A_P * Delta_f * rhoLiquid) / mHoldupSolid;
+	//const double varX = _vars[m_iX];
+	//const double varXFormula = varPhi * (A_P * Delta_f * rhoLiquid) / mHoldupSolid;
 	// liquid phase (water film)
 	const double varTempFlim = _vars[m_iTempFilm];
 	const double varThetaFilm = varTempFlim - unit->T_ref;
+	// Heat transfer
+	const double alpha_GP = unit->CalculateAlpha_GP(_time, varTheta_gasHoldup, d32);
+	const double alpha_GF = alpha_GP;
+	const double alpha_PF = unit->CalculateAlpha_PF(alpha_GP);
+	// Mass transfer
+	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(_time, varTempOutGas, varTempFlim);
+	const double varbeta_FG_Formula = unit->CalculateBeta(_time, d32, varD_a_Formula);
 	// water vapor
 	const double varMFlowVapor = _vars[m_iMFlowVapor];
-	const double varMFlowVaporFormula = beta_FG * A_P * varPhi * rhoGas * (Y_sat - varYOutGas);
-	const double varHFlowVapor = _vars[m_iHFlowVapor];
-	const double varHFlowVaporFormula = varMFlowVapor * (C_PWaterVapor * varThetaOutGas + Delta_h0);
+	const double varMFlowVaporFormula = varbeta_FG_Formula * A_P * varPhi * rhoGas * (varY_sat_Formula - varYOutGas);
+	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varThetaOutGas + Delta_h0);	
 	// heat flow
-	const double varQFlow_GF = _vars[m_iQFlow_GF];
 	const double varQFlow_GF_Formula = alpha_GF * A_P * varPhi * (varThetaOutGas - varThetaFilm);
-	const double varQFlow_GP = _vars[m_iQFlow_GP];
-	const double varQFlow_GP_Formula = alpha_GP * A_P * (1. - varPhi) * (varThetaOutGas - varThetaParticle); // NOT APPLICABLE FOR HIGH WATER CONTENT WHERE OUTLET TEMPERATURE LOWER THAN PARTICLE
-	const double varQFlow_PF = _vars[m_iQFlow_PF];
+	const double varQFlow_GP_Formula = alpha_GP * A_P * (1. - varPhi) * (varThetaOutGas - varThetaParticle); // NOT APPLICABLE FOR HIGH WATER CONTENT WHERE OUTLET TEMPERATURE LOWER THAN PARTICLE???
 	const double varQFlow_PF_Formula = alpha_PF * A_P * varPhi * (varThetaParticle - varThetaFilm);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
 	const double derTempOutGas = _ders[m_iTempOutGas];
 	const double derYOutGas = _ders[m_iYOutGas];
-	const double derTempOutGasFormula = (mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - varHFlowOutGas - varQFlow_GP - varQFlow_GF + varHFlowVapor) / (mGasHoldup * (C_PGas + C_PWaterVapor * varYOutGas)) - derYOutGas * (C_PWaterVapor * varThetaOutGas + Delta_h0) / (C_PGas + C_PWaterVapor * varYOutGas);
-	const double derYOutGasFormula = mFlowInGasDry * (Y_inGas - varYOutGas) / mGasHoldup + varMFlowVapor / mGasHoldup;
+	const double derTempOutGasFormula = (mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - varHFlowOutGasFormula - varQFlow_GP_Formula - varQFlow_GF_Formula + varHFlowVaporFormula) / (mGasHoldup * (C_PGas + C_PWaterVapor * varYOutGas)) - derYOutGas * (C_PWaterVapor * varThetaOutGas + Delta_h0) / (C_PGas + C_PWaterVapor * varYOutGas);
+	const double derYOutGasFormula = mFlowInGasDry * (Y_inGas - varYOutGas) / mGasHoldup + varMFlowVaporFormula / mGasHoldup; // without nozzle gas
 	// particle (solid) phase
 	const double derTempParticle = _ders[m_iTempParticle];
-	const double derTempParticleFormula = (varQFlow_GP - varQFlow_PF) / (mHoldupSolid * C_PParticle);
+	const double derTempParticleFormula = (varQFlow_GP_Formula - varQFlow_PF_Formula) / (mHoldupSolid * C_PParticle);
 	// liquid phase (water film)
 	const double derTempFlim = _ders[m_iTempFilm];
 	const double derPhi = _ders[m_iPhi];
-	const double derTempFilmFormula = (varQFlow_PF + varQFlow_GF + mFlowSprayLiquid * h_susp - varHFlowVapor) / (C_PWaterLiquid * Delta_f * rhoLiquid * A_P * varPhi) - varThetaFilm * derPhi / varPhi;
-	const double derPhiFormula = (mFlowSprayLiquid - varMFlowVapor * (1 + (1 - x_wSusp) / x_wSusp)) / (rhoLiquid * Delta_f * A_P);
+	const double derTempFilmFormula = (varQFlow_PF_Formula + varQFlow_GF_Formula + mFlowSprayLiquid * h_susp - varHFlowVaporFormula) / (C_PWaterLiquid * Delta_f * rhoLiquid * A_P * varPhi) - varThetaFilm * derPhi / varPhi;
+	const double derPhiFormula = (mFlowSprayLiquid - varMFlowVaporFormula * (1 + (1 - x_wSusp) / x_wSusp)) / (rhoLiquid * Delta_f * A_P);
 
 	/// define _res
 	// outlet gas
 	_res[m_iYOutGas] = derYOutGas - derYOutGasFormula;
 	_res[m_iTempOutGas] = derTempOutGas - derTempOutGasFormula;
-	_res[m_iHFlowOutGas] = varHFlowOutGas - varHFlowOutGasFormula;
+	//_res[m_iHFlowOutGas] = varHFlowOutGas - varHFlowOutGasFormula;
 	// particle (solid) phase
 	_res[m_iTempParticle] = derTempParticle - derTempFilmFormula;
 	_res[m_iPhi] = derPhi - derPhiFormula;
-	_res[m_iX] = varX - varXFormula;
+	//_res[m_iX] = varX - varXFormula;
 	// liquid phase (water film)
 	_res[m_iTempFilm] = derTempFlim - derTempFilmFormula;
 	// water vapor
-	_res[m_iMFlowVapor] = varMFlowVapor - varMFlowVaporFormula;
-	_res[m_iHFlowVapor] = varHFlowVapor - varHFlowVaporFormula;
+	//_res[m_iMFlowVapor] = varMFlowVapor - varMFlowVaporFormula;
+	//_res[m_iHFlowVapor] = varHFlowVapor - varHFlowVaporFormula;
 	// heat transfer
-	_res[m_iQFlow_GF] = varQFlow_GF - varQFlow_GF_Formula;
-	_res[m_iQFlow_GP] = varQFlow_GP - varQFlow_GP_Formula;
-	_res[m_iQFlow_PF] = varQFlow_PF - varQFlow_PF_Formula;
+	//_res[m_iQFlow_GF] = varQFlow_GF - varQFlow_GF_Formula;
+	//_res[m_iQFlow_GP] = varQFlow_GP - varQFlow_GP_Formula;
+	//_res[m_iQFlow_PF] = varQFlow_PF - varQFlow_PF_Formula;
+	// transfer coefficients
+	//_res[m_iPr] = varPr - varPrFormula;
+	//_res[m_iDa] = varDa - varDaFormula;
 
 /// Codes for checking _vars, _ders and _res ///
-	if (debugToggle)
+	if (printResult)
 	{
 		std::vector vars(_vars, _vars + GetVariablesNumber());
 		std::vector ders(_ders, _ders + GetVariablesNumber());
@@ -935,6 +924,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const CStream* inNozzleAirStream = unit->GetPortStream("InletNozzleAir");
 	CStream* outGasStream = unit->GetPortStream("OutletExhaustGas");
 	CHoldup* holdup = unit->GetHoldup("Holdup");
+	const bool printResult = unit->GetCheckboxParameterValue("Print intermediate results");
 
 /// Print simulation time ///
 	std::ostringstream  os;
@@ -989,11 +979,12 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("Gas temperature outlet [degreeC]", varThetaOutGas, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", _vars[m_iYOutGas] * 1e3, _time);
 	unit->SetStateVariable("Gas RH_outlet [%]", unit->CalculateGasRelativeHumidity(_vars[m_iYOutGas], _vars[m_iTempOutGas], pressureHoldup));//"Gas RH_outlet [%]"
-	unit->SetStateVariable("Particle moisture content [%]", _vars[m_iX] * 100, _time);
-	unit->SetStateVariable("Particle water mass fraction [%]", unit->ConvertMoistContentToMassFrac(_vars[m_iX]) * 100, _time);
+	const double varX = _vars[m_iPhi] * A_P * Delta_f * rhoWater / mSolidHoldup;
+	unit->SetStateVariable("Particle moisture content [%]", varX * 100, _time);
+	unit->SetStateVariable("Particle water mass fraction [%]", unit->ConvertMoistContentToMassFrac(varX) * 100, _time);
 	unit->SetStateVariable("Particle wetness degree [%]", _vars[m_iPhi] * 100, _time);
 	unit->SetStateVariable("Particle temperature [degreeC]", _vars[m_iTempParticle] - unit->T_ref, _time);
-	unit->SetStateVariable("Water mass in holdup [kg]", mSolidHoldup * _vars[m_iX], _time);
+	unit->SetStateVariable("Water mass in holdup [kg]", mSolidHoldup * varX, _time);
 	unit->SetStateVariable("Vapor mass in holdup [kg]", mGasHoldup * _vars[m_iYOutGas], _time);
 	unit->SetStateVariable("Water film temperature [degreeC]", _vars[m_iTempFilm] - unit->T_ref, _time);
 	unit->SetStateVariable("Water evaporation rate [kg/s]", _vars[m_iMFlowVapor], _time);
@@ -1003,11 +994,11 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("OUTLET energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)));
 
 /// Set holdup properties ///
-	const massFraction var_x = unit->ConvertMoistContentToMassFrac(_vars[m_iX]);
+	const massFraction var_x = unit->ConvertMoistContentToMassFrac(varX);
 	holdup->AddTimePoint(_time);
 	holdup->RemoveTimePointsAfter(_time);
 	holdup->SetPhaseMass(_time, EPhase::SOLID, mSolidHoldup);
-	holdup->SetPhaseMass(_time, EPhase::LIQUID, mSolidHoldup * _vars[m_iX]);
+	holdup->SetPhaseMass(_time, EPhase::LIQUID, mSolidHoldup * varX);
 	holdup->SetPhaseMass(_time, EPhase::VAPOR, mGasHoldup * (1 + _vars[m_iYOutGas]));
 	const double varTempHoldup = _vars[m_iTempParticle] * (1 - var_x) + _vars[m_iTempFilm] * var_x;
 	holdup->SetTemperature(_time, varTempHoldup); // weighted average of gas and film temperature
@@ -1023,14 +1014,17 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	outGasStream->SetTemperature(_time, _vars[m_iTempOutGas]);
 	outGasStream->SetMassFlow(_time, (mFlowInGasDry + mFlowInNozzleGasDry) * (1 + _vars[m_iYOutGas]));
 
-/// Print simulation results for each time step ///
-	unit->ShowInfo("Time = " + std::to_string(_time) + " s:");
-	unit->ShowInfo("\tHoldup temperature = " + std::to_string(varTempHoldup - unit->T_ref) + " degreeC");
-	unit->ShowInfo("\tParticle temperature = " + std::to_string(_vars[m_iTempParticle] - unit->T_ref) + " degreeC");
-	unit->ShowInfo("\tWater film temperature = " + std::to_string(_vars[m_iTempFilm] - unit->T_ref) + " degreeC");
-	//unit->ShowInfo("\tdiff (particle - water)" + std::to_string(_vars[m_iTempParticle] - _vars[m_iTempFilm]) + " degreeC");
-	unit->ShowInfo("\tY_sat = " + std::to_string(Y_sat) + " g/kg dry air");
-	unit->ShowInfo("\tWetness degree = " + std::to_string(_vars[m_iPhi] * 100) + " %");
+	if (printResult)
+	{
+		/// Print simulation results for each time step ///
+		unit->ShowInfo("Time = " + std::to_string(_time) + " s:");
+		unit->ShowInfo("\tHoldup temperature = " + std::to_string(varTempHoldup - unit->T_ref) + " degreeC");
+		unit->ShowInfo("\tParticle temperature = " + std::to_string(_vars[m_iTempParticle] - unit->T_ref) + " degreeC");
+		unit->ShowInfo("\tWater film temperature = " + std::to_string(_vars[m_iTempFilm] - unit->T_ref) + " degreeC");
+		//unit->ShowInfo("\tdiff (particle - water)" + std::to_string(_vars[m_iTempParticle] - _vars[m_iTempFilm]) + " degreeC");
+		unit->ShowInfo("\tY_sat = " + std::to_string(Y_sat) + " g/kg dry air");
+		unit->ShowInfo("\tWetness degree = " + std::to_string(_vars[m_iPhi] * 100) + " %");
+	}
 
 	//massFlow mFlowInGas = unit->m_inGasStream->GetMassFlow(_time);
 	//const massFlow mFlowInLiquid = unit->m_inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
@@ -1436,13 +1430,15 @@ moistureContent CDryerBatch::ConvertMassFracToMoistContent(massFraction y) const
 	return y / (1. - y);
 }
 
-moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas) const // temperature in [K]
+moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature theta_Gas, pressure pressureGas) const 
 {
-	std::string waterLiquidCompoundKey = "4b3f8A1A71A315EFB4E5";
+	const double A = 8.07131; // in[mmHg]
+	const double B = 1730.61;
+	const double C = 233.426; // in[degC]
 	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-	pressure P_sat = GetCompoundProperty(waterLiquidCompoundKey, ECompoundTPProperties::VAPOR_PRESSURE, T_Gas, pressureGas);
+	pressure P_sat = pow(10, (A - B / (C + theta_Gas))) * (pressureGas / 760); //Antoine equation (Source: Springer-Verlag Berlin Heidelberg 2014, E. Drioli, L. Giorno (eds.), Encyclopedia of Membranes, DOI 10.1007/978-3-642-40872-4_26-1). convert[mmHg] to[Pa]
 	return ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
-	
+
 	//if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
 	//{
 	//	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
@@ -1767,11 +1763,10 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 	const dimensionlessNumber Sc = etaGas / (D_a * rhoGas);
 	const dimensionlessNumber Re = CalculateReynolds(_time, d32);
 	const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
-	const dimensionlessNumber Sh_lam = CalculateNusseltSherwoodLam(Re / eps, Sc);
-	const dimensionlessNumber Sh_turb = CalculateNusseltSherwoodTurb(Re / eps, Sc);
+	const dimensionlessNumber Sh_lam = CalculateNusseltSherwoodLam(Re, Sc);
+	const dimensionlessNumber Sh_turb = CalculateNusseltSherwoodTurb(Re, Sc);
 	const dimensionlessNumber Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
-	const double beta = CalculateNusseltSherwoodBed(eps, Sh) * D_a / d32; // Mass transfer coefficient // ToDO - Look at this!
-	// Dosta 2010 A.3
+	const double beta = Sh * (1 + 1.5 * (1 - eps)) * D_a / d32; // Mass transfer coefficient 
 	return beta;
 }
 
@@ -1786,9 +1781,8 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 	const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
 	const double Nu_lam = CalculateNusseltSherwoodLam(Re, Pr);
 	const double Nu_turb = CalculateNusseltSherwoodTurb(Re, Pr);
-	const double Nu_GP = CalculateNusseltSherwood(Nu_lam, Nu_turb);
-	const double Nu_bed = CalculateNusseltSherwoodBed(eps, Nu_GP);
-	const double alpha_GP = Nu_bed * (1 + 1.5 * (1 - eps)) * lambdaGas / d32; // Heat transfer coefficient
+	const double Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+	const double alpha_GP = Nu * (1 + 1.5 * (1 - eps)) * lambdaGas / d32; 
 	return alpha_GP;
 }
 
