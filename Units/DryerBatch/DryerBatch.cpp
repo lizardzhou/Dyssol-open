@@ -557,7 +557,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const CHoldup* holdup = unit->GetHoldup("Holdup");
 	
 /// Read input parameters ///
-	const bool printResult = unit->GetComboParameterValue("Print intermediate results");
+	const bool printResult = unit->GetCheckboxParameterValue("Print intermediate results");
 	/// Phase properties
 	const heatCapacity C_PGas = unit->C_PGas;
 	const thermalConductivity lambdaGas = unit->lambdaGas;
@@ -572,7 +572,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const mass mHoldupSolid = holdup->GetPhaseMass(_time, EPhase::SOLID); // Solid mass holdup [kg] - constant for fluidization with water
 	const length Delta_f = unit->GetConstRealParameterValue("Delta_f") * 1e-6; // convert in [m]
 	const area A_P = unit->CalculateParticleSurfaceArea(_time);
-	const double derA_p = 0; // Time change of total particle surface area, constant for fluidization with water
+	//const double derA_p = 0; // Time change of total particle surface area, constant for fluidization with water
 	const length d32 = unit->CalculateHoldupSauter(_time);
 	/// Hydrodynamics
 	const double eps_0 = unit->GetConstRealParameterValue("eps_0");
@@ -596,12 +596,6 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature T_nozzleGas = inNozzleAirStream->GetTemperature(_time); // in [K]
 	const temperature thetaNozzleGas = T_nozzleGas - unit->T_ref;
 	const specificLatentHeat h_nozzleGas = C_PGas * thetaNozzleGas + Y_nozzle * (C_PWaterVapor * thetaNozzleGas + Delta_h0);
-	///  Gas in holdup: temperature == outlet gas without height discretization
-	const mass mGasHoldup = unit->mGasHoldup;
-	const temperature varT_gasHoldup = _vars[m_iTempOutGas]; //holdup->GetTemperature(_time);
-	const temperature varTheta_gasHoldup = varT_gasHoldup - unit->T_ref;
-	const pressure pressureGasHoldup = holdup->GetPressure(_time); // Pressure holdup [Pa]
-	const moistureContent varY_sat_Formula = unit->CalculateGasSaturationMoistureContent(varTheta_gasHoldup, pressureGasHoldup);
 	/// Spray liquid
 	const massFlow mFlowSprayLiquid = inLiquidStream->GetPhaseMassFlow(_time, EPhase::LIQUID);
 	const massFraction x_wSusp = inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);
@@ -622,8 +616,14 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	//const dimensionlessNumber Nu = unit->CalculateNusseltSherwood(Nu_lam, Nu_turb);
 
 	
-/// DAE system: ? equations ///
+/// DAE system: 11 equations (5 true, 6 false) ///
 	/// _vars: determined by the solver & should not be changed, set as const!
+	/// gas in holdup
+	const mass mGasHoldup = unit->mGasHoldup;
+	const temperature varT_gasHoldup = _vars[m_iTempOutGas];  // no height discretization: T holdup == T out
+	const temperature varTheta_gasHoldup = varT_gasHoldup - unit->T_ref;
+	const pressure pressureGasHoldup = holdup->GetPressure(_time); // Pressure holdup [Pa]
+	const moistureContent varY_sat_Formula = unit->CalculateGasSaturationMoistureContent(varTheta_gasHoldup, pressureGasHoldup);
 	// gas phase (outlet gas)
 	const double varYOutGas = _vars[m_iYOutGas];
 	const double varTempOutGas = _vars[m_iTempOutGas];
@@ -649,10 +649,14 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	// water vapor
 	const double varMFlowVapor = _vars[m_iMFlowVapor];
 	const double varMFlowVaporFormula = varbeta_FG_Formula * A_P * varPhi * rhoGas * (varY_sat_Formula - varYOutGas);
+	const double varHFlowVapor = _vars[m_iHFlowVapor];
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varThetaOutGas + Delta_h0);	
 	// heat flow
+	const double varQFlow_GF = _vars[m_iQFlow_GF];
 	const double varQFlow_GF_Formula = alpha_GF * A_P * varPhi * (varThetaOutGas - varThetaFilm);
+	const double varQFlow_GP = _vars[m_iQFlow_GP];
 	const double varQFlow_GP_Formula = alpha_GP * A_P * (1. - varPhi) * (varThetaOutGas - varThetaParticle); // NOT APPLICABLE FOR HIGH WATER CONTENT WHERE OUTLET TEMPERATURE LOWER THAN PARTICLE???
+	const double varQFlow_PF = _vars[m_iQFlow_PF];
 	const double varQFlow_PF_Formula = alpha_PF * A_P * varPhi * (varThetaParticle - varThetaFilm);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
@@ -674,7 +678,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	// outlet gas
 	_res[m_iYOutGas] = derYOutGas - derYOutGasFormula;
 	_res[m_iTempOutGas] = derTempOutGas - derTempOutGasFormula;
-	//_res[m_iHFlowOutGas] = varHFlowOutGas - varHFlowOutGasFormula;
+	_res[m_iHFlowOutGas] = varHFlowOutGas - varHFlowOutGasFormula;
 	// particle (solid) phase
 	_res[m_iTempParticle] = derTempParticle - derTempFilmFormula;
 	_res[m_iPhi] = derPhi - derPhiFormula;
@@ -682,12 +686,12 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	// liquid phase (water film)
 	_res[m_iTempFilm] = derTempFlim - derTempFilmFormula;
 	// water vapor
-	//_res[m_iMFlowVapor] = varMFlowVapor - varMFlowVaporFormula;
-	//_res[m_iHFlowVapor] = varHFlowVapor - varHFlowVaporFormula;
+	_res[m_iMFlowVapor] = varMFlowVapor - varMFlowVaporFormula;
+	_res[m_iHFlowVapor] = varHFlowVapor - varHFlowVaporFormula;
 	// heat transfer
-	//_res[m_iQFlow_GF] = varQFlow_GF - varQFlow_GF_Formula;
-	//_res[m_iQFlow_GP] = varQFlow_GP - varQFlow_GP_Formula;
-	//_res[m_iQFlow_PF] = varQFlow_PF - varQFlow_PF_Formula;
+	_res[m_iQFlow_GF] = varQFlow_GF - varQFlow_GF_Formula;
+	_res[m_iQFlow_GP] = varQFlow_GP - varQFlow_GP_Formula;
+	_res[m_iQFlow_PF] = varQFlow_PF - varQFlow_PF_Formula;
 	// transfer coefficients
 	//_res[m_iPr] = varPr - varPrFormula;
 	//_res[m_iDa] = varDa - varDaFormula;
@@ -1437,7 +1441,7 @@ moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature t
 	const double C = 233.426; // in[degC]
 	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
 	pressure P_sat = pow(10, (A - B / (C + theta_Gas))) * (pressureGas / 760); //Antoine equation (Source: Springer-Verlag Berlin Heidelberg 2014, E. Drioli, L. Giorno (eds.), Encyclopedia of Membranes, DOI 10.1007/978-3-642-40872-4_26-1). convert[mmHg] to[Pa]
-	return ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
+	return ratioMM * P_sat / (pressureGas - P_sat); 
 
 	//if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
 	//{
