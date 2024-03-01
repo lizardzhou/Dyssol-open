@@ -30,7 +30,7 @@ public:
 	// gas phase
 	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
 	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
-	size_t m_iHFlowOutGas{}; //outlet gas enthalpy
+	//size_t m_iHFlowOutGas{}; //outlet gas enthalpy
 	// particle (solid) phase
 	size_t m_iTempParticle{}; //2
 	size_t m_iPhi{}; //3 - particle wetness degree
@@ -38,17 +38,16 @@ public:
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
 	// water vapor
-	size_t m_iMFlowVapor{}; //vapor flow (evaporation) rate
-	size_t m_iHFlowVapor{}; //vapor flow enthalpy
+	//size_t m_iMFlowVapor{}; //vapor flow (evaporation) rate
+	//size_t m_iHFlowVapor{}; //vapor flow enthalpy
 	// heat transfer
-	size_t m_iQFlow_GF{}; //heat transfer from air to water film, == Q_AP
-	size_t m_iQFlow_GP{}; //heat transfer from air to particle, == Q_AF
-	size_t m_iQFlow_PF{}; //heat transfer from particle to water film
+	//size_t m_iQFlow_GF{}; //heat transfer from air to water film, == Q_AP
+	//size_t m_iQFlow_GP{}; //heat transfer from air to particle, == Q_AF
+	//size_t m_iQFlow_PF{}; //heat transfer from particle to water film
 	//size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
 	// transfer coefficients
 	//size_t m_iPr{}; //Prandtl number
 	//size_t m_iDa{}; //water diffusion coefficient from liquid to gas
-
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -291,7 +290,13 @@ public:
 	};
 	dimensionlessNumber CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const
 	{
-		return (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+		dimensionlessNumber Nu_Sc = (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+		if (Nu_Sc < 0)
+		{
+			Nu_Sc = 0;
+		}
+		return Nu_Sc;
+		
 	};
 	//	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
