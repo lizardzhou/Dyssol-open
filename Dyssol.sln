@@ -154,6 +154,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerBatch", "Units\Dr
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerSimpleBatch", "Units\DryerSimpleBatch\DryerSimpleBatch.vcxproj", "{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "UnitT_MySplitter", "Units\MySplitter\MySplitter.vcxproj", "{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -662,6 +664,12 @@ Global
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|Win32.Build.0 = Release|Win32
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|x64.ActiveCfg = Release|x64
 		{DF94B642-9CE9-4A05-9AAA-D59E78C0700B}.Release|x64.Build.0 = Release|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Debug|Win32.ActiveCfg = Debug|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Debug|x64.ActiveCfg = Debug|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Debug|x64.Build.0 = Debug|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Release|Win32.ActiveCfg = Release|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Release|x64.ActiveCfg = Release|x64
+		{11F252D5-A86D-4A8D-9D70-DBEB8C1C0D97}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -735,7 +743,7 @@ Global
 		{0F7B1A52-7766-4E37-9ACD-AC76AB000000} = {8B7A2AEC-46DD-47CE-937E-767D7692C15F}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {CAC327DA-BA65-4990-BEC0-618347D67688}
 		Qt5Version = msvc2019_64
+		SolutionGuid = {CAC327DA-BA65-4990-BEC0-618347D67688}
 	EndGlobalSection
 EndGlobal
