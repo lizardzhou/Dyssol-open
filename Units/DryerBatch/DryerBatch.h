@@ -211,7 +211,9 @@ public:
 	//size_t N_particle = 1; // Number of hight discretization layers of all sections containing particles
 	//size_t N_total = 1;// Total number of hight discretization layers
 
-	CHoldup* m_holdup{}; // Holdup
+	CHoldup* m_holdupSolid{}; // Holdup solid (particle)
+	CHoldup* m_holdupLiquid{}; // Holdup liquid (liquid film on particle)
+	CHoldup* m_holdupGas{}; // Holdup gas (moist air)
 	CMaterialStream* m_inLiquidStream{}; // Input of water stream
 	CMaterialStream* m_inNozzleAirStream{}; // Input nozzle air
 	CMaterialStream* m_inGasStream{}; // Input gas (fluidization air) stream
