@@ -26,11 +26,10 @@ public:
 	void* m_unit{};
 	//bool Y_eq = true;
 
-	/// Indices of state variables for DAE solver: 12 DAE variables ///
+	/// Indices of state variables for DAE solver: 5 DAE variables ///
 	// gas phase
 	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
 	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
-	//size_t m_iHFlowOutGas{}; //outlet gas enthalpy
 	// particle (solid) phase
 	size_t m_iTempParticle{}; //2
 	size_t m_iPhi{}; //3 - particle wetness degree
@@ -104,7 +103,7 @@ private:
 	//massTransferCoefficient beta;// = 0.02; // Water mass transfer coefficient from gas to particle in [m/s]
 	//double alpha_GF;
 	//double alpha_GP; // == alpha_GF
-	const double f_alpha = 3; // ratio alpha_PF / alpha_AP
+	const double f_alpha = 1; // ratio alpha_PF / alpha_AP
 	
 	//double alpha_PF;
 	//massTransferCoefficient beta_AF;
@@ -323,7 +322,7 @@ public:
 	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
 	//moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH);
 	// Returns normalized drying curve
-	//double CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq);
+	double CalculateRelativeDryingRate(moistureContent X) const;
 	//moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const;
 	////double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
 	//double GetEquilibriumRelativeHumidity(double temperature, double X) const;
