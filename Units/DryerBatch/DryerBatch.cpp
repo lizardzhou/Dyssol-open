@@ -81,16 +81,18 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("u_mf"			, 0				, "m/s"	, "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
 	//AddConstIntParameter ("N_el"			, 1				, ""	, "Number of hight discretization layers"									, 1); // # of height discretization layers
 	//AddConstRealParameter("phi_eq",0.4,"","Targeted relativ humidity for exhaust gas",0.1,1);
-	
-	////////////////////////////////////////////////////////////
-	/// Drying kinetics calculation, currently not in use
-	//AddStringParameter("Drying kinetics calculation, currently not in use!", "", "");
+
+	// Drying kinetics calculation, currently not in use
+	AddStringParameter("Drying kinetics", "", "");
+	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 0.1);
+	AddConstRealParameter("X_eq", 0.01, "kg/kg", "Equilibrium water content of the particles (transition between 2nd and 3rd drying period).", 0, 0.1);
+	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 5); 
+
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
 	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
 	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
-	//AddConstRealParameter("k_dc", 3.5, "-", "k for normalized drying curve. \nthe normalized drying curve (nu) of the material is represented by: \n nu = k* eta / (1. + eta*(k - 1.)), \n with eta representing the particle moiture content.", 0, 5); // Credit to SetUnitName  ("Vibrated Fluidized Bed Dryer (steady-state)");	SetAuthorName("Buchholz (based on Zhengyu Lu's Master's Thesis)");
-	//AddConstRealParameter("X_cr", 0.025, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0);
+		
 	// Selection of calculating method for drying kinetics
 	//itemNames = { "REA", "Normalized drying curve", "No curve" };
 	//AddComboParameter("DryingCurve", 0, items, itemNames, "How drying curve should be determined.");
@@ -182,7 +184,7 @@ void CDryerBatch::Initialize(double _time)
 	/// Read input parameters ///
 	/////////////////////////////
 	std::ostringstream os;
-/// Get solid particle properties
+/// Get particle properties
 	const mass mLiquidHoldup = m_holdupLiquid->GetPhaseMass(_time, EPhase::LIQUID);
 	const moistureContent initX = mLiquidHoldup / mSolidHoldup; // initial moisture content of holdup particle
 	const massFraction x_wInit = ConvertMoistContentToMassFrac(initX); // initial water mass fraction in particle
@@ -367,9 +369,6 @@ void CDryerBatch::Initialize(double _time)
 	{
 		// particle properties
 		T_ParticleInit = m_holdupSolid->GetTemperature(_time); // in [K]
-		//const massFraction x_wHoldupInit = m_holdup->GetPhaseFraction(_time, EPhase::LIQUID);
-		//initX = x_wHoldupInit / (1. - x_wHoldupInit);
-		m_holdupLiquid->SetPhaseMass(_time, EPhase::LIQUID, initX * mSolidHoldup); // set water mass in particle as liquid mass in holdup
 		const double initPhi = initX * mSolidHoldup / rhoWater / Delta_f / A_P;
 		m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 1, 0.0); // Particle temperature in [K], 
 		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0.01, 0.0); 
@@ -400,7 +399,7 @@ void CDryerBatch::Initialize(double _time)
 		//{
 		//	T_LiquidInit = m_holdup->GetTemperature(_time); //Temperature of liquid film in [K], manually set 0.5 degreeC lower than particle, so that QFlow_PF is a non-zero value
 		//}
-		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time) /*- 0.5*/, 1, 0.0); //manually set film temp 0.5 degreeC lower than solid holdup -> BAD!!
+		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time) /*- 0.5*/, 1, 0.0); 
 		
 		// water vapor: == 0 at the beginning
 		//m_model.m_iMFlowVapor = m_model.AddDAEVariable(false, 0, 0, 0.0); //idx 6. Vapor flow (evaporation) rate [kg/s]
@@ -609,18 +608,9 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature thetaSprayLiquid = inLiquidStream->GetTemperature(_time) - unit->T_ref;
 	const specificLatentHeat h_susp = thetaSprayLiquid * (C_PParticle /*coating material*/ * (1 - x_wSusp) + C_PWaterLiquid * x_wSusp);
 
-	/// Dimensionless numbers
-	//const dimensionlessNumber Re = unit->CalculateReynolds(_time, d32); // reynolds
-	// mass transfer
-	//const dimensionlessNumber Sc = unit->CalculateSchmidt(D_a); // schmidt
-	//const dimensionlessNumber Sh_lam = unit->CalculateNusseltSherwoodLam(Re, Sc); // sherwood
-	//const dimensionlessNumber Sh_turb = unit->CalculateNusseltSherwoodTurb(Re, Sc);
-	//const dimensionlessNumber Sh = unit->CalculateNusseltSherwood(Sh_lam, Sh_turb);
-	// heat transfer
-	//const dimensionlessNumber Pr = unit->CalculatePrandtl(theta_gasHoldup); 	// prandtl
-	//const dimensionlessNumber Nu_lam = unit->CalculateNusseltSherwoodLam(Re, Pr); // nusselt
-	//const dimensionlessNumber Nu_turb = unit->CalculateNusseltSherwoodTurb(Re, Pr);
-	//const dimensionlessNumber Nu = unit->CalculateNusseltSherwood(Nu_lam, Nu_turb);
+	/// Drying kinetics parameter
+	const moistureContent X_cr = unit->GetConstRealParameterValue("X_cr");
+	const moistureContent X_eq = unit->GetConstRealParameterValue("X_eq");
 	
 /// DAE system: 5 equations (all ture) ///
 	/// _vars: determined by the solver & should not be changed, set as const!
@@ -639,6 +629,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature varTempParticle = _vars[m_iTempParticle];
 	const temperature varThetaParticle = varTempParticle - unit->T_ref;
 	const double varPhi = _vars[m_iPhi];
+	const double varX = A_P * Delta_f * rhoLiquid * varPhi / mHoldupSolid;
 	// liquid phase (water film)
 	const temperature varTempFlim = _vars[m_iTempFilm];
 	const temperature varThetaFilm = varTempFlim - unit->T_ref;
@@ -650,7 +641,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(_time, varTempOutGas, varTempFlim);
 	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varD_a_Formula);
 	// water vapor
-	const double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_sat_Formula - varYOutGas);
+	const double f = unit->CalculateRelativeDryingRate(varX);
+	const double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_sat_Formula - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varThetaOutGas + Delta_h0);	
 	// heat flow
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varThetaOutGas - varThetaFilm);
@@ -670,29 +662,17 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double derTempFlim = _ders[m_iTempFilm];
 	const double derPhi = _ders[m_iPhi];
 	const double derTempFilmFormula = (varQFlow_PF_Formula + varQFlow_GF_Formula + mFlowSprayLiquid * h_susp - varHFlowVaporFormula) / (C_PWaterLiquid * Delta_f * rhoLiquid * A_P * varPhi) - varThetaFilm * derPhi / varPhi;
-	const double derPhiFormula = (mFlowSprayLiquid - varMFlowVaporFormula * (1 + (1 - x_wSusp) / x_wSusp)) / (rhoLiquid * Delta_f * A_P);
+	const double derPhiFormula = (mFlowSprayLiquid - varMFlowVaporFormula /** (1 + varMFlowVaporFormula * (1 - x_wSusp) / (mFlowSprayLiquid * x_wSusp))*/) / (rhoLiquid * Delta_f * A_P); // need to be adjusted in case of granulation
 
 	/// define _res
 	// outlet gas
 	_res[m_iYOutGas] = derYOutGas - derYOutGasFormula;
 	_res[m_iTempOutGas] = derTempOutGas - derTempOutGasFormula;
-	//_res[m_iHFlowOutGas] = varHFlowOutGas - varHFlowOutGasFormula;
 	// particle (solid) phase
 	_res[m_iTempParticle] = derTempParticle - derTempFilmFormula;
 	_res[m_iPhi] = derPhi - derPhiFormula;
-	//_res[m_iX] = varX - varXFormula;
 	// liquid phase (water film)
 	_res[m_iTempFilm] = derTempFlim - derTempFilmFormula;
-	// water vapor
-	//_res[m_iMFlowVapor] = varMFlowVapor - varMFlowVaporFormula;
-	//_res[m_iHFlowVapor] = varHFlowVapor - varHFlowVaporFormula;
-	// heat transfer
-	//_res[m_iQFlow_GF] = varQFlow_GF - varQFlow_GF_Formula;
-	//_res[m_iQFlow_GP] = varQFlow_GP - varQFlow_GP_Formula;
-	//_res[m_iQFlow_PF] = varQFlow_PF - varQFlow_PF_Formula;
-	// transfer coefficients
-	//_res[m_iPr] = varPr - varPrFormula;
-	//_res[m_iDa] = varDa - varDaFormula;
 
 /// Codes for checking _vars, _ders and _res ///
 	//if (printResult)
@@ -727,8 +707,10 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	//if (beta == -1)
 	//	unit2->RaiseError("Mass transfer coefficient calculation error. Provided temperature = nan or < 0 K");
 	//double Y_sat = unit2->GetGasSaturationMoistureContent(varAvTempGas, pressureGasHoldup); // Saturation moisture content of the gas (average) [kg/kg]	
+
 	/// Normalized dyring curve [-], CURRENTLY NOT IN USE. Implementation according to Lehmann 2021
-	//double normalizedDryingCurve = 1;
+	//double normalized
+	// DryingCurve = 1;
 	//const double avgRH = unit2->GetRelativeHumidity(Y_av, varAvTempGas, pressureGasHoldup); // Average relativ humidity of gas phase [-]
 	//double Xeq = !unit->particlesGlobal ? 0 : unit2->CalcuateSolidEquilibriumMoistureContent(_time, varTempParticle2, avgRH); // Equilibrium moisture content of particle [kg liquid/ kg dry solid]
 	//normalizedDryingCurve = unit2->CalculateNormalizedDryingCurve(X, Xeq);
@@ -1502,7 +1484,7 @@ moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature t
 	//}
 }
 
-double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure) //const
+double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature thetaGas, pressure pressure) //const
 {
 	/*
 	// To Do: make variables fit
@@ -1517,7 +1499,7 @@ double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature 
 
 	const double phi = P_wg / P_sat; // Relative humidity [-]
 	*/
-	const moistureContent Y_sat = CalculateGasSaturationMoistureContent(temperature, pressure);
+	const moistureContent Y_sat = CalculateGasSaturationMoistureContent(thetaGas, pressure);
 	double RH = Y / Y_sat; // relative humidity
 	if (RH > 1)
 		RH = 1;
@@ -1799,15 +1781,25 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 		//	break;
 		//}
 	//const double D_a = CalculateDiffusionCoefficient(_time, avgGasTemperature, filmTemperature);
-	//const double eps_0 = this->GetConstRealParameterValue("eps_0");
-	//const dimensionlessNumber Sc = etaGas / (D_a * rhoGas);
-	//const dimensionlessNumber Re = CalculateReynolds(_time, d32);
-	//const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
-	//const dimensionlessNumber Sh_lam = CalculateNusseltSherwoodLam(Re, Sc);
-	//const dimensionlessNumber Sh_turb = CalculateNusseltSherwoodTurb(Re, Sc);
-	//const dimensionlessNumber Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
-	//const double beta = Sh * (1 + 1.5 * (1 - eps)) * D_a / d32; // Mass transfer coefficient 
-	return 0.02; // beta;
+	
+	const double betaVal = GetConstRealParameterValue("beta_GP");
+	if (betaVal == 0)
+	{
+		const double eps_0 = this->GetConstRealParameterValue("eps_0");
+		const dimensionlessNumber Sc = etaGas / (D_a * rhoGas);
+		const dimensionlessNumber Re = CalculateReynolds(_time, d32);
+		const double eps = CalculateBedPorosity(_time, d32); // Bed porosity
+		const dimensionlessNumber Sh_lam = CalculateNusseltSherwoodLam(Re, Sc);
+		const dimensionlessNumber Sh_turb = CalculateNusseltSherwoodTurb(Re, Sc);
+		const dimensionlessNumber Sh = CalculateNusseltSherwood(Sh_lam, Sh_turb);
+		const double beta = Sh * (1 + 1.5 * (1 - eps)) * D_a / d32; // Mass transfer coefficient 
+		return beta;
+	}
+	else
+	{
+		return betaVal;
+	}
+	
 }
 
 /////////////////////
@@ -2147,37 +2139,48 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogeni
 //	return true;
 //}
 
-//double CDryerBatch::CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq)
-//{
-//	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
-//	if (X <= Xeq)
-//	{
-//		return 0;
-//	}
-//
-//	switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
-//	{
-//	case 0: // REA: calculate evaporation rate in form of inverted REA
-//		return 1. - REA(X - Xeq);
-//		break;
-//	case 1: // NCDC: calculate relative drying rate 
-//		if (X < X_cr) // 2nd drying period
-//		{
-//			double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
-//			double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
-//			/*if (dnu != dnu)
-//				RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
-//				// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
-//			return dnu;
-//		}
-//		else // 1st drying period
-//			return 1;
-//		break;
-//	case 2: // No curve: only 1st drying period
-//		return 1;
-//		break;
-//	}
-//}
+double CDryerBatch::CalculateRelativeDryingRate(moistureContent X) const
+{
+	const double k_dc = GetConstRealParameterValue("k_dc");
+	const double X_cr = GetConstRealParameterValue("X_cr");
+	const double X_eq = GetConstRealParameterValue("X_eq");
+	const double normX = (X - X_eq) / (X_cr - X_eq);
+	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
+	if (X <= X_eq)
+	{
+		return 0;
+	}
+	else if (X >= X_cr)
+	{
+		return 1;
+	}
+	else
+	{
+		return k_dc * normX / (1. + normX * (k_dc - 1.));
+	}
+	//switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
+	//{
+	//case 0: // REA: calculate evaporation rate in form of inverted REA
+	//	return 1. - REA(X - Xeq);
+	//	break;
+	//case 1: // NCDC: calculate relative drying rate 
+	//	if (X < X_cr) // 2nd drying period
+	//	{
+	//		double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
+	//		double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
+	//		/*if (dnu != dnu)
+	//			RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
+	//			// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
+	//		return dnu;
+	//	}
+	//	else // 1st drying period
+	//		return 1;
+	//	break;
+	//case 2: // No curve: only 1st drying period
+	//	return 1;
+	//	break;
+	//}
+}
 
 
 //////////////////////////////////////////////////////////
