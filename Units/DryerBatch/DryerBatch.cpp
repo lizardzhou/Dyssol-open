@@ -84,24 +84,23 @@ void CDryerBatch::CreateStructure()
 
 	// Drying kinetics calculation, currently not in use
 	AddStringParameter("Drying kinetics", "", "");
-	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 0.1);
+	items = {0, 1};
+	itemNames = {"REA", "NCDC"};
+	AddComboParameter("Methods", 0, items, itemNames, "Method for calculating relative drying rate, choose between Normalized Characteristic Drying Curve (NCDC) or Reaction Engineering Approach (REA, Lehmann dissertation)");
+	AddConstRealParameter("A", 0.96, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", 0, 1);
+	AddConstRealParameter("B", -19.63, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", -100, 100);
+	AddConstRealParameter("C", 0.73, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", 0, 1);
 	AddConstRealParameter("X_eq", 0.01, "kg/kg", "Equilibrium water content of the particles (transition between 2nd and 3rd drying period).", 0, 0.1);
-	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 5); 
+	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 0.1);
+	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 5);
+	AddParametersToGroup("Methods", "REA", { "A", "B", "C" });
+	AddParametersToGroup("Methods", "NCDC", { "X_cr", "X_eq", "k_dc" });
 
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
 	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
 	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
 		
-	// Selection of calculating method for drying kinetics
-	//itemNames = { "REA", "Normalized drying curve", "No curve" };
-	//AddComboParameter("DryingCurve", 0, items, itemNames, "How drying curve should be determined.");
-	// Reaction Engineering Approach for drying curve
-	//AddStringParameter("REA parameters", "", "Values used for funtion fit for Reaction Engineering Approach to drying phases\n Normalized activation energy = REA1 * exp(REA2 * (X - Xeq)^REA3)");
-	//AddConstRealParameter("REA1", 0.96, "", "");
-	//AddConstRealParameter("REA2", -19.63, "", "");
-	//AddConstRealParameter("REA3", 0.73, "", "");
-	////////////////////////////////////////////////////////////
 
 	// Tolerance for solver
 	//AddStringParameter("Tolerance for solver", "", "");
@@ -2141,45 +2140,34 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogeni
 
 double CDryerBatch::CalculateRelativeDryingRate(moistureContent X) const
 {
+	const size_t methodIdx = GetComboParameterValue("Methods");
 	const double k_dc = GetConstRealParameterValue("k_dc");
 	const double X_cr = GetConstRealParameterValue("X_cr");
 	const double X_eq = GetConstRealParameterValue("X_eq");
-	const double normX = (X - X_eq) / (X_cr - X_eq);
-	// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
-	if (X <= X_eq)
-	{
-		return 0;
+	const double REA_A = GetConstRealParameterValue("A");
+	const double REA_B = GetConstRealParameterValue("B");
+	const double REA_C = GetConstRealParameterValue("C");
+	if (methodIdx == 0) // REA
+	{		
+		return 1 - REA_A * exp(REA_B * pow((X - X_eq), REA_C));
 	}
-	else if (X >= X_cr)
-	{
-		return 1;
+	else // NCDC
+	{		
+		const double normX = (X - X_eq) / (X_cr - X_eq);
+		// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
+		if (X <= X_eq)
+		{
+			return 0;
+		}
+		else if (X >= X_cr)
+		{
+			return 1;
+		}
+		else
+		{
+			return k_dc * normX / (1. + normX * (k_dc - 1.));
+		}
 	}
-	else
-	{
-		return k_dc * normX / (1. + normX * (k_dc - 1.));
-	}
-	//switch (dryingCurveSetting) // calculate evaporation rate if REA, or relative drying rate if NCDC
-	//{
-	//case 0: // REA: calculate evaporation rate in form of inverted REA
-	//	return 1. - REA(X - Xeq);
-	//	break;
-	//case 1: // NCDC: calculate relative drying rate 
-	//	if (X < X_cr) // 2nd drying period
-	//	{
-	//		double deta = (X - Xeq) / (X_cr - Xeq); // Normalized moisture content [-]
-	//		double dnu = k_dc * deta / (1. + deta * (k_dc - 1.)); // Normalized Drying Curve: model of van Meel (1958)
-	//		/*if (dnu != dnu)
-	//			RaiseError("Normalized Drying Curve based model of van Meel resulted in NaN");*/
-	//			// If the moisture content X is larger than critical moisture content X_cr, nu is limited to 1 (first drying period)
-	//		return dnu;
-	//	}
-	//	else // 1st drying period
-	//		return 1;
-	//	break;
-	//case 2: // No curve: only 1st drying period
-	//	return 1;
-	//	break;
-	//}
 }
 
 
