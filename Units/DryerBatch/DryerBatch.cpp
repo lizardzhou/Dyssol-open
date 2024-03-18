@@ -635,7 +635,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	// Heat transfer
 	const double varAlpha_GP_Formula = unit->CalculateAlpha_GP(_time, varTheta_gasHoldup, d32);
 	const double varAlpha_GF_Formula = varAlpha_GP_Formula;
-	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(varTempFlim, pressureGasHoldup, d32);
+	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(/*varTempFlim, pressureGasHoldup, d32*/ varAlpha_GP_Formula);
 	// Mass transfer
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(_time, varTempOutGas, varTempFlim);
 	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varD_a_Formula);
@@ -911,24 +911,6 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	CHoldup* holdupGas = unit->GetHoldup("HoldupGas");
 	const bool printResult = unit->GetCheckboxParameterValue("Print intermediate results");
 
-/// Print simulation time ///
-	//std::ostringstream  os;
-	////if (debugToggle) 
-	////{
-	////	if (_time <= 1) 
-	////	{
-	////		unit->ShowInfo(std::to_string(counter));
-	////		counter = 0;
-	////	}
-	////} //_DEBUG
-	//if (_time / (100 * progressCounter) >= 1)
-	//{
-	//	os << "SimTime: " << 100 * progressCounter << " s has passed.";
-	//	unit->ShowInfo(os.str());
-	//	os.str("");
-	//	progressCounter++;
-	//}
-
 /// Read parameters ///
 	const length Delta_f = unit->GetConstRealParameterValue("Delta_f") * 1e-6; // convert to [m]
 	const area A_P = unit->CalculateParticleSurfaceArea(_time);
@@ -987,7 +969,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 
 	const double varQFlow_GF = unit->CalculateAlpha_GP(_time, varThetaOutGas, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempOutGas] - _vars[m_iTempFilm]);
 	const double varQFlow_GP = unit->CalculateAlpha_GP(_time, varThetaOutGas, d32) * A_P * (1 - _vars[m_iPhi]) * (_vars[m_iTempOutGas] - _vars[m_iTempParticle]);
-	const double varQFlow_PF = unit->CalculateAlpha_PF(_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempParticle] - _vars[m_iTempFilm]);
+	const double varQFlow_PF = unit->CalculateAlpha_PF(/*_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempParticle] - _vars[m_iTempFilm]*/ unit->CalculateAlpha_GP(_time, varThetaOutGas, d32));
 
 /// Set holdup properties ///
 	const massFraction var_x = unit->ConvertMoistContentToMassFrac(varX);
@@ -1043,7 +1025,11 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		unit->ShowInfo("\t\tHFlowOut out = " + std::to_string((mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0))) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GP out = " + std::to_string(varQFlow_GP) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GF out = " + std::to_string(varQFlow_GF) + " J/s");
-		unit->ShowInfo("\t\tsum in&out = " + std::to_string(varMFlowVapor * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP - varQFlow_GF) + " J/s");
+		unit->ShowInfo("\tsum in&out = " + std::to_string(varMFlowVapor * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP - varQFlow_GF) + " J/s");
+		unit->ShowInfo("\tHeat & mass transfer:");
+		unit->ShowInfo("\t\talpha_GF = " + std::to_string(unit->CalculateAlpha_GP(_time, varThetaOutGas, d32)) + " J/(m2*K)");
+		unit->ShowInfo("\t\talpha_PF = " + std::to_string(unit->CalculateAlpha_PF(/*_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32)*/ unit->CalculateAlpha_GP(_time, varThetaOutGas, d32))) + " J/(m2*K)");
+		unit->ShowInfo("\t\tbeta = " + std::to_string(varBeta_FG) + " m/s");
 
 	}
 
@@ -1818,16 +1804,16 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 	return alpha_GP;
 }
 
-double CDryerBatch::CalculateAlpha_PF(temperature tempWater, pressure pressureHoldup, length d32) const
+double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const
 {
-	//return alpha_GP * f_alpha;
+	return alpha_GP * f_alpha;
 	
 	// CALCULATE FROM DISS RIECK BASED ON Nu = 2
-	const std::string compoundKeyWater = GetCompoundKey("H2O");
-	const double lambdaWaterT = GetCompoundProperty(compoundKeyWater, THERMAL_CONDUCTIVITY, tempWater, pressureHoldup);
-	const double Nu = 2.0;
-	const double alpha_PF = Nu * lambdaWaterT / d32;
-	return alpha_PF;
+	//const std::string compoundKeyWater = GetCompoundKey("H2O");
+	//const double lambdaWaterT = GetCompoundProperty(compoundKeyWater, THERMAL_CONDUCTIVITY, tempWater, pressureHoldup);
+	//const double Nu = 2.0;
+	//const double alpha_PF = Nu * lambdaWaterT / d32;
+	//return alpha_PF;
 }
 
 
