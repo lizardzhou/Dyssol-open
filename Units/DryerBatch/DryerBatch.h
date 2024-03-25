@@ -36,17 +36,6 @@ public:
 	//size_t m_iX{}; //particle moisture content
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
-	// water vapor
-	//size_t m_iMFlowVapor{}; //vapor flow (evaporation) rate
-	//size_t m_iHFlowVapor{}; //vapor flow enthalpy
-	// heat transfer
-	//size_t m_iQFlow_GF{}; //heat transfer from air to water film, == Q_AP
-	//size_t m_iQFlow_GP{}; //heat transfer from air to particle, == Q_AF
-	//size_t m_iQFlow_PF{}; //heat transfer from particle to water film
-	//size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
-	// transfer coefficients
-	//size_t m_iPr{}; //Prandtl number
-	//size_t m_iDa{}; //water diffusion coefficient from liquid to gas
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -125,6 +114,7 @@ public:
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	// Particle (solid) phase
+		double wadell = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
 		thermalConductivity lambdaParticle = 0.2; // https://doi.org/10.1016/j.ijpharm.2017.10.018 MCC relative density ~= 0.7
@@ -152,10 +142,6 @@ public:
 	CMaterialStream* m_inNozzleAirStream{}; // Input nozzle air
 	CMaterialStream* m_inGasStream{}; // Input gas (fluidization air) stream
 	CMaterialStream* m_outExhaustGasStream{};	// Output of exhaust gas
-
-	//CStream* m_VaporStream{};
-	//CHoldup* m_Expander{}; //ToDo - check usage
-	//CHoldup* workingHoldup{}; //ToDo - check usage
 
 	// String keys of compounds for material database
 	//std::vector<std::string> compoundKeys;
@@ -203,31 +189,40 @@ public:
 
 /// Dimensionless numbers ///
 	// Reynolds number without height discretization
+	dimensionlessNumber CalculateReynoldsMF(double _time, length d32) const;
 	dimensionlessNumber CalculateReynolds(double _time, length d32) const;
 	// Reynolds number with height discretization for each layer
 	//dimensionlessNumber CalculateReynolds(double _time, size_t section) const;
 	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
-	dimensionlessNumber CalculateSchmidt(double D_a) const;
+	dimensionlessNumber CalculateSchmidt(length D_a) const;
 	dimensionlessNumber CalculateArchimedes(length d32) const;
-	dimensionlessNumber CalculateNusseltSherwood(double Nu_Sh_lam, double Nu_Sh_turb) const
+	dimensionlessNumber CalculateNusseltSherwood(dimensionlessNumber Nu_Sh_lam, dimensionlessNumber Nu_Sh_turb) const
 	{
-		return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
+		return 2. + sqrt(pow(Nu_Sh_lam, 2.) + pow(Nu_Sh_turb, 2.));
 	};
-	dimensionlessNumber CalculateNusseltSherwoodLam(double Re, double Pr_Sc) const
+	dimensionlessNumber CalculateNusseltSherwoodLam(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
 	{
-		return 0.664 * pow(Pr_Sc, 1 / 3) * sqrt(Re);
+		return 0.664 * pow(Pr_Sc, 1. / 3.) * sqrt(Re);
 	};
-	dimensionlessNumber CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const
+	dimensionlessNumber CalculateNusseltSherwoodTurb(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
 	{
-		dimensionlessNumber Nu_Sc = (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+		dimensionlessNumber Nu_Sc = (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3.) - 1));
 		if (Nu_Sc < 0)
 		{
 			Nu_Sc = 0;
 		}
 		return Nu_Sc;
-		
 	};
-	//	Calculate Biot number
+	dimensionlessNumber CalculateNusseltSherwoodApp(dimensionlessNumber Nu_Sh, double eps) const
+	{
+		return Nu_Sh * (1. + 1.5 * (1. - eps));
+	};
+	dimensionlessNumber CalculateNusseltSherwoodModify(dimensionlessNumber Re, dimensionlessNumber Sc_Pr, dimensionlessNumber Sh_Nu_app, dimensionlessNumber AtoF) const // consider back-mixing of particles, Soeren diss. (C.11 & C.21)
+	{
+		return (Re * Sc_Pr) * log(1. + (Sh_Nu_app * AtoF) / (Re * Sc_Pr)) / AtoF;
+	};
+
+	///	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
 	//{
 	//	return (CalculateAlpha_GP(_time, avgGasTemperature, d32) * m_holdup->GetPhaseMass(_time, EPhase::SOLID) / (rhoParticle * CalculateParticleSurfaceArea(_time) * lambdaParticle));
@@ -258,8 +253,12 @@ public:
 ///  Hydrodynamics ///
 	double CalculateMinFluidizeVel(double _time, length d32) const;
 	double CalculateGasVel(double _time, length d32) const;
-	double CalculateBedPorosity(double _time, length d32, bool homogeniusFluidization = true) const;
-	//double CalculateBedHeight(double _time, double particleTemperature);	
+	double CalculateBedPorosity(double _time, length d32, bool homogeneousFluidization = false) const;
+	length CalculateFluidizedBedHeight(/*double _time, double particleTemperature*/length H_fix, double eps) const;
+	dimensionlessNumber CalculateAtoF(length H_fb, length d32, double eps) const
+	{
+		return 6 * (1. - eps) * H_fb / d32; // Soeren diss. eq. (C.13)
+	};
 	//double CalculateGasVel(double _time, size_t section = 0) const;	
 
 
