@@ -114,7 +114,7 @@ public:
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	// Particle (solid) phase
-		double wadell = 0.95;
+		double wadellFactor = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
 		thermalConductivity lambdaParticle = 0.2; // https://doi.org/10.1016/j.ijpharm.2017.10.018 MCC relative density ~= 0.7
@@ -166,7 +166,10 @@ public:
 	length CalculateHoldupSauter(double _time) const;
 	area CalculateParticleSurfaceArea(double _time) const;
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
-	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
+	double CalculateDiffusionCoefficient(double T_avgGas) const // Dosta(2010) [m2/s]
+	{
+		return (23e-5) * pow(T_avgGas / T_ref, 1.81);
+	};
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
 	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
 	//double REA(double deltaX) const 
@@ -217,7 +220,7 @@ public:
 	{
 		return Nu_Sh * (1. + 1.5 * (1. - eps));
 	};
-	dimensionlessNumber CalculateNusseltSherwoodModify(dimensionlessNumber Re, dimensionlessNumber Sc_Pr, dimensionlessNumber Sh_Nu_app, dimensionlessNumber AtoF) const // consider back-mixing of particles, Soeren diss. (C.11 & C.21)
+	dimensionlessNumber CalculateNusseltSherwoodModify(dimensionlessNumber Re, dimensionlessNumber Sc_Pr, dimensionlessNumber Sh_Nu_app,  dimensionlessNumber AtoF) const // Groenewold & Tsotsas -> see Rieck diss. and Soeren diss.
 	{
 		return (Re * Sc_Pr) * log(1. + (Sh_Nu_app * AtoF) / (Re * Sc_Pr)) / AtoF;
 	};
@@ -235,14 +238,14 @@ public:
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Mass transfer coefficient ///
-	massTransferCoefficient CalculateBeta(double _time, length d32, double D_a) const;
+	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;
 
 /// X_eq, CURRENTLY NOT IN USE ///
 	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
-	//moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH);
+	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH); // X_eq
 	// Returns normalized drying curve
 	double CalculateRelativeDryingRate(moistureContent X) const;
-	//moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const;
+	//moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const; // Y_eq
 	////double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
 	//double GetEquilibriumRelativeHumidity(double temperature, double X) const;
 	////	Initializes variables containing equilibirum moisture content date
@@ -254,6 +257,10 @@ public:
 	double CalculateMinFluidizeVel(double _time, length d32) const;
 	double CalculateGasVel(double _time, length d32) const;
 	double CalculateBedPorosity(double _time, length d32, bool homogeneousFluidization = false) const;
+	double CalculateBedPorosityMF(double wadellFactor) const
+	{
+		return pow(1. / (14. * wadellFactor), 1. / 3.);
+	}
 	length CalculateFluidizedBedHeight(/*double _time, double particleTemperature*/length H_fix, double eps) const;
 	dimensionlessNumber CalculateAtoF(length H_fb, length d32, double eps) const
 	{
