@@ -166,9 +166,9 @@ public:
 	length CalculateHoldupSauter(double _time) const;
 	area CalculateParticleSurfaceArea(double _time) const;
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
-	double CalculateDiffusionCoefficient(double T_avgGas) const // Dosta(2010) [m2/s]
+	double CalculateDiffusionCoefficient(double avgGasTheta) const // Dosta(2010) [m2/s]
 	{
-		return (23e-5) * pow(T_avgGas / T_ref, 1.81);
+		return (23e-5) * pow(avgGasTheta / T_ref, 1.81);
 	};
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
 	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
@@ -225,13 +225,12 @@ public:
 		return (Re * Sc_Pr) * log(1. + (Sh_Nu_app * AtoF) / (Re * Sc_Pr)) / AtoF;
 	};
 
-	///	Calculate Biot number
+	//	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
 	//{
 	//	return (CalculateAlpha_GP(_time, avgGasTemperature, d32) * m_holdup->GetPhaseMass(_time, EPhase::SOLID) / (rhoParticle * CalculateParticleSurfaceArea(_time) * lambdaParticle));
 	//};
 	//bool CheckForSmallBiot(double _time) const;
-
 
 /// Heat transfer coefficients ///
 	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; // == alpha_GF
@@ -240,13 +239,13 @@ public:
 /// Mass transfer coefficient ///
 	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;
 
-/// X_eq, CURRENTLY NOT IN USE ///
-	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
+/// Drying kinetics ///
 	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH); // X_eq
-	// Returns normalized drying curve
 	double CalculateRelativeDryingRate(moistureContent X) const;
-	//moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const; // Y_eq
-	////double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
+	pressure CalculateGasSaturationPressure(temperature theta_Gas, pressure pressureGas) const; // Y_eq
+	moistureContent CalculateGasEquilibriumMoistureContent(pressure pressureGas, pressure P_sat, double RH) const; // Y_eq
+	double CalculateGasEquilibriumRelativeHumidity(/*double _time, temperature temperature,*/ moistureContent X) const; // RH_eq
+
 	//double GetEquilibriumRelativeHumidity(double temperature, double X) const;
 	////	Initializes variables containing equilibirum moisture content date
 	//bool InitializeMoistureContentDatabase(std::string path);

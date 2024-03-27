@@ -76,7 +76,7 @@ void CDryerBatch::CreateStructure()
 	//AddConstIntParameter ("N_el", 1, "", "Number of hight discretization layers", 1); // # of height discretization layers
 	AddStringParameter("Calculation of heat and mass transfer", "", "");
 	items = { 0, 1 };
-	itemNames = { "Martin", "Groenewolds & Tsostas" };
+	itemNames = { "Martin", "Groenewold & Tsostas" };
 	AddComboParameter("Heat & mass transfer methods", 0, items, itemNames, "Methods for calculating heat and mass transfer coefficient, choose between Martin(VDI-Waermeatlas, chapter M5) and Groenewolds & Tsostas (see Rieck dissertation (2020)).");
 	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf 0, calculating using methods in the model.");
 
@@ -84,14 +84,14 @@ void CDryerBatch::CreateStructure()
 	AddStringParameter("Drying kinetics", "", "");
 	items = {0, 1};
 	itemNames = {"REA", "NCDC"};
-	AddComboParameter("Methods", 0, items, itemNames, "Method for calculating relative drying rate, choose between Normalized Characteristic Drying Curve (NCDC) or Reaction Engineering Approach (REA, Lehmann dissertation)");
+	AddComboParameter("Methods", 0, items, itemNames, "Method for calculating relative drying rate, choose between Normalized Characteristic Drying Curve (NCDC) or Reaction Engineering Approach (REA, Lehmann dissertation, Fig.4.14)");
 	AddConstRealParameter("A", 0.96, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", 0, 1);
 	AddConstRealParameter("B", -19.63, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", -100, 100);
 	AddConstRealParameter("C", 0.73, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", 0, 1);
 	AddConstRealParameter("X_eq", 0.01, "kg/kg", "Equilibrium water content of the particles (transition between 2nd and 3rd drying period).", 0, 0.1);
 	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 0.1);
 	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 5);
-	AddParametersToGroup("Methods", "REA", { "A", "B", "C" });
+	AddParametersToGroup("Methods", "REA", { "X_eq", "A", "B", "C" });
 	AddParametersToGroup("Methods", "NCDC", { "X_cr", "X_eq", "k_dc" });
 
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
@@ -551,10 +551,6 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const massFraction x_wSusp = inLiquidStream->GetPhaseFraction(_time, EPhase::LIQUID);
 	const temperature thetaSprayLiquid = inLiquidStream->GetTemperature(_time) - unit->T_ref;
 	const specificLatentHeat h_susp = thetaSprayLiquid * (C_PParticle /*coating material*/ * (1 - x_wSusp) + C_PWaterLiquid * x_wSusp);
-
-	/// Drying kinetics parameter
-	const moistureContent X_cr = unit->GetConstRealParameterValue("X_cr");
-	const moistureContent X_eq = unit->GetConstRealParameterValue("X_eq");
 	
 /// DAE system: 5 equations (all ture) ///
 	/// _vars: determined by the solver & should not be changed, set as const!
@@ -563,12 +559,12 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const temperature varT_gasHoldup = _vars[m_iTempOutGas];  // no height discretization: T holdup == T out
 	const temperature varTheta_gasHoldup = varT_gasHoldup - unit->T_ref;
 	const pressure pressureGasHoldup = holdupGas->GetPressure(_time); // Pressure holdup [Pa]
-	const moistureContent varY_sat_Formula = unit->CalculateGasSaturationMoistureContent(varTheta_gasHoldup, pressureGasHoldup);
 	// gas phase (outlet gas)
 	const moistureContent varYOutGas = _vars[m_iYOutGas];
 	const temperature varTempOutGas = _vars[m_iTempOutGas];
 	const temperature varThetaOutGas = varTempOutGas - unit->T_ref;
 	const double varHFlowOutGasFormula = (mFlowInGasDry + mFlowInNozzleGasDry) * (C_PGas * varThetaOutGas + varYOutGas * (C_PWaterVapor * varThetaOutGas + Delta_h0));
+	const double varP_sat_Formula = unit->CalculateGasSaturationPressure(varThetaOutGas, pressureGasHoldup);
 	// particle (solid) phase
 	const temperature varTempParticle = _vars[m_iTempParticle];
 	const temperature varThetaParticle = varTempParticle - unit->T_ref;
@@ -577,6 +573,9 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	// liquid phase (water film)
 	const temperature varTempFlim = _vars[m_iTempFilm];
 	const temperature varThetaFilm = varTempFlim - unit->T_ref;
+	const moistureContent varY_sat_Formula = unit->CalculateGasSaturationMoistureContent(varThetaFilm, pressureGasHoldup);
+	const double varRH_eq_Formula = unit->CalculateGasEquilibriumRelativeHumidity(varX);
+	const moistureContent varY_eq_Formula = unit->CalculateGasEquilibriumMoistureContent(pressureGasHoldup, varP_sat_Formula, varRH_eq_Formula);
 	// Heat transfer
 	const double varAlpha_GP_Formula = unit->CalculateAlpha_GP(_time, varTheta_gasHoldup, d32);
 	const double varAlpha_GF_Formula = varAlpha_GP_Formula;
@@ -586,7 +585,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, _vars[m_iTempOutGas] - unit->T_ref, varD_a_Formula);
 	// water vapor
 	const double f = unit->CalculateRelativeDryingRate(varX);
-	const double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_sat_Formula - varYOutGas) * f;
+	const double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_eq_Formula - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varThetaOutGas + Delta_h0);	
 	// heat flow
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varThetaOutGas - varThetaFilm);
@@ -1382,53 +1381,24 @@ moistureContent CDryerBatch::ConvertMassFracToMoistContent(massFraction y) const
 	return y / (1. - y);
 }
 
-moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature theta_Gas, pressure pressureGas) const 
+pressure CDryerBatch::CalculateGasSaturationPressure(temperature theta_Gas, pressure pressureGas) const // P_sat
 {
 	const double A = 8.07131; // in[mmHg]
 	const double B = 1730.61;
 	const double C = 233.426; // in[degC]
 	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
-	pressure P_sat = pow(10, (A - B / (C + theta_Gas))) * (pressureGas / 760); //Antoine equation (Source: Springer-Verlag Berlin Heidelberg 2014, E. Drioli, L. Giorno (eds.), Encyclopedia of Membranes, DOI 10.1007/978-3-642-40872-4_26-1). convert[mmHg] to[Pa]
-	return ratioMM * P_sat / (pressureGas - P_sat); 
+	return pow(10, (A - B / (C + theta_Gas))) * (pressureGas / 760); //Antoine equation (Source: Springer-Verlag Berlin Heidelberg 2014, E. Drioli, L. Giorno (eds.), Encyclopedia of Membranes, DOI 10.1007/978-3-642-40872-4_26-1). convert[mmHg] to[Pa]
+}
 
-	//if (Y_sat == 0) // Moisture content calculation under assumption of ideal gas law
-	//{
-	//	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureGas, pressureGas); // Saturation partial pressure of phase-changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
-	//	/*
-	//	int i = 0;
-	//	while (pressureGas - P_sat < 0)
-	//	{
-	//		P_sat = P_sat * 0.999;
-	//		i++;
-	//	}
-	//	*/
-	//	//bool pressureReductionWarning = false;
-	//	//if (pressureReductionWarning)
-	//	//	RaiseWarning("Pressure difference was non positive.\n Reducing saturation partial pressure by " + std::to_string(0.1 * i) + " % .\n Temperature : " + std::to_string(temperatureGas));
-	//	moistureContent Y_sat = ratioMM * P_sat / (pressureGas - P_sat); // Moisture content in [kg / kg dry gas]
-	//	return Y_sat;
-	//}
-	//else // same as user input
-	//{
-	//	return Y_sat;
-	//}
+moistureContent CDryerBatch::CalculateGasSaturationMoistureContent(temperature theta_Gas, pressure pressureGas) const  // Y_sat
+{
+	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
+	pressure P_sat = CalculateGasSaturationPressure(theta_Gas, pressureGas); //Antoine equation (Source: Springer-Verlag Berlin Heidelberg 2014, E. Drioli, L. Giorno (eds.), Encyclopedia of Membranes, DOI 10.1007/978-3-642-40872-4_26-1). convert[mmHg] to[Pa]
+	return ratioMM * P_sat / (pressureGas - P_sat); 
 }
 
 double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature thetaGas, pressure pressure) //const
 {
-	/*
-	// To Do: make variables fit
-	const double M_air = 1.;				// Reference mass of air [kg]
-	const double M_wg = M_air * _y;	// Mass of gaseous water [kg]
-
-	const double n_air = M_air / molarMassGas;	// Amount of substance of air [mol]
-	const double n_wg = M_wg / molarMassPhaseChangingLiquid;		// Amount of substance of gaseous water [mol]
-
-	const double P_wg = n_wg / (n_wg + n_air) * _p; // Partial pressure of gaseous water [Pa]
-	const double P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, _t, _p); // Saturated vapor pressure of water [Pa]
-
-	const double phi = P_wg / P_sat; // Relative humidity [-]
-	*/
 	const moistureContent Y_sat = CalculateGasSaturationMoistureContent(thetaGas, pressure);
 	double RH = Y / Y_sat; // relative humidity
 	if (RH > 1)
@@ -1438,17 +1408,25 @@ double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature 
 	return RH;
 }
 
-//moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH) const // Gas moisture content under assumption of ideal gas law
-//{
-//	if (RH == 0)
-//	{
-//		return 0;
-//	}
-//	pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
-//	const pressure P_eq = P_sat * RH;
-//	const moistureContent Y_eq = ratioMM * P_eq / (pressureGas - P_eq); // Moisture content in kg per kg dry gas
-//	return Y_eq;
-//}
+double CDryerBatch::CalculateGasEquilibriumRelativeHumidity(/*double _time, temperature temperature,*/ moistureContent X) const // RH_eq
+{
+	return -0.1335 * pow(X, 2.0) + 9.65 * X; // from measurement at 25 degreeC, still not consider temperature->TODO
+}
+
+moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(pressure pressureGas, pressure P_sat, double RH_eq) const // Y_eq
+{
+	const double ratioMM = molarMassPhaseChangingLiquid / molarMassGas;
+	return ratioMM * RH_eq * P_sat / (pressureGas - RH_eq * P_sat); // RH_eq * P_sat = P_eq
+
+	//if (RH == 0)
+	//{
+	//	return 0;
+	//}
+	//pressure P_sat = GetCompoundProperty(compoundKeys[indicesOfVaporOfPhaseChangingCompound.first], ECompoundTPProperties::VAPOR_PRESSURE, temperatureParticle, pressureGas); // Saturation partial pressure of phase changing compound at particle temperature [Pa] // Equilibrium partial pressure [Pa]
+	//const pressure P_eq = P_sat * RH;
+	//const moistureContent Y_eq = ratioMM * P_eq / (pressureGas - P_eq); // Moisture content in kg per kg dry gas
+	//return Y_eq;
+}
 
 //moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH)
 //{
@@ -1481,13 +1459,6 @@ double CDryerBatch::CalculateGasRelativeHumidity(moistureContent Y, temperature 
 //	particleEquilibriumMoistureContent *= moistureScaler;
 //	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
 //}
-
-/// CalcuateEquilibriumRelativeHumidity
-//double CDryerBatch::CalcuateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const
-//{
-//	return 0;
-//}
-
 
 ///////////////////////////////////
 /// Bed and particle properties ///
@@ -1595,7 +1566,6 @@ length CDryerBatch::CalculateFluidizedBedHeight(length H_fix, double eps) const 
 //	}
 //}
 
-
 /////////////////////////////
 /// Dimensionless numbers ///
 /////////////////////////////
@@ -1653,16 +1623,16 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 		const dimensionlessNumber Ar = CalculateArchimedes(d32);
 		const dimensionlessNumber Pr = CalculatePrandtl(avgGasTheta);
 		const dimensionlessNumber Sc = CalculateSchmidt(D_a);
-		const dimensionlessNumber Re_s = 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2.0);
+		const dimensionlessNumber Re_s = 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2.0); // Martin (VDI-Waermeatlas, chapter M5): homogeneous fluidization: sink velocity = gas velocity
 		const size_t methodIdx = GetComboParameterValue("Heat & mass transfer methods");
 		switch (methodIdx)
 		{
 			case 0: // Martin (VDI-Waermeatlas, chapter M5)
 			{
-				dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr);
-				dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_s, Pr);
-				dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
-				dimensionlessNumber Sh = Nu * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
+				const dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr);
+				const dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_s, Pr);
+				const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+				const dimensionlessNumber Sh = Nu * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
 				return Sh * D_a / d32;
 			}			
 			case 1: // Groenewolds & Tsostas (see Rieck dissertation (2020), page 150-151)
@@ -1672,11 +1642,11 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 				const dimensionlessNumber eps_mf = CalculateBedPorosityMF(wadellFactor); // from Wen & Yu. eps_mf != eps_0
 				const double eps = CalculateBedPorosity(_time, d32);
 				const dimensionlessNumber Re_eps = Re_mf / eps_mf;
-				dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr); // Soeren diss.
-				dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_eps, Pr);
-				dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
-				dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
-				dimensionlessNumber Sh_app = Nu_app * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
+				const dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr); // Soeren diss.
+				const dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_eps, Pr);
+				const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+				const dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
+				const dimensionlessNumber Sh_app = Nu_app * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
 				const area A_P = CalculateParticleSurfaceArea(_time);
 				const length d_bed = GetConstRealParameterValue("d_bed");
 				const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
@@ -1700,16 +1670,16 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, length d32) const
 {
 	const dimensionlessNumber Ar = CalculateArchimedes(d32);
-	dimensionlessNumber Pr = CalculatePrandtl(avgGasTheta);
-	const dimensionlessNumber Re_s = 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2.0); // homogeneous fluidization: sink velocity = gas velocity
+	const dimensionlessNumber Pr = CalculatePrandtl(avgGasTheta);  
+	const dimensionlessNumber Re_s = 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2.0); // Martin (VDI-Waermeatlas, chapter M5): homogeneous fluidization: sink velocity = gas velocity
 	const size_t methodIdx = GetComboParameterValue("Heat & mass transfer methods");
 	switch (methodIdx)
 	{
 		case 0: // Martin (VDI-Waermeatlas, chapter M5)
 		{
-			dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr);
-			dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_s, Pr);
-			dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+			const dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr);
+			const dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_s, Pr);
+			const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
 			return Nu * lambdaGas / d32;
 		}
 		case 1: // Groenewolds & Tsostas (see Rieck dissertation (2020), page 150-151)
@@ -1719,10 +1689,10 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 			const dimensionlessNumber eps_mf = CalculateBedPorosityMF(wadellFactor); // from Wen & Yu. eps_mf != eps_0
 			const double eps = CalculateBedPorosity(_time, d32);
 			const dimensionlessNumber Re_eps = Re_mf / eps_mf;
-			dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr); // Soeren diss.
-			dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_eps, Pr);
-			dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
-			dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
+			const dimensionlessNumber Nu_lam = CalculateNusseltSherwoodLam(Re_s, Pr); // Soeren diss.
+			const dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_eps, Pr);
+			const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
+			const dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
 			const area A_P = CalculateParticleSurfaceArea(_time);
 			const length d_bed = GetConstRealParameterValue("d_bed");
 			const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
@@ -1786,22 +1756,24 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogene
 	dimensionlessNumber Re_elu = 0;
 	dimensionlessNumber Re = 0;
 	dimensionlessNumber n = 0;
-	switch (methodIdx) // Martin (VDI-Waermeatlas, Kap. M5)
+	switch (methodIdx) 
 	{
-	case 0:
-		Ar = CalculateArchimedes(d32);
-		Re_mf = 42.9 * (1. - eps_0) * (sqrt(1. + pow(eps_0, 3) * Ar / (3214 * pow(1. - eps_0, 2))) - 1);
-		Re_elu = homogeneousFluidization ? 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
-		Re = CalculateReynolds(_time, d32);
-		n = log(Re_mf / Re_elu) / log(eps_0);
-		return pow(Re / Re_elu, 1. / n);
-		break;
-	case 1: // Soeren diss
-		double u_gas = CalculateGasVel(_time, d32);
-		double u_mf = CalculateMinFluidizeVel(_time, d32);
-		double u_suspGas = (u_gas - u_mf) / 3 + u_mf;
-		return eps_mf * pow(u_suspGas / u_mf, 1. / 4.65);
-		break;
+		case 0: // Martin (VDI-Waermeatlas, Kap. M5)
+		{
+			Ar = CalculateArchimedes(d32);
+			Re_mf = 42.9 * (1. - eps_0) * (sqrt(1. + pow(eps_0, 3) * Ar / (3214 * pow(1. - eps_0, 2))) - 1);
+			Re_elu = homogeneousFluidization ? 18 * pow(sqrt(1. + sqrt(Ar) / 9) - 1, 2) : sqrt(4 * Ar / 3);
+			Re = CalculateReynolds(_time, d32);
+			n = log(Re_mf / Re_elu) / log(eps_0);
+			return pow(Re / Re_elu, 1. / n);
+		}
+		case 1: // Soeren diss
+		{
+			double u_gas = CalculateGasVel(_time, d32);
+			double u_mf = CalculateMinFluidizeVel(_time, d32);
+			double u_suspGas = (u_gas - u_mf) / 3 + u_mf;
+			return eps_mf * pow(u_suspGas / u_mf, 1. / 4.65);
+		}
 	}
 }
 
@@ -2069,34 +2041,35 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogene
 
 double CDryerBatch::CalculateRelativeDryingRate(moistureContent X) const
 {
-	const size_t methodIdx = GetComboParameterValue("Methods");
 	const double k_dc = GetConstRealParameterValue("k_dc");
 	const double X_cr = GetConstRealParameterValue("X_cr");
 	const double X_eq = GetConstRealParameterValue("X_eq");
 	const double REA_A = GetConstRealParameterValue("A");
 	const double REA_B = GetConstRealParameterValue("B");
 	const double REA_C = GetConstRealParameterValue("C");
+	const size_t methodIdx = GetComboParameterValue("Methods");
 	switch (methodIdx)
 	{
-	case 0: // REA
-		return 1 - REA_A * exp(REA_B * pow((X - X_eq), REA_C));
-		break;
-	case 1: // NCDC
-		const double normX = (X - X_eq) / (X_cr - X_eq);
-		// Neglect case for which X is smaller than X_eq, particle would take moisture from gas
-		if (X <= X_eq)
+		case 0: // REA
 		{
-			return 0;
+			return 1 - REA_A * exp(REA_B * pow((X - X_eq), REA_C));
 		}
-		else if (X >= X_cr)
+		case 1: // NCDC
 		{
-			return 1;
-		}
-		else
-		{
-			return k_dc * normX / (1. + normX * (k_dc - 1.));
-		}
-		break;
+			const double normX = (X - X_eq) / (X_cr - X_eq);
+			if (X <= X_eq)
+			{
+				return 0;
+			}
+			else if (X >= X_cr)
+			{
+				return 1; 
+			}
+			else
+			{
+				return k_dc * normX / (1. + normX * (k_dc - 1.)); // for spray drying
+			}
+		}		
 	}
 }
 
