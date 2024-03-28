@@ -28,14 +28,14 @@ public:
 
 	/// Indices of state variables for DAE solver: 5 DAE variables ///
 	// gas phase
-	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
-	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
+	size_t m_iYOutGas{}; // outlet gas, no height discretization
+	size_t m_iTempOutGas{}; // outlet gas, no height discretization
 	// particle (solid) phase
-	size_t m_iTempParticle{}; //2
-	size_t m_iPhi{}; //3 - particle wetness degree
-	//size_t m_iX{}; //particle moisture content
+	size_t m_iTempParticle{}; 
+	size_t m_iPhi{}; // particle wetness degree
 	// liquid phase (water film)
-	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
+	size_t m_iTempFilm{}; // water film (on particle surface) temperature
+	size_t m_iMassFilm{}; // water film (on particle surface) mass 
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -96,7 +96,7 @@ private:
 
 public:
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
+	temperature T_env;// Ambient temperature [K] 
 	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
@@ -245,6 +245,14 @@ public:
 	pressure CalculateGasSaturationPressure(temperature theta_Gas, pressure pressureGas) const; // Y_eq
 	moistureContent CalculateGasEquilibriumMoistureContent(pressure pressureGas, pressure P_sat, double RH) const; // Y_eq
 	double CalculateGasEquilibriumRelativeHumidity(/*double _time, temperature temperature,*/ moistureContent X) const; // RH_eq
+	volume CalculateFilmVol(length Delta_f, double angleRad) const
+	{
+		return MATH_PI * pow(Delta_f, 3.0) * (1. / (1. - cos(angleRad)) - 1. / 3.);
+	}
+	length CalculateFilmContactDiam(volume V_film, double angleRad) const
+	{
+		return 2 * pow((3 * V_film * pow(sin(angleRad), 3.0)) / (MATH_PI * (2. - 3. * cos(angleRad) + pow(cos(angleRad), 3.0))), 1. / 3.);
+	}
 
 	//double GetEquilibriumRelativeHumidity(double temperature, double X) const;
 	////	Initializes variables containing equilibirum moisture content date
@@ -270,9 +278,6 @@ public:
 
 ///	Setup variables containing the dimensions and information of the chamber ///
 	//void SetupChamber();
-
-	//Testing function, called during initialzation
-	//void Testing();
 
 /// Calculate heat transfer coeffients for heat loss to the environment, CURRENTLY NOT IN USE ///
 	//double CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const;
