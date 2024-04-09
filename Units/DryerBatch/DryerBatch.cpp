@@ -913,7 +913,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 
 	const double varQFlow_GF = unit->CalculateAlpha_GP(_time, varThetaOutGas, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempOutGas] - _vars[m_iTempFilm]);
 	const double varQFlow_GP = unit->CalculateAlpha_GP(_time, varThetaOutGas, d32) * A_P * (1 - _vars[m_iPhi]) * (_vars[m_iTempOutGas] - _vars[m_iTempParticle]);
-	const double varQFlow_PF = unit->CalculateAlpha_PF(/*_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempParticle] - _vars[m_iTempFilm]*/ unit->CalculateAlpha_GP(_time, varThetaOutGas, d32));
+	const double varQFlow_PF = unit->CalculateAlpha_PF(/*_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32) * A_P * _vars[m_iPhi] * (_vars[m_iTempParticle] - _vars[m_iTempFilm]*/ unit->CalculateAlpha_GP(_time, varThetaOutGas, d32)) * A_P * _vars[m_iPhi] * (_vars[m_iTempParticle] - _vars[m_iTempFilm]);
 
 /// Set holdup properties ///
 	const massFraction var_x = unit->ConvertMoistContentToMassFrac(varX);
@@ -948,12 +948,6 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		unit->ShowInfo("\tGas temperature = " + std::to_string(_vars[m_iTempOutGas] - unit->T_ref) + " degreeC");
 		unit->ShowInfo("\tParticle temperature = " + std::to_string(_vars[m_iTempParticle] - unit->T_ref) + " degreeC");
 		unit->ShowInfo("\tWater film temperature = " + std::to_string(_vars[m_iTempFilm] - unit->T_ref) + " degreeC");
-		//unit->ShowInfo("\tRH_out = " + std::to_string(100 * (unit->CalculateGasRelativeHumidity(_vars[m_iYOutGas], _vars[m_iTempOutGas] - unit->T_ref, pressureHoldup))) + " %");
-		//unit->ShowInfo("\tEvaporation rate = " + std::to_string(varMFlowVapor * 1e3) + " g/s");
-		//unit->ShowInfo("\tY_sat = " + std::to_string(Y_sat * 1e3) + " g/kg dry air");
-		//unit->ShowInfo("\tWetness degree = " + std::to_string(_vars[m_iPhi] * 100) + " %");
-		//unit->ShowInfo("\talpha_GF = " + std::to_string(unit->CalculateAlpha_GP(_time, varThetaOutGas, d32)) + " W/(m2*K)");
-		//unit->ShowInfo("\talpha_PF = " + std::to_string(unit->CalculateAlpha_PF(_vars[m_iTempFilm], holdup->GetPressure(_time), d32)) + " W/(m2*K)");
 		unit->ShowInfo("\tFilm:");
 		unit->ShowInfo("\t\tQFlow_GF in = " + std::to_string(varQFlow_GF) + " J/s");
 		unit->ShowInfo("\t\tQFlow_PF in = " + std::to_string(varQFlow_PF) + " J/s");
@@ -1649,10 +1643,10 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 				const dimensionlessNumber Sh_app = Nu_app * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
 				const area A_P = CalculateParticleSurfaceArea(_time);
 				const length d_bed = GetConstRealParameterValue("d_bed");
-				const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
-				//const length H_fix = GetConstRealParameterValue("H_bedFix");
-				//const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
-				//const dimensionlessNumber AtoF = CalculateAtoF(H_fb, d32, eps);
+				//const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
+				const length H_fix = GetConstRealParameterValue("H_bedFix");
+				const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
+				const dimensionlessNumber AvH = CalculateAtoF(H_fb, d32, eps);
 				dimensionlessNumber Sh_modify = CalculateNusseltSherwoodModify(Re, Sc, Sh_app, AvH);
 				return Sh_modify * D_a / d32;
 			}
@@ -1695,10 +1689,10 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 			const dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
 			const area A_P = CalculateParticleSurfaceArea(_time);
 			const length d_bed = GetConstRealParameterValue("d_bed");
-			const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
-			//const length H_fix = GetConstRealParameterValue("H_bedFix");
-			//const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
-			//const dimensionlessNumber AtoF = CalculateAtoF(H_fb, d32, eps);
+			//const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
+			const length H_fix = GetConstRealParameterValue("H_bedFix");
+			const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
+			const dimensionlessNumber AvH = CalculateAtoF(H_fb, d32, eps);
 			dimensionlessNumber Nu_modify = CalculateNusseltSherwoodModify(Re, Pr, Nu_app, AvH);
 			return Nu_modify * lambdaGas / d32;
 		}			
@@ -1707,13 +1701,14 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 
 double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const
 {
-	//return alpha_GP * f_alpha;
+	
+	return alpha_GP * f_alpha;
 	
 	// CALCULATE FROM DISS RIECK BASED ON Nu = 2
-	const double lambdaParticle = 0.04;
-	const double Nu = 2.0;
-	const double alpha_PF = Nu * lambdaParticle / 300e-6/*d32*/;
-	return alpha_PF;
+	//const double lambdaParticle = 0.04;
+	//const double Nu = 2.0;
+	//const double alpha_PF = Nu * lambdaParticle / 300e-6/*d32*/;
+	//return alpha_PF;
 }
 
 
