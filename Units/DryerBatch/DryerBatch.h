@@ -196,7 +196,10 @@ public:
 	dimensionlessNumber CalculateReynolds(double _time, length d32) const;
 	// Reynolds number with height discretization for each layer
 	//dimensionlessNumber CalculateReynolds(double _time, size_t section) const;
-	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
+	dimensionlessNumber CalculatePrandtl(temperature avgGasTheta) const
+	{
+		return 0.702 - 2.63e-4 * avgGasTheta - 1.05e-6 * pow(avgGasTheta, 2) - 1.52e-9 * pow(avgGasTheta, 3);
+	};
 	dimensionlessNumber CalculateSchmidt(length D_a) const;
 	dimensionlessNumber CalculateArchimedes(length d32) const;
 	dimensionlessNumber CalculateNusseltSherwood(dimensionlessNumber Nu_Sh_lam, dimensionlessNumber Nu_Sh_turb) const
