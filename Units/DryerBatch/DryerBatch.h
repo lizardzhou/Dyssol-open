@@ -87,7 +87,6 @@ private:
 	//std::vector<std::pair< EPhase, int>> CompoundsKeyIndexPhasePartnerIndex; // Storage vector for phase and phase change partner, index same as compoundKeys variable
 	//void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
 	//void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
-	const double f_alpha = 0.5; // ratio alpha_PF / alpha_AP
 	
 	//equilibriumMoistureContentData eqData;
 	//std::set<double> RHs;
