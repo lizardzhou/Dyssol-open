@@ -74,7 +74,10 @@ void CDryerBatch::CreateStructure()
 	itemNames = { "Martin", "Lehmann" };
 	AddComboParameter("Bed porosity calculation", 0, items, itemNames, "Methods for calculating the bed porosity during (homogeneous) fluidization. Choose between Martin(VDI-Waermeatlas, chapter M5) and Lehmann dissertation(2021). \nMartin: porosity is a function of Re_mf and Re_elu. \nLehmann: porosity is a function of suspension gas velocity.");
 	//AddConstIntParameter ("N_el", 1, "", "Number of hight discretization layers", 1); // # of height discretization layers
+	
+	// Heat and mass transfer 
 	AddStringParameter("Calculation of heat and mass transfer", "", "");
+	AddConstRealParameter("f_a", 0.1, "-", "Quotient alpha_PF/alpha_GF. Used to calculate heat transfer coefficient particle to water film from heat transfer coeeficient gas to water film.", 0.01, 1);
 	items = { 0, 1 };
 	itemNames = { "Martin", "Groenewold & Tsostas" };
 	AddComboParameter("Heat & mass transfer methods", 0, items, itemNames, "Methods for calculating heat and mass transfer coefficient, choose between Martin(VDI-Waermeatlas, chapter M5) and Groenewolds & Tsostas (see Rieck dissertation (2020)).");
@@ -89,16 +92,15 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("B", -19.63, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", -100, 100);
 	AddConstRealParameter("C", 0.73, "-", "Coefficient for f=1-A*exp(B*(X-X_eq)^C).", 0, 1);
 	AddConstRealParameter("X_eq", 0.01, "kg/kg", "Equilibrium water content of the particles (transition between 2nd and 3rd drying period).", 0, 0.1);
-	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 0.1);
-	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 5);
+	AddConstRealParameter("X_cr", 0.06, "kg/kg", "Critical water content of the particles (transition between 1st and 2nd drying period).", 0, 1.0);
+	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 10);
 	AddParametersToGroup("Methods", "REA", { "X_eq", "A", "B", "C" });
 	AddParametersToGroup("Methods", "NCDC", { "X_cr", "X_eq", "k_dc" });
 
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
 	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
-	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);
-		
+	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);	
 
 	// Tolerance for solver
 	//AddStringParameter("Tolerance for solver", "", "");
@@ -1629,7 +1631,7 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 				const dimensionlessNumber Sh = Nu * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
 				return Sh * D_a / d32;
 			}			
-			case 1: // Groenewolds & Tsostas (see Rieck dissertation (2020), page 150-151)
+			case 1: // Groenewold & Tsostas (see Rieck dissertation (2020), page 150-151)
 			{
 				const dimensionlessNumber Re_mf = CalculateReynoldsMF(_time, d32);
 				const dimensionlessNumber Re = CalculateReynolds(_time, d32); // based on superficial gas velocity
@@ -1643,7 +1645,6 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 				const dimensionlessNumber Sh_app = Nu_app * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
 				const area A_P = CalculateParticleSurfaceArea(_time);
 				const length d_bed = GetConstRealParameterValue("d_bed");
-				//const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
 				const length H_fix = GetConstRealParameterValue("H_bedFix");
 				const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
 				const dimensionlessNumber AvH = CalculateAtoF(H_fb, d32, eps);
@@ -1676,7 +1677,7 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 			const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
 			return Nu * lambdaGas / d32;
 		}
-		case 1: // Groenewolds & Tsostas (see Rieck dissertation (2020), page 150-151)
+		case 1: // Groenewold & Tsostas (see Rieck dissertation (2020), page 150-151)
 		{
 			const dimensionlessNumber Re_mf = CalculateReynoldsMF(_time, d32);
 			const dimensionlessNumber Re = CalculateReynolds(_time, d32); // based on superficial gas velocity
@@ -1689,7 +1690,6 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 			const dimensionlessNumber Nu_app = CalculateNusseltSherwoodApp(Nu, eps_mf);
 			const area A_P = CalculateParticleSurfaceArea(_time);
 			const length d_bed = GetConstRealParameterValue("d_bed");
-			//const dimensionlessNumber AvH = 4. * A_P / (MATH_PI * pow(d_bed, 2.0));
 			const length H_fix = GetConstRealParameterValue("H_bedFix");
 			const length H_fb = CalculateFluidizedBedHeight(H_fix, eps);
 			const dimensionlessNumber AvH = CalculateAtoF(H_fb, d32, eps);
@@ -1701,8 +1701,8 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 
 double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const
 {
-	
-	return alpha_GP * f_alpha;
+	const double f_a = GetConstRealParameterValue("f_a");
+	return alpha_GP * f_a;
 	
 	// CALCULATE FROM DISS RIECK BASED ON Nu = 2
 	//const double lambdaParticle = 0.04;
