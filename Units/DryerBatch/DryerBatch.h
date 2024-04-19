@@ -26,28 +26,16 @@ public:
 	void* m_unit{};
 	//bool Y_eq = true;
 
-	/// Indices of state variables for DAE solver: 12 DAE variables ///
+	/// Indices of state variables for DAE solver: 5 DAE variables ///
 	// gas phase
 	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
 	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
-	//size_t m_iHFlowOutGas{}; //outlet gas enthalpy
 	// particle (solid) phase
 	size_t m_iTempParticle{}; //2
 	size_t m_iPhi{}; //3 - particle wetness degree
 	//size_t m_iX{}; //particle moisture content
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
-	// water vapor
-	//size_t m_iMFlowVapor{}; //vapor flow (evaporation) rate
-	//size_t m_iHFlowVapor{}; //vapor flow enthalpy
-	// heat transfer
-	//size_t m_iQFlow_GF{}; //heat transfer from air to water film, == Q_AP
-	//size_t m_iQFlow_GP{}; //heat transfer from air to particle, == Q_AF
-	//size_t m_iQFlow_PF{}; //heat transfer from particle to water film
-	//size_t m_iQFlow_WE{}; // heat transfer from wall to environment (heat loss to ambient)
-	// transfer coefficients
-	//size_t m_iPr{}; //Prandtl number
-	//size_t m_iDa{}; //water diffusion coefficient from liquid to gas
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -99,26 +87,15 @@ private:
 	//std::vector<std::pair< EPhase, int>> CompoundsKeyIndexPhasePartnerIndex; // Storage vector for phase and phase change partner, index same as compoundKeys variable
 	//void PullCompoundDataFromDatabase(double _time); // Reads all material properties using matieral database values
 	//void CheckHeightDiscretizationLayers(double _time); // Adjusts number of height discretization layers if layer height is lower than max particle size
-	//double minMoistureContent = 0;
-	//double moistureScaler = 1;
-	//massTransferCoefficient beta;// = 0.02; // Water mass transfer coefficient from gas to particle in [m/s]
-	//double alpha_GF;
-	//double alpha_GP; // == alpha_GF
-	const double f_alpha = 3; // ratio alpha_PF / alpha_AP
 	
-	//double alpha_PF;
-	//massTransferCoefficient beta_AF;
-	//massTransferCoefficient beta_PF;
 	//equilibriumMoistureContentData eqData;
 	//std::set<double> RHs;
 	//std::set<double> temperatures;
 	//std::map< std::pair<double, double>, double> equilibriumMoistureContents;
 
 public:
-	//bool debugToggle = false;
 	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
-	//mass mTotHoldup; // mass of solid + liquid in holdup, == user input
 	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
@@ -126,25 +103,8 @@ public:
 		heatCapacity C_PGas = 1200; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
-	
-	// Inlet fluidization gas
-		//massFlow mFlowInGas;
-		//massFlow mFlowInGasDry;
-		//moistureContent Y_inGas; // Moisture content of input gas stream [kg/kg]
-		//double RH_inGas;
-		//specificLatentHeat h_inGas; // enthalpy for inlet gas: determined by user input, in [J/kg]
-		//temperature theta_inGas; 
-	// Inlet nozzle gas
-		//massFlow mFlowInNozzleGas;
-		//massFlow mFlowInNozzleGasDry;
-		//moistureContent Y_nozzle;
-		//specificLatentHeat h_inNozzle;
-		//temperature thetaNozzleGas;
-		//specificLatentHeat h_nozzleGas;
 	// Gas in holdup (whole plant, incl. chamber & expansion)
 		mass mGasHoldup = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
-		//moistureContent Y_sat; // = 0.020; // Saturation moisture content of gas [kg/kg]
-		
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		heatCapacity C_PWaterLiquid = 4200; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
@@ -152,33 +112,11 @@ public:
 		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
-	
-	//double ratioMM; // = molarMassPhaseChangingLiquid / molarMassGas;
-	// Liquid in holdup
-		//mass mLiquidHoldup;
-	// Spray liquid
-		//massFlow mFlowSprayLiquid;
-		//massFraction x_wSusp; 
-		//temperature thetaSprayLiquid;
-		//specificLatentHeat h_susp;
 	// Particle (solid) phase
-		//std::vector<double> Grid; // d_min
-		//std::vector<double> q_3;
-		//std::vector<double> avgClassDiam; // d_m,i
-		//std::vector<double> classSize; // Delta d
+		double wadellFactor = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1000; // Heat capacity
 		thermalConductivity lambdaParticle = 0.2; // https://doi.org/10.1016/j.ijpharm.2017.10.018 MCC relative density ~= 0.7
-	
-		// Particle in holdup
-		//mass mSolidHoldup;
-		//length d32; // Sauter diameter
-		//area A_P; // = 4; // total surface area of particle mass [m^2]
-		//length Delta_f; // = 40e-6; // Thickness of the water film on particles [m]
-		//moistureContent initX = 0;
-		//drying kinetic parameters, CURRENTLY NOT IN USE
-		//double k_dc; // = 3.5; // k for normalized drying curve
-		//moistureContent X_cr; // = 0.025; // Critical moisture content [kg/kg]
 	// Bed
 		//length heightOfBed;
 		//length diamOfBed;
@@ -191,52 +129,24 @@ public:
 		//double heightOfNozzle;
 		//double heighestFlowTimepoint = 0;
 
-	// Settings
-		//bool calcBeta = GetCheckboxParameterValue("calcBeta");
-		//bool calcY_sat = GetCheckboxParameterValue("calcY_sat");
-		//bool calcNdc = GetCheckboxParameterValue("calcNdc");
-		//size_t dryingCurveSetting = GetComboParameterValue("DryingCurve");
-		//size_t dryingCurveSetting{};
-		//double SmallBiotNumber = 0.1;
-		//double phiCuttOff = 0.999;
-	// REA function parameters
-		//double REA1 = 0.96;
-		//double REA2 = -19.63;
-		//double REA3 = 0.73;
-
-	//size_t suspLayer = 0;
-
 	bool particlesGlobal = true;
 
 	//size_t N_particle = 1; // Number of hight discretization layers of all sections containing particles
 	//size_t N_total = 1;// Total number of hight discretization layers
 
-	CHoldup* m_holdup{}; // Holdup
+	CHoldup* m_holdupSolid{}; // Holdup solid (particle)
+	CHoldup* m_holdupLiquid{}; // Holdup liquid (liquid film on particle)
+	CHoldup* m_holdupGas{}; // Holdup gas (moist air)
 	CMaterialStream* m_inLiquidStream{}; // Input of water stream
 	CMaterialStream* m_inNozzleAirStream{}; // Input nozzle air
 	CMaterialStream* m_inGasStream{}; // Input gas (fluidization air) stream
 	CMaterialStream* m_outExhaustGasStream{};	// Output of exhaust gas
-
-	//CStream* m_VaporStream{};
-	//CHoldup* m_Expander{}; //ToDo - check usage
-	//CHoldup* workingHoldup{}; //ToDo - check usage
 
 	// String keys of compounds for material database
 	//std::vector<std::string> compoundKeys;
 	// Indices of liquid (first) and vapor (second) form of phase changing compound in compoundsKey
 	//std::pair<int,int> indicesOfVaporOfPhaseChangingCompound=std::make_pair(-1,-1);
 	//bool debugHasBeenShown = false;
-
-	//const temperature TempLiquidOld = T_ref;
-	//const temperature TempGasOld = T_ref;
-	//const temperature TempSolidOld = T_ref;
-	//const moistureContent YavgOld = Y_inGas;
-	//size_t DiffCoeff; // index of correlation for calcualting diffusion coefficient in the dropdown list
-
-	//double EnergyLiquidPhaseOld = 0;
-	//double EnergySolidPhaseOld = 0;
-	//double EnergyGasPhaseOld = 0;
-	//double HeatLossOld = 0;
 
 public:
 	void CreateBasicInfo() override;
@@ -255,7 +165,10 @@ public:
 	length CalculateHoldupSauter(double _time) const;
 	area CalculateParticleSurfaceArea(double _time) const;
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
-	double CalculateDiffusionCoefficient(double _time, double avgGasTemperature, double filmTemperature, double pressure = STANDARD_CONDITION_P) const;
+	double CalculateDiffusionCoefficient(double avgGasTheta) const // Dosta(2010) [m2/s]
+	{
+		return (23e-5) * pow(avgGasTheta / T_ref, 1.81);
+	};
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
 	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
 	//double REA(double deltaX) const 
@@ -278,30 +191,39 @@ public:
 
 /// Dimensionless numbers ///
 	// Reynolds number without height discretization
+	dimensionlessNumber CalculateReynoldsMF(double _time, length d32) const;
 	dimensionlessNumber CalculateReynolds(double _time, length d32) const;
 	// Reynolds number with height discretization for each layer
 	//dimensionlessNumber CalculateReynolds(double _time, size_t section) const;
 	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
-	dimensionlessNumber CalculateSchmidt(double D_a) const;
+	dimensionlessNumber CalculateSchmidt(length D_a) const;
 	dimensionlessNumber CalculateArchimedes(length d32) const;
-	dimensionlessNumber CalculateNusseltSherwood(double Nu_Sh_lam, double Nu_Sh_turb) const
+	dimensionlessNumber CalculateNusseltSherwood(dimensionlessNumber Nu_Sh_lam, dimensionlessNumber Nu_Sh_turb) const
 	{
-		return 2. + sqrt(pow(Nu_Sh_lam, 2) + pow(Nu_Sh_turb, 2));
+		return 2. + sqrt(pow(Nu_Sh_lam, 2.) + pow(Nu_Sh_turb, 2.));
 	};
-	dimensionlessNumber CalculateNusseltSherwoodLam(double Re, double Pr_Sc) const
+	dimensionlessNumber CalculateNusseltSherwoodLam(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
 	{
-		return 0.664 * pow(Pr_Sc, 1 / 3) * sqrt(Re);
+		return 0.664 * pow(Pr_Sc, 1. / 3.) * sqrt(Re);
 	};
-	dimensionlessNumber CalculateNusseltSherwoodTurb(double Re, double Pr_Sc) const
+	dimensionlessNumber CalculateNusseltSherwoodTurb(dimensionlessNumber Re, dimensionlessNumber Pr_Sc) const
 	{
-		dimensionlessNumber Nu_Sc = (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3) - 1));
+		dimensionlessNumber Nu_Sc = (0.037 * pow(Re, 0.8) * Pr_Sc) / (1. + 2.443 * pow(Re, -0.1) * (pow(Pr_Sc, 2. / 3.) - 1));
 		if (Nu_Sc < 0)
 		{
 			Nu_Sc = 0;
 		}
 		return Nu_Sc;
-		
 	};
+	dimensionlessNumber CalculateNusseltSherwoodApp(dimensionlessNumber Nu_Sh, double eps) const
+	{
+		return Nu_Sh * (1. + 1.5 * (1. - eps));
+	};
+	dimensionlessNumber CalculateNusseltSherwoodModify(dimensionlessNumber Re, dimensionlessNumber Sc_Pr, dimensionlessNumber Sh_Nu_app,  dimensionlessNumber AtoF) const // Groenewold & Tsotsas -> see Rieck diss. and Soeren diss.
+	{
+		return (Re * Sc_Pr) * log(1. + (Sh_Nu_app * AtoF) / (Re * Sc_Pr)) / AtoF;
+	};
+
 	//	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
 	//{
@@ -309,21 +231,20 @@ public:
 	//};
 	//bool CheckForSmallBiot(double _time) const;
 
-
 /// Heat transfer coefficients ///
 	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; // == alpha_GF
-	double CalculateAlpha_PF(temperature tempWater, pressure pressureHoldup, length d32) const;
+	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Mass transfer coefficient ///
-	massTransferCoefficient CalculateBeta(double _time, length d32, double D_a) const;
+	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;
 
-/// X_eq, CURRENTLY NOT IN USE ///
-	// Returns praticle equilibirum moisture content from material database, return 0 if no entry in data base is found [kg liqudi per kg dry solid]
-	//moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH);
-	// Returns normalized drying curve
-	//double CalculateNormalizedDryingCurve(moistureContent X, moistureContent Xeq);
-	//moistureContent CalculateGasEquilibriumMoistureContent(temperature temperatureParticle, pressure pressureGas, double ratioMM, double RH=1) const;
-	////double CalculateEquilibriumRelativeHumidity(double _time, temperature temperature, double X) const;
+/// Drying kinetics ///
+	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH); // X_eq
+	double CalculateRelativeDryingRate(moistureContent X) const;
+	pressure CalculateGasSaturationPressure(temperature theta_Gas, pressure pressureGas) const; // Y_eq
+	moistureContent CalculateGasEquilibriumMoistureContent(pressure pressureGas, pressure P_sat, double RH) const; // Y_eq
+	double CalculateGasEquilibriumRelativeHumidity(/*double _time, temperature temperature,*/ moistureContent X) const; // RH_eq
+
 	//double GetEquilibriumRelativeHumidity(double temperature, double X) const;
 	////	Initializes variables containing equilibirum moisture content date
 	//bool InitializeMoistureContentDatabase(std::string path);
@@ -333,8 +254,16 @@ public:
 ///  Hydrodynamics ///
 	double CalculateMinFluidizeVel(double _time, length d32) const;
 	double CalculateGasVel(double _time, length d32) const;
-	double CalculateBedPorosity(double _time, length d32, bool homogeniusFluidization = true) const;
-	//double CalculateBedHeight(double _time, double particleTemperature);	
+	double CalculateBedPorosity(double _time, length d32, bool homogeneousFluidization = false) const;
+	double CalculateBedPorosityMF(double wadellFactor) const
+	{
+		return pow(1. / (14. * wadellFactor), 1. / 3.);
+	}
+	length CalculateFluidizedBedHeight(/*double _time, double particleTemperature*/length H_fix, double eps) const;
+	dimensionlessNumber CalculateAtoF(length H_fb, length d32, double eps) const
+	{
+		return 6 * (1. - eps) * H_fb / d32; // Soeren diss. eq. (C.13)
+	};
 	//double CalculateGasVel(double _time, size_t section = 0) const;	
 
 
