@@ -167,7 +167,7 @@ public:
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
 	double CalculateDiffusionCoefficient(double avgGasTheta) const // Dosta(2010) [m2/s]
 	{
-		return (23e-5) * pow(avgGasTheta / T_ref, 1.81);
+		return 2.3e-5 * pow((avgGasTheta + T_ref) / T_ref, 1.81);
 	};
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
 	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
