@@ -28,6 +28,7 @@ void CDryerBatch::CreateBasicInfo()
 	SetUnitName("Dryer (batch with heat and mass transfer)");
 	SetAuthorName("Xiye Zhou, Alexander Hanke");
 	SetUniqueID("9771F953-C2F7-417C-95CC-83C503433FB8"); 
+	//test for environment
 }
 
 void CDryerBatch::CreateStructure()
