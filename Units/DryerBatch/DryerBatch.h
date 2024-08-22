@@ -33,7 +33,6 @@ public:
 	// particle (solid) phase
 	size_t m_iTempParticle{}; //2
 	size_t m_iPhi{}; //3 - particle wetness degree
-	//size_t m_iX{}; //particle moisture content
 	// liquid phase (water film)
 	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
 
@@ -94,7 +93,7 @@ private:
 	//std::map< std::pair<double, double>, double> equilibriumMoistureContents;
 
 public:
-	const temperature T_ref = STANDARD_CONDITION_T - 25; // Ref. temperature for enthalpy [K] - default 273.15 K
+	const temperature T_ref = STANDARD_CONDITION_T - 125; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
 	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
@@ -123,6 +122,16 @@ public:
 		//double eps_0; // = 0.4;
 		//double u_mf; // = 0;
 	// process chamber
+		thermalConductivity kWall = 16; // thermal conductivity stainless steel (estimated), in [W/(m*K)]
+		length wallThickness = 5e-3;
+		length radiusChamber = 0.2;
+		length lengthChamber = 0.35;
+		length radiusExpanderLow = 0.4;
+		length lengthExpanderLow = 0.4;
+		length radiusExpanderHigh = 0.6;
+		length lengthExpanderHigh = 0.95;
+		length radiusExhaustAirPipe = 0.14;
+		length lengthExhaustAirPipe = 0.1;
 		//std::vector<chamberSection> chamber;
 		//double heightOfChamber;
 		//double heightOfChamberTemperatureProbe;// = 0.070;
@@ -234,6 +243,9 @@ public:
 /// Heat transfer coefficients ///
 	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; // == alpha_GF
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
+
+/// Heat loss through the walls ///
+	double CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaOut);
 
 /// Mass transfer coefficient ///
 	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;

@@ -429,6 +429,7 @@ void CDryerBatch::Initialize(double _time)
 	//size_t variables = m_model.GetVariablesNumber();
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), rtol != 0.0 ? rtol : GetRelTolerance());
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), absolutTolerances); // 0.01
+	m_model.SetTolerance(GetRelTolerance(), GetAbsTolerance());
 	//m_solver.SetMaxStep(1);
 
 	/// Set model to a solver ///
@@ -596,6 +597,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
 	const double varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
+	//const double QFlow_GW_ExpanderHigh = CalculateHeatLossWall(unit->wallThickness, unit->lengthExpanderHigh, unit->radiusExpanderHigh, varT_gasHoldup, );
 
 	/// _ders: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
@@ -1566,7 +1568,7 @@ length CDryerBatch::CalculateFluidizedBedHeight(length H_fix, double eps) const 
 	//return heightBed;
 }
 
-//double CDryerBatch::CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight)
+///double CDryerBatch::CalculateBedHeightOrDetermineSectionsFilledWithBed(double _time, double particleTemperature, bool outputHeight)
 //{
 //	const double massSolid = m_holdup->GetPhaseMass(_time, EPhase::SOLID);
 //	const double densitySolid = GetAvgTPCompoundProperty(_time, EPhase::SOLID, ECompoundTPProperties::DENSITY, particleTemperature, m_holdup->GetPressure(_time));
@@ -1597,7 +1599,7 @@ length CDryerBatch::CalculateFluidizedBedHeight(length H_fix, double eps) const 
 //		return numberOfFilledSection + bedHeight / h;
 //}
 
-//void CDryerBatch::SetupChamber()
+///void CDryerBatch::SetupChamber()
 //{
 //	if (chamber.size() == 0)
 //	{
@@ -1647,7 +1649,7 @@ dimensionlessNumber CDryerBatch::CalculateArchimedes(length d32) const
 	return STANDARD_ACCELERATION_OF_GRAVITY * pow(d32, 3) * (rhoParticle - rhoGas) * rhoGas / pow(etaGas, 2);
 }
 
-/// CalculateReynolds for discretized height, currently not in use
+/// CalculateReynolds for discretized height, CURRENTLY NOT IN USE
 //dimensionlessNumber CDryerBatch::CalculateReynolds(double _time, size_t section) const
 //{
 //	double d = (chamber.at(section).dimensionsInternal.at(0).first + chamber.at(section).dimensionsInternal.at(0).second) / 2;
@@ -1772,6 +1774,10 @@ double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressure
 	//return alpha_PF;
 }
 
+double CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaOut)
+{
+	return 2 * MATH_PI * height * (thetaIn - thetaOut) / log((radiusInner + wallThickness) / radiusInner );
+}
 
 ////////////////////
 /// Fluiddynamic ///
