@@ -93,21 +93,21 @@ private:
 	//std::map< std::pair<double, double>, double> equilibriumMoistureContents;
 
 public:
-	const temperature T_ref = STANDARD_CONDITION_T - 125; // Ref. temperature for enthalpy [K] - default 273.15 K
+	const temperature T_ref = 273.15; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
 	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
-		heatCapacity C_PGas = 1200; // Heat capacity gas [J/(kg*K)] - default: air
+		heatCapacity C_PGas = 1004; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Gas in holdup (whole plant, incl. chamber & expansion)
 		mass mGasHoldup = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
-		heatCapacity C_PWaterLiquid = 4200; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
-		heatCapacity C_PWaterVapor = 2000; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
+		heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
+		heatCapacity C_PWaterVapor = 1860; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
 		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
@@ -176,7 +176,7 @@ public:
 	moistureContent CalculateGasSaturationMoistureContent(temperature T_Gas, pressure pressureGas = STANDARD_CONDITION_P) const;
 	double CalculateDiffusionCoefficient(double avgGasTheta) const // Dosta(2010) [m2/s]
 	{
-		return 2.3e-5 * pow((avgGasTheta + T_ref) / T_ref, 1.81);
+		return 2.3e-5 * pow((avgGasTheta + 273.15) / 273.15, 1.81);
 	};
 	double CalculateGasRelativeHumidity(moistureContent Y, temperature temperature, pressure pressure = STANDARD_CONDITION_P); //const;
 	// Calculates the ratio (Delta E_v / Delta E_v,eq) in case of REA
