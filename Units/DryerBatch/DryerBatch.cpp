@@ -348,10 +348,13 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("Water film temperature [K]", m_holdupLiquid->GetTemperature(_time) /*- T_ref*/); // [°C]
 		AddStateVariable("Water evaporation rate [g/s]", 0);
 		AddStateVariable("Relative drying rate [-]", 0);
-		AddStateVariable("INLET Water mass flow [g/s]", mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp);
+		AddStateVariable("INLET Water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3);
 		AddStateVariable("OUTLET Water mass flow [g/s]", 0);
 		AddStateVariable("INLET energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
 		AddStateVariable("OUTLET energy flow [J/s]", 0);
+		AddStateVariable("Enthalpy holdup [J]", mSolidHoldup * C_PParticle * (m_holdupSolid->GetTemperature(_time) - T_ref) +
+												mLiquidHoldup * C_PWaterLiquid * (m_holdupLiquid->GetTemperature(_time) - T_ref) +
+												mGasHoldup * (C_PGas * (m_holdupGas->GetTemperature(_time) - T_ref)));
 		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
 		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
 		ShowInfo(os.str());
@@ -963,10 +966,13 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("Water film temperature [K]",varTempFlim, _time);
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
-	unit->SetStateVariable("INLET Water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid) * 1e3, _time); 
-	unit->SetStateVariable("OUTLET Water mass flow [g/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * _vars[m_iYOutGas], _time); 
+	unit->SetStateVariable("INLET Water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3, _time); 
+	unit->SetStateVariable("OUTLET Water mass flow [g/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * _vars[m_iYOutGas] * 1e3, _time); 
 	unit->SetStateVariable("INLET energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp, _time); 
 	unit->SetStateVariable("OUTLET energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)), _time); 
+	unit->SetStateVariable("Enthalpy holdup [J]", mHoldupSolid * C_PParticle* varTheta_gasHoldup +
+												  mHoldupLiquid * C_PWaterLiquid * varThetaFilm +
+												  mGasHoldup * (C_PGas * varTheta_gasHoldup + unit->ConvertMoistContentToMassFrac(_vars[m_iYOutGas]) * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0)), _time);
 
 	const double varQFlow_GF = unit->CalculateAlpha_GP(_time, varTheta_gasHoldup, d32) * A_P * _vars[m_iPhi] * (varT_gasHoldup - _vars[m_iTempFilm]);
 	const double varQFlow_GP = unit->CalculateAlpha_GP(_time, varTheta_gasHoldup, d32) * A_P * (1 - _vars[m_iPhi]) * (varT_gasHoldup - _vars[m_iTempParticle]);
