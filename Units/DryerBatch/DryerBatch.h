@@ -94,7 +94,7 @@ private:
 
 public:
 	const temperature T_ref = 273.15; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_inf;// = T_ref + 20.5; // Ambient temperature [K] - default: Standard condition
+	temperature T_inf; // Ambient temperature [K] - default: Standard condition
 	// Gas phase
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
@@ -245,7 +245,7 @@ public:
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Heat loss through the walls ///
-	double CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaOut);
+	double CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaOut, double k) const;
 
 /// Mass transfer coefficient ///
 	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;
