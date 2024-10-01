@@ -36,7 +36,7 @@ void CDryerBatch::CreateStructure()
 	/// Add ports ///
 	AddPort("InletLiquid", EUnitPort::INPUT);
 	AddPort("InletFluidizationGas", EUnitPort::INPUT);
-	AddPort("InletNozzleAir", EUnitPort::INPUT); 
+	AddPort("InletNozzleAir", EUnitPort::INPUT);
 	AddPort("OutletExhaustGas", EUnitPort::OUTPUT);
 
 	/// Add holdups for each phase ///
@@ -48,41 +48,45 @@ void CDryerBatch::CreateStructure()
 	std::vector<size_t>	items;
 	std::vector<std::string> itemNames;
 	// particle properties
-	AddStringParameter("Particle properties", "",	"");
+	AddStringParameter("Particle properties", "", "");
 	AddConstRealParameter("A_P", 0, "m2", "Total surface of all particles in the granulator.\nIf = 0, PSD is used to calculate surface area", 0);
-	AddConstRealParameter("Delta_f"	, 100	, "mum"			, "Thickness of the water film on particles in micrometer"	, 1);
+	AddConstRealParameter("Delta_f", 100, "mum", "Thickness of the water film on particles in micrometer", 1);
 	// environment
 	AddConstRealParameter("theta_env", 20, "deg C", "Temperature of the environment, assumed to be constant", 0, 100);
 	// inlet fluidization gas properties
 	AddStringParameter("Inlet fluidization gas properties", "", "");
 	AddConstRealParameter("Y_in", 10, "g/kg dry air", "Absolute humidity of inlet fluidization gas.", 0, 50);
-	AddConstRealParameter("RH_in"	, 48.99	, "%"			, "Relative humidity of the fluidization gas"	, 0, 100);
+	AddConstRealParameter("RH_in", 48.99, "%", "Relative humidity of the fluidization gas", 0, 100);
 	// Nozzle gas properties
-	AddStringParameter("Spray nozzle gas properties", "","");
+	AddStringParameter("Spray nozzle gas properties", "", "");
 	AddConstRealParameter("Y_nozzle", 0, "g/kg dry gas", "Absolute humidity of nozzle gas", 0, 5);
 	// Process chamber information
-	AddStringParameter	 ("Chamber information"	, ""		, "");
-	AddConstRealParameter("H_tempProbe"		, 0.07			, "m"	, "Height of temperature probe for chamber temperature over distributor.", 0, 0.35);
-	AddConstRealParameter("H_nozzle"		, 0.25			, "m"	, "Height of two-fluid nozzle over gas distributor.", 0, 0.35);
-	AddConstRealParameter("d_bed"			, 0.18			, "m"	, "Bed diameter", 0.1, 0.2);
-	AddConstRealParameter("H_bedFix"		, 0.08			, "m"	, "Bed height without fluidization", 0.08, 0.2);
-	AddConstRealParameter("H_plant"		, 0.35			, "m"	, "Plant height", 1e-3, 30);
+	AddStringParameter("Chamber information", "", "");
+	AddConstRealParameter("H_tempProbe", 0.07, "m", "Height of temperature probe for chamber temperature over distributor.", 0, 0.35);
+	AddConstRealParameter("H_nozzle", 0.25, "m", "Height of two-fluid nozzle over gas distributor.", 0, 0.35);
+	AddConstRealParameter("d_bed", 0.18, "m", "Bed diameter", 0.1, 0.2);
+	AddConstRealParameter("H_bedFix", 0.08, "m", "Bed height without fluidization", 0.08, 0.2);
+	AddConstRealParameter("H_plant", 0.35, "m", "Plant height", 0, 30);
 	// Bed properties, use for development of further models
-	AddStringParameter("Bed properties", ""	, "");
-	AddConstRealParameter("eps_0"			, 0.35			, "-"	, "Fixed bed porosity"										, 0, 1);
-	AddConstRealParameter("u_mf"			, 0				, "m/s"	, "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
+	AddStringParameter("Bed properties", "", "");
+	AddConstRealParameter("eps_0", 0.35, "-", "Fixed bed porosity", 0, 1);
+	AddConstRealParameter("u_mf", 0, "m/s", "Minimal fluidization velocity\nIf 0, calculate use Wen&Yu correlation", 0, 1);
 	items = { 0, 1 };
 	itemNames = { "Martin", "Lehmann" };
 	AddComboParameter("Bed porosity calculation", 0, items, itemNames, "Methods for calculating the bed porosity during (homogeneous) fluidization. Choose between Martin(VDI-Waermeatlas, chapter M5) and Lehmann dissertation(2021). \nMartin: porosity is a function of Re_mf and Re_elu. \nLehmann: porosity is a function of suspension gas velocity.");
 	//AddConstIntParameter ("N_el", 1, "", "Number of hight discretization layers", 1); // # of height discretization layers
-	
+
 	// Heat and mass transfer 
 	AddStringParameter("Calculation of heat and mass transfer", "", "");
 	AddConstRealParameter("f_a", 0.1, "-", "Quotient alpha_PF/alpha_GF. Used to calculate heat transfer coefficient particle to water film from heat transfer coeeficient gas to water film.", 0.01, 1);
-	items = { 0, 1 };
-	itemNames = { "Martin", "Groenewold & Tsostas" };
-	AddComboParameter("Heat & mass transfer methods", 0, items, itemNames, "Methods for calculating heat and mass transfer coefficient, choose between Martin(VDI-Waermeatlas, chapter M5) and Groenewolds & Tsostas (see Rieck dissertation (2020)).");
-	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf 0, calculating using methods in the model.");
+	items = { 0, 1, 2 };
+	itemNames = { "Martin", "Groenewold & Tsostas", "Self-defined" };
+	AddComboParameter("Heat & mass transfer methods", 0, items, itemNames, "Methods for calculating heat and mass transfer coefficient, choose between Martin(VDI-Waermeatlas, chapter M5), Groenewolds & Tsostas (see Rieck dissertation (2020)) and self-defined values.");
+	AddConstRealParameter("alpha_GP", 0, "W/(m2*K)", "Heat transfer coefficient between gas and particle.", 0);
+	AddConstRealParameter("alpha_GF", 0, "W/(m2*K)", "Heat transfer coefficient between gas and water film.", 0);
+	AddConstRealParameter("alpha_PF", 0, "W/(m2*K)", "Heat transfer coefficient between particle and water film.", 0);
+	AddParametersToGroup("Heat & mass transfer methods", "Self-defined", { "alpha_GP", "alpha_GF", "alpha_PF"});
+	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods in the model.");
 
 	// Drying kinetics calculation
 	AddStringParameter("Drying kinetics", "", "");
@@ -318,7 +322,7 @@ void CDryerBatch::Initialize(double _time)
 	/// Add state variables ///
 	///////////////////////////	
 /// gas in holdup ///
-	m_holdupGas->SetPhaseMass(_time, EPhase::VAPOR, mGasHoldup * (1 + Y_inGas));
+	m_holdupGas->SetPhaseMass(_time, EPhase::VAPOR, mGasHoldup * (1 + Y_inGas)); // add water vapor into holdup gas
 	AddStateVariable("Gas temperature in holdup [degC]", m_holdupGas->GetTemperature(_time) - T_ref); 
 	AddStateVariable("Gas mass in holdup [kg]", m_holdupGas->GetPhaseMass(_time, EPhase::VAPOR));
 /// gas in outlet ///
@@ -335,7 +339,7 @@ void CDryerBatch::Initialize(double _time)
 	{
 		// particle properties
 		T_ParticleInit = m_holdupSolid->GetTemperature(_time); // in [K]
-		const double initPhi = mLiquidHoldup / rhoWater / Delta_f / A_P;
+		double initPhi = mLiquidHoldup / rhoWater / Delta_f / A_P;
 		m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 0.0, 0.0); // Particle temperature in [K], 
 		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0.0, 0.0); 
 		// m_model.miA_P: A_P is constant in case of water spray, A_P as DAE variable will be used for granulation
@@ -355,7 +359,7 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("OUTLET wall heat loss [J/s]", 0);
 		AddStateVariable("Enthalpy holdup [J]", mSolidHoldup * C_PParticle * (m_holdupSolid->GetTemperature(_time) - T_ref) +
 												mLiquidHoldup * C_PWaterLiquid * (m_holdupLiquid->GetTemperature(_time) - T_ref) +
-												mGasHoldup * (C_PGas * (m_holdupGas->GetTemperature(_time) - T_ref)));
+												mGasHoldup * (C_PGas * (m_holdupGas->GetTemperature(_time) - T_ref) + y_in * (C_PWaterVapor * (m_holdupGas->GetTemperature(_time) - T_ref) + Delta_h0)));
 		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
 		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
 		ShowInfo(os.str());
@@ -964,7 +968,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("Particle wetness degree [%]", _vars[m_iPhi] * 100, _time);
 	unit->SetStateVariable("Particle temperature [degC]", varTempParticle - unit->T_ref, _time);
 	unit->SetStateVariable("Water mass in holdup [kg]", mHoldupSolid * varX, _time);
-	unit->SetStateVariable("Vapor mass in holdup [kg]", mGasHoldup * _vars[m_iYOutGas], _time);
+	unit->SetStateVariable("Vapor mass in holdup [kg]", mGasHoldup * unit->ConvertMoistContentToMassFrac(_vars[m_iYOutGas]), _time);
 	unit->SetStateVariable("Water film temperature [degC]",varTempFlim - unit->T_ref, _time);
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
@@ -1686,7 +1690,7 @@ dimensionlessNumber CDryerBatch::CalculateArchimedes(length d32) const
 massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const
 {
 	const double betaVal = GetConstRealParameterValue("beta_GP");
-	if (betaVal == 0)
+	if (betaVal < 0)
 	{
 		const dimensionlessNumber Ar = CalculateArchimedes(d32);
 		const dimensionlessNumber Pr = CalculatePrandtl(avgGasTheta);
@@ -1767,7 +1771,11 @@ double CDryerBatch::CalculateAlpha_GP(double _time, temperature avgGasTheta, len
 			const dimensionlessNumber AvH = CalculateAtoF(H_fb, d32, eps);
 			dimensionlessNumber Nu_modify = CalculateNusseltSherwoodModify(Re, Pr, Nu_app, AvH);
 			return Nu_modify * lambdaGas / d32;
-		}			
+		}		
+		case 2:
+		{
+
+		}
 	}
 }
 
