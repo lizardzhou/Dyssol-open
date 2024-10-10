@@ -605,7 +605,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
-	const double varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
+	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm); 
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varT_gasHoldup - unit->T_ref, unit->T_inf - unit->T_ref, unit->kWall);
 
@@ -953,7 +953,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
-	const double varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
+	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varT_gasHoldup - unit->T_ref, unit->T_inf - unit->T_ref, unit->kWall);
 	// time points
@@ -979,7 +979,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("INLET energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp, _time); 
 	unit->SetStateVariable("OUTLET energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)), _time); 
 	unit->SetStateVariable("OUTLET wall heat loss [J/s]", QFlow_GW_Chamber, _time);
-	unit->SetStateVariable("Enthalpy holdup [J]", mHoldupSolid * C_PParticle * varTheta_gasHoldup +
+	unit->SetStateVariable("Enthalpy holdup [J]", mHoldupSolid * C_PParticle * varThetaParticle +
 												  mHoldupLiquid * C_PWaterLiquid * varThetaFilm +
 												  unit->mGasHoldup_Dry * (C_PGas * varTheta_gasHoldup + 
 													  _vars[m_iYOutGas] * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0)), _time);
@@ -1036,12 +1036,12 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		unit->ShowInfo("\t\tHFlowOut out = " + std::to_string((mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0))) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GP out = " + std::to_string(varQFlow_GP_Formula) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GF out = " + std::to_string(varQFlow_GF_Formula) + " J/s");
-		unit->ShowInfo("\tsum in&out = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP_Formula - varQFlow_GF_Formula) + " J/s");
+		//unit->ShowInfo("\tsum in&out = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP_Formula - varQFlow_GF_Formula) + " J/s");
 		unit->ShowInfo("\tHeat & mass transfer:");
 		unit->ShowInfo("\t\talpha_GF = " + std::to_string(unit->CalculateAlpha_GP(_time, varThetaOutGas, d32)) + " W/(m2*K)");
+		unit->ShowInfo("\t\talpha_GP = " + std::to_string(unit->CalculateAlpha_GF(_time, varThetaOutGas, d32)) + " W/(m2*K)");
 		unit->ShowInfo("\t\talpha_PF = " + std::to_string(unit->CalculateAlpha_PF(/*_vars[m_iTempFilm] - unit->T_ref, pressureHoldup, d32)*/ unit->CalculateAlpha_GP(_time, varThetaOutGas, d32))) + " W/(m2*K)");
 		unit->ShowInfo("\t\tbeta = " + std::to_string(varBeta_FG_Formula) + " m/s");
-
 	}
 
 	//massFlow mFlowInGas = unit->m_inGasStream->GetMassFlow(_time);
