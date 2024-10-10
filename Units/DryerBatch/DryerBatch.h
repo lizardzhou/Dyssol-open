@@ -107,7 +107,7 @@ public:
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
-		heatCapacity C_PWaterVapor = 1860; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
+		heatCapacity C_PWaterVapor = 1890; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
 		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
