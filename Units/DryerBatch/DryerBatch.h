@@ -103,7 +103,7 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Gas in holdup (whole plant, incl. chamber & expansion)
-		mass mGasHoldup = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
+		mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
@@ -241,7 +241,8 @@ public:
 	//bool CheckForSmallBiot(double _time) const;
 
 /// Heat transfer coefficients ///
-	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; // == alpha_GF
+	double CalculateAlpha_GP(double _time, temperature avgGasTemperature, length d32) const; 
+	double CalculateAlpha_GF(double _time, temperature avgGasTemperature, length d32) const;
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Heat loss through the walls ///
