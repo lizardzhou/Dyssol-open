@@ -369,8 +369,7 @@ void CDryerBatch::Initialize(double _time)
 		
 /// liquid (film) properties ///
 		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time), 0.0, 0.0); 
-	}
-		
+	}	
 
 	/// height discretization, CURRENTLY NOT IN USE
 	//std::vector<moistureContent> Y_inInit(N_total, Y_in); // vector in case of height discretization
@@ -629,7 +628,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	_res[m_iYOutGas] = derYOutGas - derYOutGasFormula;
 	_res[m_iTempOutGas] = derTempOutGas - derTempOutGasFormula;
 	// particle (solid) phase
-	_res[m_iTempParticle] = derTempParticle - derTempFilmFormula;
+	_res[m_iTempParticle] = derTempParticle - derTempParticleFormula;
 	_res[m_iPhi] = derPhi - derPhiFormula;
 	// liquid phase (water film)
 	_res[m_iTempFilm] = derTempFlim - derTempFilmFormula;
