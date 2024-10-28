@@ -99,22 +99,22 @@ public:
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
-		heatCapacity C_PGas = 1004; // Heat capacity gas [J/(kg*K)] - default: air
+		const heatCapacity C_PGas = 1004; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Gas in holdup (whole plant, incl. chamber & expansion)
-		mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
+		const mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 	// Liquid phase
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
-		heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
-		heatCapacity C_PWaterVapor = 1890; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
-		specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
+		const heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
+		const heatCapacity C_PWaterVapor = 1890; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
+		const specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	// Particle (solid) phase
 		double wadellFactor = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
-		heatCapacity C_PParticle = 1000; // Heat capacity
+		heatCapacity C_PParticle = 1250; // Heat capacity of MCC in [J/(kg*K)]
 		thermalConductivity lambdaParticle = 0.2; // https://doi.org/10.1016/j.ijpharm.2017.10.018 MCC relative density ~= 0.7
 	// Bed
 		//length heightOfBed;
