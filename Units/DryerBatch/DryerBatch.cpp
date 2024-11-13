@@ -19,7 +19,8 @@ extern "C" DECLDIR CBaseUnit* DYSSOL_CREATE_MODEL_FUN()
 /// Batch dryer with a water inlet and a fluidization gas inlet, and an outlet for exhaust gas
 /// - Heat transfer based on model from Maksym
 /// - Mass transfer of water from particle to fluidization gas
-/// - Drying kinetics from Soeren (1st and 2nd drying stages) - UNDER CONSTRUCTION
+/// - Calculation of enthalpy in holdup: using reference temperature 273.15 K and set reference energy as zero. Reason: "absolute enthalpy" isn't meaningful by itself because enthalpy is a RELATIVE MEASUREMENT ON ENERGY, it's a state function depending on changes, not absolute values.
+/// - Drying kinetics (1st and 2nd drying stages) - UNDER CONSTRUCTION
 /// - Height discretization for gas phase moisture & temperature - UNDER CONSTRUCTION
 
 void CDryerBatch::CreateBasicInfo()
@@ -1039,6 +1040,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		unit->ShowInfo("\t\tHFlowOut out = " + std::to_string((mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0))) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GP out = " + std::to_string(varQFlow_GP_Formula) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GF out = " + std::to_string(varQFlow_GF_Formula) + " J/s");
+		unit->ShowInfo("\t\tQFlow_GW out = " + std::to_string(QFlow_GW_Chamber) + " J/s");
 		//unit->ShowInfo("\tsum in&out = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP_Formula - varQFlow_GF_Formula) + " J/s");
 		unit->ShowInfo("\tHeat & mass transfer:");
 		unit->ShowInfo("\t\talpha_GF = " + std::to_string(unit->CalculateAlpha_GF(_time, varThetaOutGas, d32)) + " W/(m2*K)");
