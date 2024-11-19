@@ -1508,37 +1508,6 @@ moistureContent CDryerBatch::CalculateGasEquilibriumMoistureContent(pressure pre
 	//return Y_eq;
 }
 
-//moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH)
-//{
-//	std::vector<moistureContent> EquilibriumMoistures(compoundKeys.size());
-//	moistureContent particleEquilibriumMoistureContent = 0;
-//	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
-//	for (int i = 0; i < compoundKeys.size(); i++)
-//	{
-//		if (compoundKeys.at(i) == eqData.compoundKey)
-//			EquilibriumMoistures[i] = GetParticleEquilibriumMoistureContent(temperature, RH);
-//		else
-//			EquilibriumMoistures[i] = GetCompoundProperty(compoundKeys[i], ECompoundTPProperties::EQUILIBRIUM_MOISTURE_CONTENT, temperature, RH);
-//	}		
-//	// Equilibrium moisture content depends on temperatur and humidity
-//	for (int i = 0; i < compoundKeys.size(); i++)
-//	{
-//		if (EquilibriumMoistures.at(i) < 0)
-//		{
-//			std::stringstream os;
-//			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at " << RH * 100 << "%.";
-//			RaiseError(os.str());
-//			os.str() = "";
-//		}
-//	}
-//		
-//	for (int i = 0; i < compoundKeys.size(); i++)
-//	{
-//		particleEquilibriumMoistureContent += SolidCompoundsDistribution[i] * EquilibriumMoistures[i];
-//	}
-//	particleEquilibriumMoistureContent *= moistureScaler;
-//	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
-//}
 
 ///////////////////////////////////
 /// Bed and particle properties ///
@@ -1690,7 +1659,6 @@ dimensionlessNumber CDryerBatch::CalculateArchimedes(length d32) const
 //{
 //	return false;
 //}
-
 
 /////////////////////
 /// Mass transfer ///
@@ -1849,6 +1817,7 @@ double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressure
 	//return alpha_PF;
 }
 
+/// TODO: CALCULATE OVERALL HEAT TRANSFER COEFFICIENT INCL. CONVECTION INSIDE AND OUTSIDE  
 double CDryerBatch::CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaInside, temperature thetaOutside, double k) const
 {
 	return 2 * MATH_PI * height * (thetaInside - thetaOutside) / (log((radiusInner + wallThickness) / radiusInner) * k);
@@ -1938,6 +1907,40 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogene
 /////////////////////////////////////////////////////////////////
 /// function related to drying kinetics, CURRENTLY NOT IN USE ///
 /////////////////////////////////////////////////////////////////
+
+double CDryerBatch::CalculateRelativeDryingRate(moistureContent X) const
+{
+	const double k_dc = GetConstRealParameterValue("k_dc");
+	const double X_cr = GetConstRealParameterValue("X_cr");
+	const double X_eq = GetConstRealParameterValue("X_eq");
+	const double REA_A = GetConstRealParameterValue("A");
+	const double REA_B = GetConstRealParameterValue("B");
+	const double REA_C = GetConstRealParameterValue("C");
+	const size_t methodIdx = GetComboParameterValue("Methods");
+	switch (methodIdx)
+	{
+	case 0: // REA
+	{
+		return 1 - REA_A * exp(REA_B * pow((X - X_eq), REA_C));
+	}
+	case 1: // NCDC
+	{
+		const double normX = (X - X_eq) / (X_cr - X_eq);
+		if (X <= X_eq)
+		{
+			return 0;
+		}
+		else if (X >= X_cr)
+		{
+			return 1;
+		}
+		else
+		{
+			return k_dc * normX / (1. + normX * (k_dc - 1.)); // for spray drying
+		}
+	}
+	}
+}
 
 //double CDryerBatch::GetParticleEquilibriumMoistureContent(double temperature, double RH) const
 //{
@@ -2062,10 +2065,9 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogene
 //	return -1;
 //}
 
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-/// Function related to particle X from materials database (sorption isotherm), CURRENTLY NOT IN USE ///
-////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Function related to particle X from materials database (sorption isotherm), CURRENTLY UNDER CONSTRUCTION ///
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //double CDryerBatch::GetEquilibriumRelativeHumidity(double temperature, double X) const
 //{
@@ -2176,44 +2178,41 @@ double CDryerBatch::CalculateBedPorosity(double _time, length d32, bool homogene
 //	return true;
 //}
 
-double CDryerBatch::CalculateRelativeDryingRate(moistureContent X) const
-{
-	const double k_dc = GetConstRealParameterValue("k_dc");
-	const double X_cr = GetConstRealParameterValue("X_cr");
-	const double X_eq = GetConstRealParameterValue("X_eq");
-	const double REA_A = GetConstRealParameterValue("A");
-	const double REA_B = GetConstRealParameterValue("B");
-	const double REA_C = GetConstRealParameterValue("C");
-	const size_t methodIdx = GetComboParameterValue("Methods");
-	switch (methodIdx)
-	{
-		case 0: // REA
-		{
-			return 1 - REA_A * exp(REA_B * pow((X - X_eq), REA_C));
-		}
-		case 1: // NCDC
-		{
-			const double normX = (X - X_eq) / (X_cr - X_eq);
-			if (X <= X_eq)
-			{
-				return 0;
-			}
-			else if (X >= X_cr)
-			{
-				return 1; 
-			}
-			else
-			{
-				return k_dc * normX / (1. + normX * (k_dc - 1.)); // for spray drying
-			}
-		}		
-	}
-}
+//moistureContent CDryerBatch::CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH)
+//{
+//	std::vector<moistureContent> EquilibriumMoistures(compoundKeys.size());
+//	moistureContent particleEquilibriumMoistureContent = 0;
+//	std::vector<massFraction> SolidCompoundsDistribution = m_holdup->GetPhase(EPhase::SOLID)->GetCompoundsDistribution(_time);
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		if (compoundKeys.at(i) == eqData.compoundKey)
+//			EquilibriumMoistures[i] = GetParticleEquilibriumMoistureContent(temperature, RH);
+//		else
+//			EquilibriumMoistures[i] = GetCompoundProperty(compoundKeys[i], ECompoundTPProperties::EQUILIBRIUM_MOISTURE_CONTENT, temperature, RH);
+//	}		
+//	// Equilibrium moisture content depends on temperatur and humidity
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		if (EquilibriumMoistures.at(i) < 0)
+//		{
+//			std::stringstream os;
+//			os << "Moisture content of " << GetCompoundName(compoundKeys.at(i)) << "at " << _time << "s returned a negativ moisture content for " << temperature << "K at " << RH * 100 << "%.";
+//			RaiseError(os.str());
+//			os.str() = "";
+//		}
+//	}
+//		
+//	for (int i = 0; i < compoundKeys.size(); i++)
+//	{
+//		particleEquilibriumMoistureContent += SolidCompoundsDistribution[i] * EquilibriumMoistures[i];
+//	}
+//	particleEquilibriumMoistureContent *= moistureScaler;
+//	return std::max(particleEquilibriumMoistureContent, minMoistureContent);
+//}
 
-
-//////////////////////////////////////////////////////////
-/// Heat loss to environment, CURRENTLY NOT IN USE     ///
-//////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////
+/// Heat loss to environment, CURRENTLY UNDER CONSTRUCTION ///
+//////////////////////////////////////////////////////////////
 
 //double CDryerBatch::CalculateAlpha_PW(double _t_p, double _t_g, double _p, double _time) const
 //{
