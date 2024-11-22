@@ -96,6 +96,7 @@ public:
 	const temperature T_ref = 273.15; // Ref. temperature for enthalpy [K] - default 273.15 K
 	temperature T_inf; // Ambient temperature [K] - default: Standard condition
 	// Gas phase
+		std::string keyGas = "4e3a9D257E6A9E4F03D1";
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
@@ -105,6 +106,8 @@ public:
 	// Gas in holdup (whole plant, incl. chamber & expansion)
 		const mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 	// Liquid phase
+		std::string keyLiquid = "4b3f8A1A71A315EFB4E5";
+		std::string keyVapor = "Es8yKDAVn3QLJwWy0vNK";
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		const heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
 		const heatCapacity C_PWaterVapor = 1890; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
@@ -112,6 +115,7 @@ public:
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
 	// Particle (solid) phase
+		std::string keySolid = "F3SLLny30KKziHtRbOE2";
 		double wadellFactor = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1250; // Heat capacity of MCC in [J/(kg*K)]

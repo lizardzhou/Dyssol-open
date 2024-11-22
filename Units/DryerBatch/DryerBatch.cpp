@@ -236,7 +236,8 @@ void CDryerBatch::Initialize(double _time)
 /// inlet fluidization gas conditions
 	const temperature T_inGas = m_inGasStream->GetTemperature(_time);
 	const temperature theta_inGas = m_inGasStream->GetTemperature(_time) - T_ref;
-	const moistureContent Y_inGas = GetConstRealParameterValue("Y_in") * 1e-3; // convert in [kg/kg]
+	const moistureContent Y_inGas = m_inGasStream->GetCompoundFraction(_time, keyVapor);
+		//GetConstRealParameterValue("Y_in") * 1e-3; // convert in [kg/kg]
 	const double RH_inGas = CalculateGasRelativeHumidity(Y_inGas, theta_inGas, m_holdupGas->GetPressure(_time));
 	const massFlow mFlowInGas = m_inGasStream->GetMassFlow(_time);
 	const massFraction y_in = ConvertMoistContentToMassFrac(Y_inGas);
@@ -247,7 +248,8 @@ void CDryerBatch::Initialize(double _time)
 
 /// nozzle gas condition
 	const massFlow mFlowInNozzleGas = m_inNozzleAirStream->GetMassFlow(_time);
-	const moistureContent Y_nozzle = GetConstRealParameterValue("Y_nozzle") * 1e-3; // convert to [kg/kg]
+	const moistureContent Y_nozzle = m_inNozzleAirStream->GetCompoundFraction(_time, keyVapor);
+		//GetConstRealParameterValue("Y_nozzle") * 1e-3; // convert to [kg/kg]
 	const massFraction y_nozzle = ConvertMoistContentToMassFrac(Y_nozzle);
 	const massFlow mFlowInNozzleGasDry = mFlowInNozzleGas * (1 - y_nozzle);
 	const temperature T_nozzleGas = m_inNozzleAirStream->GetTemperature(_time);
