@@ -28,13 +28,13 @@ public:
 
 	/// Indices of state variables for DAE solver: 5 DAE variables ///
 	// gas phase
-	size_t m_iYOutGas{}; //0 - outlet gas, no height discretization
-	size_t m_iTempOutGas{}; //1 - outlet gas, no height discretization
+	size_t m_iYOutGas{}; // outlet gas absolute moisture, no height discretization
+	size_t m_iTempOutGas{}; // outlet gas temperature, no height discretization == holdup gas temperature
 	// particle (solid) phase
-	size_t m_iTempParticle{}; //2
-	size_t m_iPhi{}; //3 - particle wetness degree
+	size_t m_iTempParticle{}; // particle teemperature
+	size_t m_iPhi{}; // particle wetness degree
 	// liquid phase (water film)
-	size_t m_iTempFilm{}; //4 - water film (on particle surface) temperature
+	size_t m_iTempFilm{}; // water film (on particle surface) temperature
 
 	// Debug
 	//std::vector<double> derFormulaStorage; // Storage for debug purposses
@@ -94,9 +94,9 @@ private:
 
 public:
 	const temperature T_ref = 273.15; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_inf; // Ambient temperature [K] - default: Standard condition
-	// Gas phase
-		std::string keyGas = "4e3a9D257E6A9E4F03D1";
+	temperature T_env; // Environment temperature [K] - default: Standard condition
+	// Air
+		std::string keyGas = "4e3a9D257E6A9E4F03D1"; // compound key for air
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
 		density rhoVapor = 0.8; // Density water vapor [kg/m3]
 		dynamicViscosity etaGas = 1.8e-5; // Dynamic viscosity gas [Pa*s] - default: air
@@ -104,18 +104,18 @@ public:
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
 	// Gas in holdup (whole plant, incl. chamber & expansion)
-		const mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
-	// Liquid phase
-		std::string keyLiquid = "4b3f8A1A71A315EFB4E5";
-		std::string keyVapor = "Es8yKDAVn3QLJwWy0vNK";
+		//const mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
+	// Water liquid and vapor
+		std::string keyLiquid = "4b3f8A1A71A315EFB4E5"; // compound key for liquid water
+		std::string keyVapor = "Es8yKDAVn3QLJwWy0vNK"; // compound key for water vapor
 		density rhoWater = 1000; // Density liquid [kg/m^3] - default: water
 		const heatCapacity C_PWaterLiquid = 4190; // Heat capacity liquid phase change compound[J / (kg * K)] - default: water
 		const heatCapacity C_PWaterVapor = 1890; // Heat capacity vapor phase change compound [J/(kg*K)] - default: water
 		const specificLatentHeat Delta_h0 = 2500e3; // Specific latent heat (evaporation heat) phase change compound at 0 degree [J/kg] - default: water
 		thermalConductivity lambdaWater = 0.6; // Thermal conductivity [W/(m*K)] - default: water
 		molarMass molarMassPhaseChangingLiquid = 0.018; // Molar mass of phase changing liquid [kg/mol] - default: water
-	// Particle (solid) phase
-		std::string keySolid = "F3SLLny30KKziHtRbOE2";
+	// Particle (solid)
+		std::string keySolid = "F3SLLny30KKziHtRbOE2"; // compound key for Cellets
 		double wadellFactor = 0.95;
 		density rhoParticle = 1500; // Particle density (Cellets: skeletal density)
 		heatCapacity C_PParticle = 1250; // Heat capacity of MCC in [J/(kg*K)]
