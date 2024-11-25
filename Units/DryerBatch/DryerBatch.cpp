@@ -398,6 +398,9 @@ void CDryerBatch::Initialize(double _time)
 		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time), 0.0, 0.0); 
 	}	
 
+	AddPlot("Total", "Time [s]", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("Total", "Outlet enthalpy flow");
+
 	/// height discretization, CURRENTLY NOT IN USE
 	//std::vector<moistureContent> Y_inInit(N_total, Y_in); // vector in case of height discretization
 	//std::vector<temperature> temperatureGasInit(N_total, m_holdup->GetTemperature(_time) - T_ref); // vector in case of height discretization
@@ -1000,17 +1003,12 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varT_gasHoldup - unit->T_ref, unit->T_env - unit->T_ref, unit->kWall);
-	// time points
-	const double prevTime = unit->m_holdupSolid->GetPreviousTimePoint(_time);
 
 /// Set holdup properties ///
 	// time points
 	holdupSolid->AddTimePoint(_time);
 	holdupLiquid->AddTimePoint(_time);
 	holdupGas->AddTimePoint(_time);
-	holdupSolid->RemoveTimePointsAfter(_time);
-	holdupLiquid->RemoveTimePointsAfter(_time);
-	holdupGas->RemoveTimePointsAfter(_time);
 	// set compound masses
 	holdupSolid->SetCompoundMass(_time, unit->keySolid, EPhase::SOLID, mHoldupSolid);
 	holdupLiquid->SetCompoundMass(_time, unit->keyLiquid, EPhase::LIQUID, mHoldupSolid * varX);
@@ -1026,18 +1024,14 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	//unit->m_VaporStream->SetMassFlow(_time, mFlowVapor);
 	//outGasStream->AddStream(_time, unit->m_VaporStream);
 	//outGasStream->AddStream(_time, unit->m_inNozzleAirStream);
+	outGasStream->CopyFromStream(_time, inGasStream); // initialization of outlet stream is important!!!
 	outGasStream->SetPhaseFraction(_time, EPhase::SOLID, 0);
 	outGasStream->SetPhaseFraction(_time, EPhase::LIQUID, 0);
 	outGasStream->SetPhaseFraction(_time, EPhase::VAPOR, 1);
 	outGasStream->SetTemperature(_time, varTempOutGas);
 	const massFlow mFlowOutgas = (mFlowInGasDry + mFlowInNozzleGasDry) * (1 + varYOutGas);
-	outGasStream->SetMassFlow(_time, mFlowOutgas);
-	outGasStream->SetCompoundFraction(_time, unit->keyVapor, EPhase::VAPOR, unit->ConvertMoistContentToMassFrac(varYOutGas));
-		//SetCompoundMass(_time, unit->keyVapor, EPhase::VAPOR, mFlowOutgas * unit->ConvertMoistContentToMassFrac(varYOutGas));
-		//SetCompoundFraction(_time, unit->keyVapor, EPhase::VAPOR, unit->ConvertMoistContentToMassFrac(varYOutGas));
-	outGasStream->SetCompoundFraction(_time, unit->keyGas, EPhase::VAPOR, 1 - unit->ConvertMoistContentToMassFrac(varYOutGas));
-		//SetCompoundMass(_time, unit->keyGas, EPhase::VAPOR, mFlowOutgas * (1 - unit->ConvertMoistContentToMassFrac(varYOutGas)));
-		//SetCompoundFraction(_time, unit->keyGas, EPhase::VAPOR, 1 - unit->ConvertMoistContentToMassFrac(varYOutGas));
+	outGasStream->SetCompoundMass(_time, unit->keyVapor, EPhase::VAPOR, mFlowOutgas* unit->ConvertMoistContentToMassFrac(varYOutGas));
+	outGasStream->SetCompoundMass(_time, unit->keyGas, EPhase::VAPOR, mFlowOutgas* (1 - unit->ConvertMoistContentToMassFrac(varYOutGas)));
 
 /// Set state variables ///
 	unit->SetStateVariable("Gas temperature in holdup [degC]", varTheta_gasHoldup, _time);
@@ -1079,6 +1073,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("OUTLET liquid water energy flow [J/s]", 0, _time);
 	unit->SetStateVariable("Enthalpy holdup liquid water [J]", mHoldupLiquid * C_PWaterLiquid * varThetaFilm, _time);
 
+	unit->AddPointOnCurve("Total", "Outlet enthalpy flow", _time, varHFlowOutGasFormula);
 
 	if (printResult)
 	{
