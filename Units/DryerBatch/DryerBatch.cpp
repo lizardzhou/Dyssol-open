@@ -329,7 +329,6 @@ void CDryerBatch::Initialize(double _time)
 	const double Y_holdupGas = ConvertMassFracToMoistContent(y_holdupGas);
 	const double RH_holdupGas = CalculateGasRelativeHumidity(Y_holdupGas, theta_holdupGas, m_holdupGas->GetPressure(_time));
 	const double mGasHoldup = m_holdupGas->GetMass(_time);
-	AddStateVariable("Gas mass in holdup [kg]", mGasHoldup);
 /// gas in outlet ///
 	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_holdupGas, 0.0, 0.0); // initial outlet gas absolut humidity == holdup gas 
 	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, T_holdupGas, 0.0, 0.0); // initial outlet gas temperature == holdup gas 
@@ -355,34 +354,12 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("Particle moisture content [%]", initX * 100);
 		AddStateVariable("Particle water mass fraction [%]", x_wInit * 100);
 		AddStateVariable("Particle wetness degree [%]", initPhi * 100);
-		AddStateVariable("Water liquid mass in holdup [kg]", mLiquidHoldup);
-		AddStateVariable("Water vapor mass in holdup [kg]", mGasHoldup * y_holdupGas);
 		AddStateVariable("Water evaporation rate [g/s]", 0);
 		AddStateVariable("Relative drying rate [-]", 0);
-		//AddStateVariable("INLET water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3);
-		//AddStateVariable("OUTLET water mass flow [g/s]", 0);
-		//AddStateVariable("INLET total energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
-		//AddStateVariable("OUTLET total energy flow [J/s]", 0);
-		AddStateVariable("OUTLET wall heat loss [J/s]", 0);
-		//AddStateVariable("Enthalpy holdup [J]", mSolidHoldup * C_PParticle * theta_holdupSolid +
-		//										mLiquidHoldup * C_PWaterLiquid * theta_holdupLiquid +
-		//										mGasHoldupDry * (C_PGas * theta_holdupGas + Y_holdupGas * (C_PWaterVapor * theta_holdupGas + Delta_h0)));
-
-		AddStateVariable("INLET dry air energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGasDry + mFlowInGasDry * h_inGasDry);
-		AddStateVariable("OUTLET dry air energy flow [J/s]", 0);
-		AddStateVariable("Enthalpy holdup dry air [J]", mGasHoldupDry * C_PGas * theta_holdupGas);
-
-		AddStateVariable("INLET water vapor energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGasVapor + mFlowInGasDry * h_inGasVapor);
-		AddStateVariable("OUTLET water vapor energy flow [J/s]", 0);
-		AddStateVariable("Enthalpy holdup water vapor [J]", mGasHoldupDry * Y_inGas * (C_PWaterVapor * theta_holdupGas + Delta_h0));
-
-		AddStateVariable("INLET solid energy flow [J/s]", 0);
-		AddStateVariable("OUTLET solid energy flow [J/s]", 0);
-		AddStateVariable("Enthalpy holdup solid [J]", mSolidHoldup * C_PParticle * theta_holdupSolid);
-
-		AddStateVariable("INLET liquid water energy flow [J/s]", mFlowSprayLiquid * x_wSusp * h_susp);
-		AddStateVariable("OUTLET liquid water energy flow [J/s]", 0);
-		AddStateVariable("Enthalpy holdup liquid water [J]", mLiquidHoldup * C_PWaterLiquid * theta_holdupLiquid);
+		AddStateVariable("Heat loss gas to wall [J/s]", 0);
+		AddStateVariable("Heat transfer gas to particle [J/s]", 0);
+		AddStateVariable("Heat transfer gas to water film [J/s]", 0);
+		AddStateVariable("Heat transfer particle to water film [J/s]", 0);
 		
 		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
 		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
@@ -688,7 +665,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double derYOutGasFormula = (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle - (mFlowInGasDry + mFlowInNozzleGasDry) * varYOutGas) / mHoldupGas + varMFlowVaporFormula / mHoldupGas; // currently Y_in - Y_out
 	// particle (solid) phase
 	const double derTempParticle = _ders[m_iTempParticle];
-	const double derTempParticleFormula = (varQFlow_GP_Formula - varQFlow_PF_Formula /* - varQ_PW_Formula in the future*/) / (mHoldupSolid * (C_PParticle + C_PWaterLiquid * X_wP)); 
+	const double derTempParticleFormula = (varQFlow_GP_Formula - varQFlow_PF_Formula /* - varQ_PW_Formula in the future*/) / (mHoldupSolid * C_PParticle); 
 	// liquid phase (water film)
 	const double derTempFlim = _ders[m_iTempFilm];
 	const double derPhi = _ders[m_iPhi];
@@ -1037,7 +1014,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varT_gasHoldup - unit->T_ref, unit->T_env - unit->T_ref, unit->kWall);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
 
 /// Set holdup properties ///
 	// time points
@@ -1065,17 +1042,17 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	outGasStream->SetCompoundMass(_time, unit->keyGas, EPhase::VAPOR, mFlowOutgas* (1 - unit->ConvertMoistContentToMassFrac(varYOutGas)));
 
 /// Set state variables ///
-	unit->SetStateVariable("Gas mass in holdup [kg]", mHoldupGas, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", varYOutGas * 1e3, _time);
 	unit->SetStateVariable("Gas RH_outlet [%]", 100 * (unit->CalculateGasRelativeHumidity(varYOutGas, varThetaOutGas, pressureGasHoldup)), _time);
 	unit->SetStateVariable("Particle moisture content [%]", varX * 100, _time);
 	unit->SetStateVariable("Particle water mass fraction [%]", unit->ConvertMoistContentToMassFrac(varX) * 100, _time);
 	unit->SetStateVariable("Particle wetness degree [%]", varPhi * 100, _time);
-	unit->SetStateVariable("Water liquid mass in holdup [kg]", mHoldupSolid * varX, _time); // COMPARE WITH PLOT LIQUID MASS IN HOLDUP
-	unit->SetStateVariable("Water vapor mass in holdup [kg]", mHoldupGasDry * varYOutGas, _time); // COMPARE WITH PLOT VAPOR MASS IN HOLDUP
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
-	unit->SetStateVariable("OUTLET wall heat loss [J/s]", QFlow_GW_Chamber, _time);
+	unit->SetStateVariable("Heat loss gas to wall [J/s]", QFlow_GW_Chamber, _time);
+	unit->SetStateVariable("Heat transfer gas to particle [J/s]", varQFlow_GP_Formula, _time);
+	unit->SetStateVariable("Heat transfer gas to water film [J/s]", varQFlow_GF_Formula, _time);
+	unit->SetStateVariable("Heat transfer particle to water film [J/s]", varQFlow_PF_Formula, _time);
 
 /// Plotting ///
 	// temperatures
