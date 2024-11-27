@@ -329,12 +329,10 @@ void CDryerBatch::Initialize(double _time)
 	const double Y_holdupGas = ConvertMassFracToMoistContent(y_holdupGas);
 	const double RH_holdupGas = CalculateGasRelativeHumidity(Y_holdupGas, theta_holdupGas, m_holdupGas->GetPressure(_time));
 	const double mGasHoldup = m_holdupGas->GetMass(_time);
-	AddStateVariable("Gas temperature in holdup [degC]", theta_holdupGas); 
 	AddStateVariable("Gas mass in holdup [kg]", mGasHoldup);
 /// gas in outlet ///
 	m_model.m_iYOutGas = m_model.AddDAEVariable(true, Y_holdupGas, 0.0, 0.0); // initial outlet gas absolut humidity == holdup gas 
 	m_model.m_iTempOutGas = m_model.AddDAEVariable(true, T_holdupGas, 0.0, 0.0); // initial outlet gas temperature == holdup gas 
-	AddStateVariable("Gas temperature outlet [degC]", theta_holdupGas); //Outlet gas temperature in degreeC
 	AddStateVariable("Gas Y_outlet [g/kg]", Y_holdupGas * 1e3);
 	AddStateVariable("Gas RH_outlet [%]", RH_holdupGas * 100);
 
@@ -357,20 +355,18 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("Particle moisture content [%]", initX * 100);
 		AddStateVariable("Particle water mass fraction [%]", x_wInit * 100);
 		AddStateVariable("Particle wetness degree [%]", initPhi * 100);
-		AddStateVariable("Particle temperature [degC]", T_ParticleInit - T_ref); // [°C]	
-		AddStateVariable("Water mass in holdup [kg]", mLiquidHoldup);
-		AddStateVariable("Vapor mass in holdup [kg]", mGasHoldup * y_holdupGas);
-		AddStateVariable("Water film temperature [degC]", T_LiquidInit - T_ref); // [°C]
+		AddStateVariable("Water liquid mass in holdup [kg]", mLiquidHoldup);
+		AddStateVariable("Water vapor mass in holdup [kg]", mGasHoldup * y_holdupGas);
 		AddStateVariable("Water evaporation rate [g/s]", 0);
 		AddStateVariable("Relative drying rate [-]", 0);
-		AddStateVariable("INLET water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3);
-		AddStateVariable("OUTLET water mass flow [g/s]", 0);
-		AddStateVariable("INLET total energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
-		AddStateVariable("OUTLET total energy flow [J/s]", 0);
+		//AddStateVariable("INLET water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3);
+		//AddStateVariable("OUTLET water mass flow [g/s]", 0);
+		//AddStateVariable("INLET total energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
+		//AddStateVariable("OUTLET total energy flow [J/s]", 0);
 		AddStateVariable("OUTLET wall heat loss [J/s]", 0);
-		AddStateVariable("Enthalpy holdup [J]", mSolidHoldup * C_PParticle * theta_holdupSolid +
-												mLiquidHoldup * C_PWaterLiquid * theta_holdupLiquid +
-												mGasHoldupDry * (C_PGas * theta_holdupGas + Y_holdupGas * (C_PWaterVapor * theta_holdupGas + Delta_h0)));
+		//AddStateVariable("Enthalpy holdup [J]", mSolidHoldup * C_PParticle * theta_holdupSolid +
+		//										mLiquidHoldup * C_PWaterLiquid * theta_holdupLiquid +
+		//										mGasHoldupDry * (C_PGas * theta_holdupGas + Y_holdupGas * (C_PWaterVapor * theta_holdupGas + Delta_h0)));
 
 		AddStateVariable("INLET dry air energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGasDry + mFlowInGasDry * h_inGasDry);
 		AddStateVariable("OUTLET dry air energy flow [J/s]", 0);
@@ -387,7 +383,6 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("INLET liquid water energy flow [J/s]", mFlowSprayLiquid * x_wSusp * h_susp);
 		AddStateVariable("OUTLET liquid water energy flow [J/s]", 0);
 		AddStateVariable("Enthalpy holdup liquid water [J]", mLiquidHoldup * C_PWaterLiquid * theta_holdupLiquid);
-
 		
 		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
 		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
@@ -398,8 +393,48 @@ void CDryerBatch::Initialize(double _time)
 		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time), 0.0, 0.0); 
 	}	
 
-	AddPlot("Total", "Time [s]", "Outlet enthalpy flow [J/s]");
-	AddCurveOnPlot("Total", "Outlet enthalpy flow");
+///  Add plots ///
+	// temperatures
+	AddPlot("TEMPERATURES", "Time [s]", "Temperature [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Outlet gas [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Holdup gas [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Holdup liquid film [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Holdup solid [degC]");
+	// water vapor mass or mass flow 
+	AddPlot("MASS water vapor", "Time [s]", "Mass flow [kg/s] or mass [kg]");
+	AddCurveOnPlot("MASS water vapor", "Inlet vapor mass flow [kg/s]");
+	AddCurveOnPlot("MASS water vapor", "Outlet vapor mass flow [kg/s]");
+	AddCurveOnPlot("MASS water vapor", "Vapor mass in holdup [kg]");
+	// water liquid mass or mass flow 
+	AddPlot("MASS water liquid", "Time [s]", "Mass flow [kg/s] or mass [kg]");
+	AddCurveOnPlot("MASS water liquid", "Inlet liquid mass flow [kg/s]");
+	AddCurveOnPlot("MASS water liquid", "Outlet liquid mass flow [kg/s]");
+	AddCurveOnPlot("MASS water liquid", "Liquid mass in holdup [kg]");
+	// total energy flow / holdup
+	AddPlot("ENERGY total", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
+	AddCurveOnPlot("ENERGY total", "Inlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY total", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY total", "Enthalpy in holdup [J]");
+	// water vapor energy flow / holdup 
+	AddPlot("ENERGY water vapor", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
+	AddCurveOnPlot("ENERGY water vapor", "Inlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY water vapor", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY water vapor", "Enthalpy in holdup [J]");
+	// water liquid energy flow / holdup 
+	AddPlot("ENERGY water liquid", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
+	AddCurveOnPlot("ENERGY water liquid", "Inlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY water liquid", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY water liquid", "Enthalpy in holdup [J]");
+	// dry air energy flow / holdup
+	AddPlot("ENERGY dry air", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
+	AddCurveOnPlot("ENERGY dry air", "Inlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY dry air", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY dry air", "Enthalpy in holdup [J]");
+	// solid Cellets energy flow / holdup
+	AddPlot("ENERGY particle", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
+	AddCurveOnPlot("ENERGY particle", "Inlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY particle", "Outlet enthalpy flow [J/s]");
+	AddCurveOnPlot("ENERGY particle", "Enthalpy in holdup [J]");
 
 	/// height discretization, CURRENTLY NOT IN USE
 	//std::vector<moistureContent> Y_inInit(N_total, Y_in); // vector in case of height discretization
@@ -1020,10 +1055,6 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	holdupGas->SetTemperature(_time, varTempOutGas);
 
 /// Set outlet properties ///
-	//outGasStream->CopyFromStream(_time, unit->m_inGasStream);
-	//unit->m_VaporStream->SetMassFlow(_time, mFlowVapor);
-	//outGasStream->AddStream(_time, unit->m_VaporStream);
-	//outGasStream->AddStream(_time, unit->m_inNozzleAirStream);
 	outGasStream->CopyFromStream(_time, inGasStream); // initialization of outlet stream is important!!!
 	outGasStream->SetPhaseFraction(_time, EPhase::SOLID, 0);
 	outGasStream->SetPhaseFraction(_time, EPhase::LIQUID, 0);
@@ -1034,47 +1065,56 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	outGasStream->SetCompoundMass(_time, unit->keyGas, EPhase::VAPOR, mFlowOutgas* (1 - unit->ConvertMoistContentToMassFrac(varYOutGas)));
 
 /// Set state variables ///
-	unit->SetStateVariable("Gas temperature in holdup [degC]", varTheta_gasHoldup, _time);
 	unit->SetStateVariable("Gas mass in holdup [kg]", mHoldupGas, _time);
-	unit->SetStateVariable("Gas temperature outlet [degC]", varTempOutGas - unit->T_ref, _time);
 	unit->SetStateVariable("Gas Y_outlet [g/kg]", varYOutGas * 1e3, _time);
 	unit->SetStateVariable("Gas RH_outlet [%]", 100 * (unit->CalculateGasRelativeHumidity(varYOutGas, varThetaOutGas, pressureGasHoldup)), _time);
 	unit->SetStateVariable("Particle moisture content [%]", varX * 100, _time);
 	unit->SetStateVariable("Particle water mass fraction [%]", unit->ConvertMoistContentToMassFrac(varX) * 100, _time);
 	unit->SetStateVariable("Particle wetness degree [%]", varPhi * 100, _time);
-	unit->SetStateVariable("Particle temperature [degC]", varTempParticle - unit->T_ref, _time);
-	unit->SetStateVariable("Water mass in holdup [kg]", mHoldupSolid * varX, _time);
-	unit->SetStateVariable("Vapor mass in holdup [kg]", mHoldupGas * unit->ConvertMoistContentToMassFrac(_vars[m_iYOutGas]), _time);
-	unit->SetStateVariable("Water film temperature [degC]", varThetaFilm, _time);
+	unit->SetStateVariable("Water liquid mass in holdup [kg]", mHoldupSolid * varX, _time); // COMPARE WITH PLOT LIQUID MASS IN HOLDUP
+	unit->SetStateVariable("Water vapor mass in holdup [kg]", mHoldupGasDry * varYOutGas, _time); // COMPARE WITH PLOT VAPOR MASS IN HOLDUP
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
-	unit->SetStateVariable("INLET water mass flow [g/s]", (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle + mFlowSprayLiquid * x_wSusp) * 1e3, _time); 
-	unit->SetStateVariable("OUTLET water mass flow [g/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * varYOutGas * 1e3, _time); 
-	unit->SetStateVariable("INLET total energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp, _time); 
-	unit->SetStateVariable("OUTLET total energy flow [J/s]", varHFlowOutGasFormula, _time);
 	unit->SetStateVariable("OUTLET wall heat loss [J/s]", QFlow_GW_Chamber, _time);
-	unit->SetStateVariable("Enthalpy holdup [J]", mHoldupSolid * C_PParticle * varThetaParticle +
-												  mHoldupLiquid * C_PWaterLiquid * varThetaFilm +
-												  mHoldupGasDry * (C_PGas * varTheta_gasHoldup + varYOutGas * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0)), _time);
-	
-	unit->SetStateVariable("INLET dry air energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGasDry + mFlowInGasDry * h_inGasDry, _time);
-	unit->SetStateVariable("OUTLET dry air energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * C_PGas * varThetaOutGas, _time);
-	unit->SetStateVariable("Enthalpy holdup dry air [J]", mHoldupGasDry * C_PGas * varTheta_gasHoldup, _time);
 
-	unit->SetStateVariable("INLET water vapor energy flow [J/s]", mFlowInNozzleGasDry * h_nozzleGasVapor + mFlowInGasDry * h_inGasVapor, _time);
-	unit->SetStateVariable("OUTLET water vapor energy flow [J/s]", (mFlowInGasDry + mFlowInNozzleGasDry) * varYOutGas * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0), _time);
-	unit->SetStateVariable("Enthalpy holdup water vapor [J]", mHoldupGasDry * varYOutGas * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0), _time);
+/// Plotting ///
+	// temperatures
+	unit->AddPointOnCurve("TEMPERATURES", "Outlet gas [degC]", _time, varThetaOutGas);
+	unit->AddPointOnCurve("TEMPERATURES", "Holdup gas [degC]", _time, varTheta_gasHoldup);
+	unit->AddPointOnCurve("TEMPERATURES", "Holdup liquid film [degC]", _time, varThetaFilm);
+	unit->AddPointOnCurve("TEMPERATURES", "Holdup solid [degC]", _time, varThetaParticle);
+	// water vapor mass or mass flow
+	unit->AddPointOnCurve("MASS water vapor", "Inlet vapor mass flow [kg/s]", _time, inGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
+	unit->AddPointOnCurve("MASS water vapor", "Outlet vapor mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
+	unit->AddPointOnCurve("MASS water vapor", "Vapor mass in holdup [kg]", _time, holdupGas->GetCompoundMass(_time, unit->keyVapor));
+	// water liquid mass or mass flow 
+	unit->AddPointOnCurve("MASS water liquid", "Inlet liquid mass flow [kg/s]", _time, inLiquidStream->GetCompoundMassFlow(_time, unit->keyLiquid));
+	unit->AddPointOnCurve("MASS water liquid", "Outlet liquid mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyLiquid));
+	unit->AddPointOnCurve("MASS water liquid", "Liquid mass in holdup [kg]", _time, holdupLiquid->GetCompoundMass(_time, unit->keyLiquid));
+	// total energy flow / holdup
+	unit->AddPointOnCurve("ENERGY total", "Inlet enthalpy flow [J/s]", _time, mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
+	unit->AddPointOnCurve("ENERGY total", "Outlet enthalpy flow [J/s]", _time, varHFlowOutGasFormula);
+	unit->AddPointOnCurve("ENERGY total", "Enthalpy in holdup [J]", _time, mHoldupSolid* C_PParticle* varThetaParticle +
+																		   mHoldupLiquid * C_PWaterLiquid * varThetaFilm +
+																	       mHoldupGasDry * (C_PGas * varTheta_gasHoldup + varYOutGas * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0)));
+	// water vapor energy flow / holdup
+	unit->AddPointOnCurve("ENERGY water vapor", "Inlet enthalpy flow [J/s]", _time, inGasStream->GetCompoundMassFlow(_time, unit->keyVapor) * (C_PWaterVapor* theta_inGas + Delta_h0) + inNozzleAirStream->GetCompoundMassFlow(_time, unit->keyVapor) * (C_PWaterVapor * thetaNozzleGas + Delta_h0));
+	unit->AddPointOnCurve("ENERGY water vapor", "Outlet enthalpy flow [J/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyVapor) * (C_PWaterVapor * varThetaOutGas + Delta_h0));
+	unit->AddPointOnCurve("ENERGY water vapor", "Enthalpy in holdup [J]", _time, holdupGas->GetCompoundMass(_time, unit->keyVapor) * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0));
+	// water liquid energy flow / holdup
+	unit->AddPointOnCurve("ENERGY water liquid", "Inlet enthalpy flow [J/s]", _time, inLiquidStream->GetCompoundMassFlow(_time, unit->keyLiquid) * C_PWaterLiquid * thetaSprayLiquid);
+	unit->AddPointOnCurve("ENERGY water liquid", "Outlet enthalpy flow [J/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyLiquid)* C_PWaterLiquid * varThetaOutGas);
+	unit->AddPointOnCurve("ENERGY water liquid", "Enthalpy in holdup [J]", _time, holdupLiquid->GetCompoundMass(_time, unit->keyLiquid) * C_PWaterLiquid * varThetaFilm);
+	// dry air energy flow / holdup
+	unit->AddPointOnCurve("ENERGY dry air", "Inlet enthalpy flow [J/s]", _time, inGasStream->GetCompoundMassFlow(_time, unit->keyGas) * C_PGas * theta_inGas + inNozzleAirStream->GetCompoundMassFlow(_time, unit->keyGas) * C_PGas * thetaNozzleGas);
+	unit->AddPointOnCurve("ENERGY dry air", "Outlet enthalpy flow [J/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyGas) * C_PGas * varThetaOutGas);
+	unit->AddPointOnCurve("ENERGY dry air", "Enthalpy in holdup [J]", _time, holdupGas->GetCompoundMass(_time, unit->keyGas) * C_PGas * varTheta_gasHoldup);
+	// solid Cellets energy flow / holdup
+	unit->AddPointOnCurve("ENERGY particle", "Inlet enthalpy flow [J/s]", _time, 0);
+	unit->AddPointOnCurve("ENERGY particle", "Outlet enthalpy flow [J/s]", _time, 0);
+	unit->AddPointOnCurve("ENERGY particle", "Enthalpy in holdup [J]", _time, holdupSolid->GetCompoundMass(_time, unit->keySolid) * C_PParticle * varThetaParticle);
 
-	unit->SetStateVariable("INLET solid energy flow [J/s]", 0, _time);
-	unit->SetStateVariable("OUTLET solid energy flow [J/s]", 0, _time);
-	unit->SetStateVariable("Enthalpy holdup solid [J]", mHoldupSolid * C_PParticle * varThetaParticle, _time);
-
-	unit->SetStateVariable("INLET liquid water energy flow [J/s]", mFlowSprayLiquid * x_wSusp * h_susp, _time);
-	unit->SetStateVariable("OUTLET liquid water energy flow [J/s]", 0, _time);
-	unit->SetStateVariable("Enthalpy holdup liquid water [J]", mHoldupLiquid * C_PWaterLiquid * varThetaFilm, _time);
-
-	unit->AddPointOnCurve("Total", "Outlet enthalpy flow", _time, varHFlowOutGasFormula);
-
+/// Print results for each simulation time point ///
 	if (printResult)
 	{
 		/// Print simulation results for each time step ///
