@@ -95,6 +95,9 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("k_dc", 2, "-", "k for normalized drying curve. \nthe normalized drying curve of the material describes the relative drying rate f: \n f = k*normX/(1+normX*(k-1)), \n normX=(X-X_eq)/(X_cr-X_eq).", 0.1, 10);
 	AddParametersToGroup("Methods", "REA", { "X_eq", "A", "B", "C" });
 	AddParametersToGroup("Methods", "NCDC", { "X_cr", "X_eq", "k_dc" });
+	itemNames = {"Y_eq", "Y_sat"};
+	AddComboParameter("Use Y_eq or Y_sat?", 0, items, itemNames, "Choose between Y_eq (equilibrium gas moisture calculated from desorption isotherm) and Y_sat (saturation gas moisture) to calculate the water evaporation rate.");
+	AddCheckBoxParameter("Use relative drying rate?", false, "Tick this box to use relative drying rate to calculate the water evaporation rate.");
 
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
@@ -357,6 +360,7 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("Water evaporation rate [g/s]", 0);
 		AddStateVariable("Relative drying rate [-]", 0);
 		AddStateVariable("Heat loss gas to wall [J/s]", 0);
+		AddStateVariable("Enthalpy flow of water evaporation [J/s]", 0);
 		AddStateVariable("Heat transfer gas to particle [J/s]", 0);
 		AddStateVariable("Heat transfer gas to water film [J/s]", 0);
 		AddStateVariable("Heat transfer particle to water film [J/s]", 0);
@@ -373,10 +377,10 @@ void CDryerBatch::Initialize(double _time)
 ///  Add plots ///
 	// temperatures
 	AddPlot("TEMPERATURES", "Time [s]", "Temperature [degC]");
-	AddCurveOnPlot("TEMPERATURES", "Outlet gas [degC]");
-	AddCurveOnPlot("TEMPERATURES", "Holdup gas [degC]");
-	AddCurveOnPlot("TEMPERATURES", "Holdup liquid film [degC]");
 	AddCurveOnPlot("TEMPERATURES", "Holdup solid [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Holdup liquid film [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Holdup gas [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Outlet gas [degC]");
 	// water vapor mass or mass flow 
 	AddPlot("MASS water vapor", "Time [s]", "Mass flow [kg/s] or mass [kg]");
 	AddCurveOnPlot("MASS water vapor", "Inlet vapor mass flow [kg/s]");
@@ -648,21 +652,32 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
 	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, _vars[m_iTempOutGas] - unit->T_ref, varD_a_Formula);
 	// water vapor
-	const double f = unit->CalculateRelativeDryingRate(varX);
-	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_eq_Formula - varYOutGas) * f;
+	const bool usef = unit->GetCheckboxParameterValue("Use relative drying rate?");
+	const double f = usef ? unit->CalculateRelativeDryingRate(varX) : 1;
+	const size_t Y_maxMethod = unit->GetComboParameterValue("Use Y_eq or Y_sat?");
+	double Y_max = 0;
+	if (Y_maxMethod == 0) // use Y_eq
+	{
+		Y_max = varY_eq_Formula;
+	}
+	else // use Y_sat
+	{
+		Y_max = varY_sat_Formula;
+	}
+	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
 	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
 	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm); 
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varT_gasHoldup - unit->T_ref, unit->T_env - unit->T_ref, unit->kWall);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
 	const double derTempOutGas = _ders[m_iTempOutGas];
 	const double derYOutGas = _ders[m_iYOutGas];
 	const double derTempOutGasFormula = (mFlowInGasDry * h_inGas /*HFlowInGas*/ + mFlowInNozzleGasDry * h_nozzleGas/*HFlowNozzleGas*/ - varHFlowOutGasFormula - varQFlow_GP_Formula - varQFlow_GF_Formula - QFlow_GW_Chamber + varHFlowVaporFormula) / (mHoldupGasDry * (C_PGas + C_PWaterVapor * varYOutGas)) - derYOutGas * (C_PWaterVapor * varThetaOutGas + Delta_h0) / (C_PGas + C_PWaterVapor * varYOutGas);
-	const double derYOutGasFormula = (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle - (mFlowInGasDry + mFlowInNozzleGasDry) * varYOutGas) / mHoldupGas + varMFlowVaporFormula / mHoldupGas; // currently Y_in - Y_out
+	const double derYOutGasFormula = (mFlowInGasDry * Y_inGas + mFlowInNozzleGasDry * Y_nozzle - (mFlowInGasDry + mFlowInNozzleGasDry) * varYOutGas) / mHoldupGasDry + varMFlowVaporFormula / mHoldupGasDry; // currently Y_in - Y_out
 	// particle (solid) phase
 	const double derTempParticle = _ders[m_iTempParticle];
 	const double derTempParticleFormula = (varQFlow_GP_Formula - varQFlow_PF_Formula /* - varQ_PW_Formula in the future*/) / (mHoldupSolid * C_PParticle); 
@@ -1007,8 +1022,19 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
 	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, _vars[m_iTempOutGas] - unit->T_ref, varD_a_Formula);
 	// water vapor
-	const double f = unit->CalculateRelativeDryingRate(varX);
-	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (varY_eq_Formula - varYOutGas) * f;
+	const bool usef = unit->GetCheckboxParameterValue("Use relative drying rate?");
+	const double f = usef ? unit->CalculateRelativeDryingRate(varX) : 1;
+	const size_t Y_maxMethod = unit->GetComboParameterValue("Use Y_eq or Y_sat?");
+	double Y_max = 0;
+	if (Y_maxMethod == 0) // use Y_eq
+	{
+		Y_max = varY_eq_Formula;
+	}
+	else // use Y_sat
+	{
+		Y_max = varY_sat_Formula;
+	}
+	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
@@ -1050,16 +1076,17 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
 	unit->SetStateVariable("Heat loss gas to wall [J/s]", QFlow_GW_Chamber, _time);
+	unit->SetStateVariable("Enthalpy flow of water evaporation [J/s]", varHFlowVaporFormula, _time);
 	unit->SetStateVariable("Heat transfer gas to particle [J/s]", varQFlow_GP_Formula, _time);
 	unit->SetStateVariable("Heat transfer gas to water film [J/s]", varQFlow_GF_Formula, _time);
 	unit->SetStateVariable("Heat transfer particle to water film [J/s]", varQFlow_PF_Formula, _time);
 
 /// Plotting ///
 	// temperatures
-	unit->AddPointOnCurve("TEMPERATURES", "Outlet gas [degC]", _time, varThetaOutGas);
-	unit->AddPointOnCurve("TEMPERATURES", "Holdup gas [degC]", _time, varTheta_gasHoldup);
-	unit->AddPointOnCurve("TEMPERATURES", "Holdup liquid film [degC]", _time, varThetaFilm);
 	unit->AddPointOnCurve("TEMPERATURES", "Holdup solid [degC]", _time, varThetaParticle);
+	unit->AddPointOnCurve("TEMPERATURES", "Holdup liquid film [degC]", _time, varThetaFilm);
+	unit->AddPointOnCurve("TEMPERATURES", "Holdup gas [degC]", _time, varTheta_gasHoldup);
+	unit->AddPointOnCurve("TEMPERATURES", "Outlet gas [degC]", _time, varThetaOutGas);
 	// water vapor mass or mass flow
 	unit->AddPointOnCurve("MASS water vapor", "Inlet vapor mass flow [kg/s]", _time, inGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
 	unit->AddPointOnCurve("MASS water vapor", "Outlet vapor mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
