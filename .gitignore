@@ -236,3 +236,5 @@ Dyssol.VC.VC.opendb
 /Documentation/conf.py
 /install/
 /ExternalLibraries/_backup/
+/CMakePresets.json
+/CMakeUserPresets.json
