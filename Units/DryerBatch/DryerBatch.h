@@ -103,8 +103,6 @@ public:
 		const heatCapacity C_PGas = 1004; // Heat capacity gas [J/(kg*K)] - default: air
 		thermalConductivity lambdaGas = 0.025; // Thermal conductivity gas [W/(m*K)] - default: air
 		molarMass molarMassGas = 0.028949; // Molar mass of gas mixture [kg/mol] - default: air
-	// Gas in holdup (whole plant, incl. chamber & expansion)
-		//const mass mGasHoldup_Dry = 0.62; // mass of DRY gas in the plant (chamber + expansion part) [kg]
 	// Water liquid and vapor
 		std::string keyLiquid = "4b3f8A1A71A315EFB4E5"; // compound key for liquid water
 		std::string keyVapor = "Es8yKDAVn3QLJwWy0vNK"; // compound key for water vapor
