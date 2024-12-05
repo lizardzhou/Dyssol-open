@@ -358,10 +358,6 @@ void CDryerBatch::Initialize(double _time)
 		AddStateVariable("Water evaporation rate [g/s]", 0);
 		AddStateVariable("Relative drying rate [-]", 0);
 		AddStateVariable("Heat loss gas to wall [J/s]", 0);
-		AddStateVariable("alpha_GP [W/(m2*K)]", 0);
-		AddStateVariable("alpha_GF [W/(m2*K)]", 0);
-		AddStateVariable("alpha_PF [W/(m2*K)]", 0);
-		AddStateVariable("beta [m/s]", 0);
 		
 		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
 		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
@@ -390,11 +386,16 @@ void CDryerBatch::Initialize(double _time)
 	AddCurveOnPlot("MASS water liquid", "Outlet liquid mass flow [kg/s]");
 	AddCurveOnPlot("MASS water liquid", "Liquid mass in holdup [kg]");
 	// energy streams
-	AddPlot("ENERGY streams", "Time [s]", "Enthalpy flow [J/s]");
-	AddCurveOnPlot("ENERGY streams", "Heat transfer gas to particle [J/s]");
-	AddCurveOnPlot("ENERGY streams", "Heat transfer gas to water film [J/s]");
-	AddCurveOnPlot("ENERGY streams", "Heat transfer particle to water film [J/s]");
-	AddCurveOnPlot("ENERGY streams", "Water vapor flow enthalpy [J/s]");
+	AddPlot("HEAT TRANSFER", "Time [s]", "Enthalpy flow [J/s] or coefficients");
+	AddCurveOnPlot("HEAT TRANSFER", "Heat transfer GP [J/s]");
+	AddCurveOnPlot("HEAT TRANSFER", "alpha_GP [W/(m2*K)]");
+	AddCurveOnPlot("HEAT TRANSFER", "Heat transfer GF [J/s]");
+	AddCurveOnPlot("HEAT TRANSFER", "alpha_GF [W/(m2*K)]");
+	AddCurveOnPlot("HEAT TRANSFER", "Heat transfer PF [J/s]");
+	AddCurveOnPlot("HEAT TRANSFER", "alpha_PF [W/(m2*K)]");
+	AddCurveOnPlot("HEAT TRANSFER", "Water vapor flow enthalpy [J/s]");
+	AddCurveOnPlot("HEAT TRANSFER", "beta [m/s]");
+	AddCurveOnPlot("HEAT TRANSFER", "Heat loss gas to wall [J/s]");
 	// total energy flow / holdup
 	AddPlot("ENERGY total", "Time [s]", "Enthalpy flow [J/s] or Enthalpy [J]");
 	AddCurveOnPlot("ENERGY total", "Inlet enthalpy flow [J/s]");
@@ -944,11 +945,6 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->SetStateVariable("Particle wetness degree [%]", varPhi * 100, _time);
 	unit->SetStateVariable("Water evaporation rate [g/s]", varMFlowVaporFormula * 1e3, _time);
 	unit->SetStateVariable("Relative drying rate [-]", f, _time);
-	unit->SetStateVariable("Heat loss gas to wall [J/s]", QFlow_GW_Chamber, _time);
-	unit->SetStateVariable("alpha_GP [W/(m2*K)]", varAlpha_GP_Formula, _time);
-	unit->SetStateVariable("alpha_GF [W/(m2*K)]", varAlpha_GF_Formula, _time);
-	unit->SetStateVariable("alpha_PF [W/(m2*K)]", varAlpha_PF_Formula, _time);
-	unit->SetStateVariable("beta [m/s]", varBeta_FG_Formula, _time);
 
 /// Plotting ///
 	// temperatures
@@ -965,10 +961,15 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->AddPointOnCurve("MASS water liquid", "Outlet liquid mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyLiquid));
 	unit->AddPointOnCurve("MASS water liquid", "Liquid mass in holdup [kg]", _time, holdupLiquid->GetCompoundMass(_time, unit->keyLiquid));
 	// energy streams
-	unit->AddPointOnCurve("ENERGY streams", "Heat transfer gas to particle [J/s]", _time, varQFlow_GP_Formula);
-	unit->AddPointOnCurve("ENERGY streams", "Heat transfer gas to water film [J/s]", _time, varQFlow_GF_Formula);
-	unit->AddPointOnCurve("ENERGY streams", "Heat transfer particle to water film [J/s]", _time, varQFlow_PF_Formula);
-	unit->AddPointOnCurve("ENERGY streams", "Water vapor flow enthalpy [J/s]", _time, varHFlowVaporFormula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GP [J/s]", _time, varQFlow_GP_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GP [W/(m2*K)]", _time, varAlpha_GP_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GF [J/s]", _time, varQFlow_GF_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GF [W/(m2*K)]", _time, varAlpha_GF_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer PF [J/s]", _time, varQFlow_PF_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_PF [W/(m2*K)]", _time, varAlpha_PF_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Water vapor flow enthalpy [J/s]", _time, varHFlowVaporFormula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "beta [m/s]", _time, varBeta_FG_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat loss gas to wall [J/s]", _time, QFlow_GW_Chamber);
 	// total energy flow / holdup
 	unit->AddPointOnCurve("ENERGY total", "Inlet enthalpy flow [J/s]", _time, mFlowInNozzleGasDry * h_nozzleGas + mFlowInGasDry * h_inGas + mFlowSprayLiquid * h_susp);
 	unit->AddPointOnCurve("ENERGY total", "Outlet enthalpy flow [J/s]", _time, varHFlowOutGasFormula);
