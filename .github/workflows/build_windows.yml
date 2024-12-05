@@ -1,4 +1,5 @@
-# Copyright (c) 2023, DyssolTEC. All rights reserved. This file is part of Dyssol. See LICENSE file for license information.
+# Copyright (c) 2023, DyssolTEC. 
+# All rights reserved. This file is part of Dyssol. See LICENSE file for license information.
 
 # A workflow for testing on Windows
 
@@ -8,10 +9,11 @@ on: [push]
 
 env:
   # Path to the solution/project files relative to the root of the project.
-  SOLUTION_FILE_PATH: .
-  SOLUTION_FILE_NAME: Dyssol.sln
-  TESTS_PROJECT_PATH: ./DyssolInstallers/Tests/
-  DOCS_PROJECT_PATH:  ./DyssolInstallers/Documentation/
+  SOLUTION_FILE_PATH:     .
+  SOLUTION_FILE_NAME:     Dyssol.sln
+  TESTS_PROJECT_PATH:     ./DyssolInstallers/Tests/
+  DOCS_PROJECT_PATH:      ./DyssolInstallers/Documentation/
+  INSTALLER_PROJECT_PATH: ./DyssolInstallers/Installer/
 
   # Configuration type to build.
   BUILD_CONFIGURATION: Release
@@ -20,7 +22,7 @@ env:
   # Versions
   QT_VERSION: 5.15.2
   QT_VS_VERSION: msvc2019_64
-  QT_VS_ADDIN_VERSION: 2.7.2
+  QT_VS_ADDIN_VERSION: 3.3.1
   ZLIB_VERSION: 1.3
   SUNDIALS_VERSION: 6.4.1
   HDF5_VERSION: 1.12.2
@@ -33,23 +35,18 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1
-
-    - name: Cache Qt
-      id: cache-qt
-      uses: actions/cache@v3
-      with:
-        path: ${{github.workspace}}/ExternalLibraries/qt
-        key: ${{runner.os}}-QtCache-${{env.QT_VERSION}}
-
+      uses: microsoft/setup-msbuild@v2
+        
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
+        # Whether to cache Qt automatically.
+        cache: 'true'
         # If cached, only install essential build tools and set environmental variables.
-        cache: ${{steps.cache-qt.outputs.cache-hit}}
+        cache-key-prefix: 'cache-qt'
         # Version of Qt to install.
         version: ${{env.QT_VERSION}}
         # Architecture.
@@ -61,7 +58,7 @@ jobs:
 
     - name: Cache QtMsBuild tools
       id: cache-qt-ms-build-tools
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{github.workspace}}/ExternalLibraries/qtvsaddin
         key: ${{runner.os}}-QtMsBuildCache-${{env.QT_VS_ADDIN_VERSION}}
@@ -73,12 +70,12 @@ jobs:
       # Also, it installs them to %LOCALAPPDATA%\QtMsBuild, so they can not be used by other Windows users.
       # Download the extension and extract requited files to the project directory.
       run: |
-        Invoke-WebRequest -Uri https://ftp.fau.de/qtproject/archive/vsaddin/${{env.QT_VS_ADDIN_VERSION}}/qt-vsaddin-msvc2019-${{env.QT_VS_ADDIN_VERSION}}.vsix -MaximumRetryCount 10 -RetryIntervalSec 30 -OutFile vspackage.vsix
+        Invoke-WebRequest -Uri https://ftp.fau.de/qtproject/archive/vsaddin/${{env.QT_VS_ADDIN_VERSION}}/qt-vsaddin-msvc2019-x86-${{env.QT_VS_ADDIN_VERSION}}.vsix -MaximumRetryCount 10 -RetryIntervalSec 30 -OutFile vspackage.vsix
         Expand-Archive vspackage.vsix -DestinationPath ${{github.workspace}}/ExternalLibraries/qtvsaddin
 
     - name: Cache ZLib
       id: cache-zlib
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{github.workspace}}/ExternalLibraries/zlib
         key: ${{runner.os}}-ZLibCache-${{env.ZLIB_VERSION}}
@@ -92,7 +89,7 @@ jobs:
 
     - name: Cache SUNDIALS
       id: cache-sundials
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{github.workspace}}/ExternalLibraries/sundials
         key: ${{runner.os}}-SundialsCache-${{env.SUNDIALS_VERSION}}
@@ -106,7 +103,7 @@ jobs:
 
     - name: Cache HDF5
       id: cache-hdf5
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{github.workspace}}/ExternalLibraries/hdf5
         key: ${{runner.os}}-Hdf5Cache-${{env.HDF5_VERSION}}
@@ -120,7 +117,7 @@ jobs:
 
     - name: Cache Graphviz
       id: cache-graphviz
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ${{github.workspace}}/ExternalLibraries/graphviz
         key: ${{runner.os}}-GraphvizCache-${{env.GRAPHVIZ_VERSION}}
@@ -135,15 +132,18 @@ jobs:
     - name: Build
       working-directory: ${{github.workspace}}
       env:
-        QtToolsPath: ${{env.Qt5_DIR}}/bin
+        QtToolsPath: ${{env.QT_ROOT_DIR}}/bin
         QtMsBuild: ${{github.workspace}}/ExternalLibraries/qtvsaddin/QtMsBuild
       # Add additional options to the MSBuild command line here: see https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference.
       run: msbuild -maxCpuCount -verbosity:minimal -property:Configuration=${{env.BUILD_CONFIGURATION}} -property:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}/${{env.SOLUTION_FILE_NAME}}
 
     - name: Upload Build Artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-artifact
+        if-no-files-found: error
+        retention-days: 1
+        compression-level: 1
         path: |
           ${{github.workspace}}/${{env.BUILD_PLATFORM}}/${{env.BUILD_CONFIGURATION}}/*.exe
           ${{github.workspace}}/${{env.BUILD_PLATFORM}}/${{env.BUILD_CONFIGURATION}}/*.dll
@@ -154,13 +154,13 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1
+      uses: microsoft/setup-msbuild@v2
 
     - name: Download Build Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: build-artifact
         path: ${{github.workspace}}/${{env.BUILD_PLATFORM}}/${{env.BUILD_CONFIGURATION}}
@@ -172,17 +172,13 @@ jobs:
 
   docs:
     runs-on: windows-2019
-    needs: build
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Add MSBuild to PATH
-      uses: microsoft/setup-msbuild@v1
-
-    - name: Install Graphviz
-      run: choco install graphviz
+      uses: microsoft/setup-msbuild@v2
 
     - name: Install Doxygen
       run: choco install doxygen.install
@@ -192,7 +188,7 @@ jobs:
 
     - name: Cache MiKTeX
       id: cache-miktex
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: C:/Program Files/MiKTeX
         key: ${{runner.os}}-MiKTeXCache-${{env.MIKTEX_VERSION}}
@@ -220,14 +216,236 @@ jobs:
       # Add additional options to the MSBuild command line here: see https://docs.microsoft.com/visualstudio/msbuild/msbuild-command-line-reference.
       run: msbuild -maxCpuCount -verbosity:minimal -property:Configuration=${{env.BUILD_CONFIGURATION}} -property:Platform=${{env.BUILD_PLATFORM}} -property:SolutionDir=${{github.workspace}}/ ${{env.DOCS_PROJECT_PATH}}
 
+    - name: Upload Docs Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: docs-artifact
+        if-no-files-found: error
+        retention-days: 1
+        compression-level: 2
+        path: ${{github.workspace}}/install/windows
+
+  installer:
+    runs-on: windows-2019
+    needs: [build, docs]
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Get LocalAppData Directory
+      run: echo ("LOCALAPPDATA_DIR=" + $env:LOCALAPPDATA) >> $env:GITHUB_ENV
+      
+    - name: Add MSBuild to PATH
+      uses: microsoft/setup-msbuild@v2
+        
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        # Whether to cache Qt automatically.
+        cache: 'true'
+        # If cached, only install essential build tools and set environmental variables.
+        cache-key-prefix: 'cache-qt'
+        # Version of Qt to install.
+        version: ${{env.QT_VERSION}}
+        # Architecture.
+        arch: win64_${{env.QT_VS_VERSION}}
+        # Directory to install.
+        dir: ${{github.workspace}}/ExternalLibraries/qt
+        # Whether or not to automatically run setup-python to find a valid python version.
+        setup-python: 'false'
+        
+    - name: Cache QtMsBuild tools
+      id: cache-qt-ms-build-tools
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/ExternalLibraries/qtvsaddin
+        key: ${{runner.os}}-QtMsBuildCache-${{env.QT_VS_ADDIN_VERSION}}
+
+    - name: Get QtMsBuild tools
+      if: steps.cache-qt-ms-build-tools.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}
+      # Get additional project files to build Qt solution with MSBuild. This work is usually done in Visual Studio with Qt VS Tools extension.
+      # Also, it installs them to %LOCALAPPDATA%\QtMsBuild, so they can not be used by other Windows users.
+      # Download the extension and extract requited files to the project directory.
+      run: |
+        Invoke-WebRequest -Uri https://ftp.fau.de/qtproject/archive/vsaddin/${{env.QT_VS_ADDIN_VERSION}}/qt-vsaddin-msvc2019-x86-${{env.QT_VS_ADDIN_VERSION}}.vsix -MaximumRetryCount 10 -RetryIntervalSec 30 -OutFile vspackage.vsix
+        Expand-Archive vspackage.vsix -DestinationPath ${{github.workspace}}/ExternalLibraries/qtvsaddin
+
+    - name: Cache ZLib
+      id: cache-zlib
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/ExternalLibraries/zlib
+        key: ${{runner.os}}-ZLibCache-${{env.ZLIB_VERSION}}
+
+    - name: Build ZLib
+      if: steps.cache-zlib.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}/ExternalLibraries
+      shell: pwsh
+      # Run the script to build zlib.
+      run: .\CompileZLib.ps1
+
+    - name: Cache SUNDIALS
+      id: cache-sundials
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/ExternalLibraries/sundials
+        key: ${{runner.os}}-SundialsCache-${{env.SUNDIALS_VERSION}}
+
+    - name: Build SUNDIALS
+      if: steps.cache-sundials.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}/ExternalLibraries
+      shell: pwsh
+      # Run the script to build sundials.
+      run: .\CompileSundials.ps1
+
+    - name: Cache HDF5
+      id: cache-hdf5
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/ExternalLibraries/hdf5
+        key: ${{runner.os}}-Hdf5Cache-${{env.HDF5_VERSION}}
+
+    - name: Build HDF5
+      if: steps.cache-hdf5.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}/ExternalLibraries
+      shell: pwsh
+      # Run the script to build hdf5.
+      run: .\CompileHDF5.ps1
+
+    - name: Cache Graphviz
+      id: cache-graphviz
+      uses: actions/cache@v4
+      with:
+        path: ${{github.workspace}}/ExternalLibraries/graphviz
+        key: ${{runner.os}}-GraphvizCache-${{env.GRAPHVIZ_VERSION}}
+
+    - name: Build Graphviz
+      if: steps.cache-graphviz.outputs.cache-hit != 'true'
+      working-directory: ${{github.workspace}}/ExternalLibraries
+      shell: pwsh
+      # Run the script to build graphviz.
+      run: .\CompileGraphviz.ps1
+
+    - name: Download Docs Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: docs-artifact
+        path: ${{github.workspace}}/install/windows
+
+    - name: Build
+      working-directory: ${{github.workspace}}
+      env:
+        QtToolsPath: ${{env.QT_ROOT_DIR}}/../${{env.QT_VS_VERSION}}/bin
+        QtMsBuild: ${{github.workspace}}/ExternalLibraries/qtvsaddin/QtMsBuild
+      run: |
+        msbuild -maxCpuCount -verbosity:minimal -property:Configuration=Debug   -property:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}/${{env.SOLUTION_FILE_NAME}}
+        msbuild -maxCpuCount -verbosity:minimal -property:Configuration=Release -property:Platform=${{env.BUILD_PLATFORM}} ${{env.SOLUTION_FILE_PATH}}/${{env.SOLUTION_FILE_NAME}}
+
+    - name: Build Installer
+      working-directory: ${{github.workspace}}
+      env:
+        QtToolsPath: ${{env.QT_ROOT_DIR}}/bin
+        QtMsBuild: ${{github.workspace}}/ExternalLibraries/qtvsaddin/QtMsBuild
+      run: msbuild -maxCpuCount -verbosity:minimal -property:Configuration=${{env.BUILD_CONFIGURATION}} -property:Platform=${{env.BUILD_PLATFORM}} -property:SolutionDir=${{github.workspace}}/ -property:SolutionPath=${{github.workspace}}/${{env.SOLUTION_FILE_NAME}} -property:QtInstallDir=${{github.workspace}}/ExternalLibraries/qt/Qt/${{env.QT_VERSION}}/${{env.QT_VS_VERSION}}/ -property:InstallerDocumentation=true -property:InstallerSDK=true -property:InstallerSDKLibs=Sources -property:InstallerPreBuild=false -property:InstallerPreDocs=false ${{env.INSTALLER_PROJECT_PATH}}
+
+    - name: Run Installer
+      shell: pwsh
+      run: |
+        $InstallerFile = Resolve-Path "${{github.workspace}}\DyssolInstallers\Installers\Dyssol*.exe"
+        Start-Process -FilePath $InstallerFile -ArgumentList "/SP- /SILENT /SUPPRESSMSGBOXES /CURRENTUSER" -Wait
+
+    - name: Upload Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: installer-artifact
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 0
+        path: ${{github.workspace}}/DyssolInstallers/Installers/*.exe
+
+    - name: Upload Portable Installer Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: portable-installer-artifact
+        if-no-files-found: error
+        retention-days: 7
+        compression-level: 9
+        path: ${{ env.LOCALAPPDATA_DIR }}/Programs/Dyssol
+
+    - name: Uninstall Dyssol
+      shell: pwsh
+      run: |
+        $UnInstallerFile = Resolve-Path "${{ env.LOCALAPPDATA_DIR }}/Programs/Dyssol/unins000.exe"
+        Start-Process -FilePath $UnInstallerFile -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /skipaskconfig=yes" -Wait
+
+  release:
+    runs-on: windows-2019
+    needs: [tests, installer]
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Download Installer Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: installer-artifact
+        path: ${{github.workspace}}/DyssolInstallers/Installers/
+
+    - name: Download Portable Installer Artifact
+      uses: actions/download-artifact@v4
+      with:
+        name: portable-installer-artifact
+        path: C:/Program Files/Dyssol
+
+    - name: Get Version
+      id: get-version
+      shell: pwsh
+      run: |
+        $TAG='${{github.ref_name}}'
+        $VERSION=$TAG.TrimStart('v')
+        echo "VERSION=$VERSION" >> $env:GITHUB_OUTPUT
+
+    - name: Rename Installer
+      working-directory: ${{github.workspace}}/DyssolInstallers/Installers/
+      shell: pwsh
+      run: |
+        Get-ChildItem -Path "." | Rename-Item -NewName "Dyssol.${{steps.get-version.outputs.VERSION}}.open.setup.exe"
+        Move-Item -Path "Dyssol.${{steps.get-version.outputs.VERSION}}.open.setup.exe" -Destination "${{github.workspace}}/Dyssol.${{steps.get-version.outputs.VERSION}}.open.setup.exe"
+
+    - name: Zip Portable Installer
+      shell: pwsh
+      run: |
+        Compress-Archive -Path 'C:/Program Files/Dyssol' -DestinationPath ${{github.workspace}}/Dyssol.${{steps.get-version.outputs.VERSION}}.open.portable.zip
+
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        name: 'Dyssol ${{github.ref_name}}'
+        draft: 'true'
+        body_path: CHANGELOG
+        files: |
+          Dyssol.${{steps.get-version.outputs.VERSION}}.open.setup.exe
+          Dyssol.${{steps.get-version.outputs.VERSION}}.open.portable.zip
+
   cleanup:
     runs-on: windows-2019
-    needs: [build, tests]
+    needs: [tests, installer, release]
     if: ${{always()}}
 
     steps:
     - name: Delete Build Artifact
-      uses: geekyeggo/delete-artifact@v2
+      uses: geekyeggo/delete-artifact@v4
       with:
         name: build-artifact
+        failOnError: false
+
+    - name: Delete Docs Artifact
+      uses: geekyeggo/delete-artifact@v4
+      with:
+        name: docs-artifact
         failOnError: false

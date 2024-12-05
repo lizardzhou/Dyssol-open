@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QMessageBox>
+#include <filesystem>
 #include <vector>
 #include <locale>
 
@@ -27,8 +28,13 @@ inline std::vector<std::vector<double>> ParseClipboardAsDoubles()
 	std::vector<std::vector<double>> res(rows.length());
 	for (int irow = 0; irow < rows.length(); ++irow)
 	{
+#if QT_VERSION >= QT_VERSION_CHECK(5, 12, 9)
+		constexpr auto skipEmptyParts = Qt::SkipEmptyParts;
+#else
+		constexpr auto skipEmptyParts = QString::SkipEmptyParts;
+#endif
 		// split by columns
-		QStringList data = rows[irow].split(QRegExp(regExp), Qt::SkipEmptyParts);
+		QStringList data = rows[irow].split(QRegExp(regExp), skipEmptyParts);
 		// remove trailing whitespaces
 		while (!data.empty() && data.back().size() == 0)
 			data.pop_back();
@@ -52,4 +58,23 @@ inline QMessageBox::StandardButton AskYesAllNoAllCancel(QWidget* _parent, const 
 inline QMessageBox::StandardButton Notify(QWidget* _parent, const std::string& _title, const std::string& _text)
 {
 	return QMessageBox::information(_parent, _title.c_str(), _text.c_str(), QMessageBox::Ok);
+}
+
+inline std::filesystem::path QString2Path(const QString& _str)
+{
+#ifdef _WIN32
+	auto* ptr = reinterpret_cast<const wchar_t*>(_str.utf16());
+	return{ ptr, ptr + _str.size() };
+#else
+	return{ _str.toStdString() };
+#endif
+}
+
+inline QString Path2QString(const std::filesystem::path& _str)
+{
+#ifdef _WIN32
+	return QString::fromStdWString(_str.generic_wstring());
+#else
+	return QString::fromStdString(_str.native());
+#endif
 }

@@ -24,10 +24,8 @@ CModulesManagerTab::CModulesManagerTab(QWidget* _parent)
 	SetHelpLink("001_ui/gui.html#sec-gui-menu-tools-models-manager");
 }
 
-void CModulesManagerTab::SetPointers(CModelsManager* _modelsManager, QSettings* _settings)
+void CModulesManagerTab::OnPointersSet()
 {
-	CQtDialog::SetPointers(_modelsManager, _settings);
-
 	// clear models manager
 	m_modelsManager->Clear();
 
@@ -49,12 +47,12 @@ void CModulesManagerTab::InitializeConnections() const
 
 void CModulesManagerTab::setVisible(bool _bVisible)
 {
-	QDialog::setVisible(_bVisible);
+	CQtDialog::setVisible(_bVisible);
 	if (_bVisible)
 		UpdateWholeView();
 }
 
-void CModulesManagerTab::UpdateWholeView() const
+void CModulesManagerTab::UpdateWholeView()
 {
 	UpdateDirsView();
 	UpdateModelsView();
@@ -133,7 +131,7 @@ void CModulesManagerTab::AddDir()
 	if (m_modelsManager->AddDir(folder.toStdWString()))
 	{
 		UpdateModels();
-		ui.tableDirs->RestoreSelectedCell(ui.tableDirs->rowCount() - 1, 0);
+		ui.tableDirs->SetCurrentCellPos(ui.tableDirs->rowCount() - 1, 0);
 	}
 	QApplication::restoreOverrideCursor();
 }
@@ -145,7 +143,7 @@ void CModulesManagerTab::RemoveDir()
 	if(m_modelsManager->RemoveDir(iRow))
 	{
 		UpdateModels();
-		ui.tableDirs->RestoreSelectedCell(iRow, 0);
+		ui.tableDirs->SetCurrentCellPos(iRow, 0);
 	}
 	QApplication::restoreOverrideCursor();
 }
@@ -157,7 +155,7 @@ void CModulesManagerTab::UpDir()
 	if (m_modelsManager->UpDir(iRow))
 	{
 		UpdateModels();
-		ui.tableDirs->RestoreSelectedCell(iRow - 1, 0);
+		ui.tableDirs->SetCurrentCellPos(iRow - 1, 0);
 	}
 	QApplication::restoreOverrideCursor();
 }
@@ -169,7 +167,7 @@ void CModulesManagerTab::DownDir()
 	if (m_modelsManager->DownDir(iRow))
 	{
 		UpdateModels();
-		ui.tableDirs->RestoreSelectedCell(iRow + 1, 0);
+		ui.tableDirs->SetCurrentCellPos(iRow + 1, 0);
 	}
 	QApplication::restoreOverrideCursor();
 }

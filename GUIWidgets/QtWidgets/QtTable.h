@@ -17,7 +17,9 @@ class CQtTable : public QTableWidget
 	Q_OBJECT
 
 private:
-	bool m_pasteEnabled{ true };
+	bool m_pasteAllowed{ true };	///< Allow pasting from the clipboard.
+	bool m_addRowsOnPaste{ false }; ///< Allow adding new rows to the table during pasting from the clipboard.
+	bool m_blockOnPaste{ true };	///< Block all signals from the table during pasting from the clipboard.
 	QString m_numberSeparator { " " };
 	QString m_decimalSeparator{ "." };
 
@@ -29,26 +31,50 @@ public:
 	void SetGeometry(int _rows, int _cols);
 
 	void EnablePasting(bool _flag);
+	void EnableAddRowsOnPaste(bool _flag);
+	/**
+	 * \brief Block all signals from the table during pasting from the clipboard.
+	 * \param _flag Flag.
+	 * \return Previous state of the flag.
+	 */
+	bool EnableBlockOnPaste(bool _flag);
 
 	QString GetColHeaderItem(int _col) const;
 	QString GetRowHeaderItem(int _row) const;
 	std::vector<QString> GetColHeaderItems(int _startcol) const;
 	std::vector<QString> GetRowHeaderItems(int _startrow) const;
 
-	void SetColHeaderItem(int _col, const std::string& _text);
-	void SetRowHeaderItem(int _row, const std::string& _text);
+	QTableWidgetItem* SetColHeaderItem(int _col);
+	QTableWidgetItem* SetColHeaderItem(int _col, const std::string& _text);
+	QTableWidgetItem* SetColHeaderItem(int _col, const std::wstring& _text);
+	QTableWidgetItem* SetRowHeaderItem(int _row);
+	QTableWidgetItem* SetRowHeaderItem(int _row, const std::string& _text);
+	QTableWidgetItem* SetRowHeaderItem(int _row, const std::wstring& _text);
+
+	void SetColHeaderItems(int _startcol, const std::string* _text, size_t _size);
 	void SetColHeaderItems(int _startcol, const std::vector<std::string>& _text);
+	void SetRowHeaderItems(int _startrow, const std::string* _text, size_t _size);
 	void SetRowHeaderItems(int _startrow, const std::vector<std::string>& _text);
 
-	QString GetItem(int _row, int _col) const;
-	std::vector<QString> GetItemsCol(int _startrow, int _col) const;
-	std::vector<QString> GetItemsRow(int _row, int _startcol) const;
+	QString GetItemText(int _row, int _col) const;
+	std::vector<QString> GetItemsTextCol(int _startrow, int _col) const;
+	std::vector<QString> GetItemsTextRow(int _row, int _startcol) const;
 
-	void SetItemEditable(int _row, int _col, const QString& _text, const QVariant& _userData = -1);
-	void SetItemEditable(int _row, int _col, const std::string& _text, const QVariant& _userData = -1);
-	void SetItemEditable(int _row, int _col, double _value, const QVariant& _userData = -1);
-	void SetItemEditablePrecise(int _row, int _col, double _value, int _precision, const QVariant& _userData = -1);
-	void SetItemEditable(int _row, int _col);
+	/**
+	 * \brief Inserts a new cell widget item to the table and makes it editable.
+	 * \details Sets the given text and user data to the item.
+	 * If the item already exists, it is used to set the new data.
+	 * \param _row Row of the cell.
+	 * \param _col Column of the cell.
+	 * \param _text Text to set.
+	 * \param _userData User data to set.
+	 * \return Pointer to the cell widget item.
+	 */
+	QTableWidgetItem* SetItemEditable(int _row, int _col, const QString& _text, const QVariant& _userData = -1);
+	QTableWidgetItem* SetItemEditable(int _row, int _col, const std::string& _text, const QVariant& _userData = -1);
+	QTableWidgetItem* SetItemEditable(int _row, int _col, double _value, const QVariant& _userData = -1);
+	QTableWidgetItem* SetItemEditablePrecise(int _row, int _col, double _value, int _precision, const QVariant& _userData = -1);
+	QTableWidgetItem* SetItemEditable(int _row, int _col);
 
 	void SetItemsColEditable(int _startrow, int _col, const std::vector<double>& _val);
 	void SetItemsColEditable(int _startrow, int _col, const std::vector<int64_t>& _val);
@@ -59,6 +85,7 @@ public:
 
 	void SetItemNotEditable(int _row, int _col, const QString& _text, const QVariant& _userData = -1);
 	void SetItemNotEditable(int _row, int _col, const std::string& _text, const QVariant& _userData = -1);
+	void SetItemNotEditable(int _row, int _col, const std::string& _text, const std::string& _userData);
 	void SetItemNotEditable(int _row, int _col, const std::wstring& _text, const QVariant& _userData = -1);
 	void SetItemNotEditable(int _row, int _col, double _value, const QVariant& _userData = -1);
 	void SetItemNotEditable(int _row, int _col);
@@ -67,6 +94,25 @@ public:
 	void SetItemsColNotEditable(int _startrow, int _col, const std::string& _val);
 	void SetItemsColNotEditable(int _startrow, int _col, const std::vector<std::string>& _val);
 	void SetItemsRowNotEditable(int _row, int _startcol, const std::vector<double>& _val);
+
+	/**
+	 * \brief Inserts cell widget items to the whole row and makes them editable.
+	 * \param _row Row to fill.
+	 */
+	void SetAllRowItemsNotEditable(int _row);
+	/**
+	 * \brief Inserts cell widget items to the whole column and makes them editable.
+	 * \param _col Column to fill.
+	 */
+	void SetAllColItemsNotEditable(int _col);
+	/**
+	 * \brief Find an item by its user data.
+	 * \details If multiple items with the same user data exist, the first one is returned.
+	 * If nothing fount, nullptr is returned.
+	 * \param _userData User data.
+	 * \return Pointer to the found item.
+	 */
+	QTableWidgetItem* FindItem(const std::string& _userData) const;
 
 	QCheckBox* SetCheckBox(int _row, int _col, bool _checked = true);
 	QCheckBox* GetCheckBox(int _row, int _col) const;
@@ -79,6 +125,7 @@ public:
 	QComboBox* SetComboBox(int _row, int _col, const std::vector<QString>& _vNames, const std::vector<QVariant>& _vData, int _iSelected);
 	QComboBox* SetComboBox(int _row, int _col, const std::vector<std::string>& _names, const std::vector<std::string>& _data, const std::string& _dataSelected);
 	QComboBox* SetComboBox(int _row, int _col, const std::vector<std::string>& _names, const std::vector<size_t>& _data, size_t _dataSelected);
+	QComboBox* SetComboBox(int _row, int _col, const std::vector<std::string>& _names, const std::vector<uint32_t>& _data, uint32_t _dataSelected);
 	QComboBox* GetComboBox(int _row, int _col) const;
 	QPushButton* SetPushButton(int _row, int _col, const QString& _text);
 	QPushButton* GetPushButton(int _row, int _col) const;
@@ -92,14 +139,19 @@ public:
 	void SetBackgroundColor(const QColor& _color) const;
 
 	void SetItemFontItalic(int _row, int _col) const;
+	void SetItemFontColor(int _row, int _col, const QColor& _color) const;
 	void SetEditable(bool _flag);
 
-	std::pair<int, int> CurrentCellPos() const;
-	void RestoreSelectedCell(const std::pair<int, int>& _cellPos);
-	void RestoreSelectedCell(int _row, int _col);
+	[[nodiscard]] std::pair<int, int> GetCurrentCellPos() const;
+	void SetCurrentCellPos(const std::pair<int, int>& _cellPos);
+	void SetCurrentCellPos(int _row, int _col);
 
-	QString GetCurrentItemUserData() const;
-	QString GetItemUserData(int _row = -1, int _col = -1) const;
+	[[nodiscard]] QVariant GetCurrentItemUserData() const;
+	[[nodiscard]] QString GetCurrentItemUserDataQStr() const;
+	[[nodiscard]] std::string GetCurrentItemUserDataStr() const;
+	[[nodiscard]] QVariant GetItemUserData(int _row, int _col = -1) const;
+	[[nodiscard]] QString GetItemUserDataQStr(int _row, int _col = -1) const;
+	[[nodiscard]] std::string GetItemUserDataStr(int _row, int _col = -1) const;
 
 	std::vector<double> GetRowValues(int _row) const;
 	std::vector<double> GetColumnValues(int _col) const;
@@ -114,11 +166,26 @@ public slots:
 
 private:
 	void Clear();
-	void Copy();
+	void Copy() const;
 	void Paste();
 
 signals:
-	void PasteInitiated(int _row, int _col);
+	/**
+	 * \brief Is emitted when pasting from the clipboard starts.
+	 * \details Is emitted before any actual action is taken.
+	 * \param _row Row where the pasting starts.
+	 * \param _col Column where the pasting starts.
+	 */
+	void PasteStarted(int _row, int _col);
+	/**
+	 * \brief Is emitted after pasting from the clipboard is done.
+	 * \details Is emitted after all actions are taken.
+	 * \param _rowBeg Row where the pasting started.
+	 * \param _colBeg Column where the pasting started.
+	 * \param _rowEnd Row of the last pasted item.
+	 * \param _colEnd Column of the last pasted item.
+	 */
+	void PasteFinished(int _rowBeg, int _colBeg, int _rowEnd, int _colEnd);
 	void DataPasted();
 	void CheckBoxStateChanged(int _row, int _col, QCheckBox* _pCheckBox);
 	void RadioButtonStateChanged(int _row, int _col, QRadioButton* _radioButton);

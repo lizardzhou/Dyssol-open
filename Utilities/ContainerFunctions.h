@@ -26,9 +26,16 @@ bool VectorContainsSorted(const std::vector<T>& _vec, T _value)
 
 // Checks whether the vector contains a specified element.
 template<typename T, typename FUN>
+bool VectorContains(const T& begin, const T& end, const FUN& _fun)
+{
+	return std::find_if(begin, end, _fun) != end;
+}
+
+// Checks whether the vector contains a specified element.
+template<typename T, typename FUN>
 bool VectorContains(const std::vector<T>& _vec, const FUN& _fun)
 {
-	return std::find_if(_vec.begin(), _vec.end(), _fun) != _vec.end();
+	return VectorContains(_vec.begin(), _vec.end(), _fun);
 }
 
 // Returns index of a specified element or -1 if it does not exist.
@@ -72,7 +79,7 @@ void VectorDelete(std::vector<T>& _vec, const FUN& _fun)
 	_vec.erase(std::remove_if(_vec.begin(), _vec.end(), _fun), _vec.end());
 }
 
-// Removes an element with the given index if it does exist.
+// Removes an element with the given value if it does exist.
 template<typename T>
 void VectorDelete(std::vector<T>& _vec, T _value)
 {
@@ -179,6 +186,15 @@ std::vector<T> MultVector(const std::vector<T>& _vec, const T& _val)
 	return res;
 }
 
+// Adds the value to all values of the vector and returns the result.
+template<typename T>
+std::vector<T> AddVector(const std::vector<T>& _vec, const T& _val)
+{
+	std::vector<T> res(_vec.size());
+	std::transform(_vec.begin(), _vec.end(), res.begin(), [&](const T& el) { return el + _val; });
+	return res;
+}
+
 // Checks whether the map contains a specified key.
 template<typename K, typename V>
 bool MapContainsKey(const std::map<K, V>& _map, K _key)
@@ -270,11 +286,26 @@ std::vector<T> VectorsUnionUnsorted(const std::vector<T>& _v1, const std::vector
 	return res;
 }
 
-// Returns a vector with reserved size.
+// Returns a vector with the reserved size.
 template<typename T> std::vector<T> ReservedVector(size_t _size)
 {
 	std::vector<T> res;
 	res.reserve(_size);
+	return res;
+}
+
+/**
+ * \brief Returns a vector with the reserved size.
+ * \detail The reserved size is set to the size of the input vector.
+ * \tparam Tout Type of the return vector value.
+ * \tparam Tin Type of the input vector value.
+ * \param _vec Input vector.
+ * \return Vector with the reserved size.
+ */
+template<typename Tout, typename Tin> std::vector<Tout> ReservedVector(const std::vector<Tin>& _vec)
+{
+	std::vector<Tout> res;
+	res.reserve(_vec.size());
 	return res;
 }
 
@@ -301,7 +332,39 @@ inline std::vector<double> Slice(const double* const _data, const std::vector<si
 		std::copy(_data + _ind.front(), _data + _ind.back() + 1, res.begin());
 	else
 		for (size_t i = 0; i < _ind.size(); ++i)
-			res[i] = _data[i];
+			res[i] = _data[_ind[i]];
+	return res;
+}
+
+/**
+ * \brief Returns the values at the specified indices in the data array.
+ * \details Does not perform any out-of-boundary checks.
+ * \param _data Input array of data.
+ * \param _ind List of indices of data to be extracted to the slice.
+ * \return Vector of data with given indices.
+ */
+inline std::vector<std::vector<double>> Slice(const double* const _data, const std::vector<std::vector<size_t>>& _ind)
+{
+	std::vector<std::vector<double>> res(_ind.size());
+	if (_ind.empty()) return res;
+	for (size_t i = 0; i < _ind.size(); ++i)
+		res[i] = Slice(_data, _ind[i]);
+	return res;
+}
+
+/**
+ * \brief Returns the values at the specified indices in the data array.
+ * \details Does not perform any out-of-boundary checks.
+ * \param _data Input array of data.
+ * \param _ind List of indices of data to be extracted to the slice.
+ * \return Vector of data with given indices.
+ */
+inline std::vector<std::vector<std::vector<double>>> Slice(const double* const _data, const std::vector<std::vector<std::vector<size_t>>>& _ind)
+{
+	std::vector<std::vector<std::vector<double>>> res(_ind.size());
+	if (_ind.empty()) return res;
+	for (size_t i = 0; i < _ind.size(); ++i)
+		res[i] = Slice(_data, _ind[i]);
 	return res;
 }
 
@@ -315,4 +378,52 @@ inline std::vector<double> Slice(const double* const _data, const std::vector<si
 inline std::vector<double> Slice(const std::vector<double>& _data, const std::vector<size_t>& _ind)
 {
 	return Slice(_data.data(), _ind);
+}
+
+/**
+ * \brief Sets the values at the specified indices in the data array.
+ * \details Does not perform any out-of-boundary checks.
+ * \param _data Output array of data.
+ * \param _ind List of indices of data to be set to the slice.
+ * \param _val Values to be set to the data array.
+ * \return Vector of data with given indices.
+ */
+inline void SetSlice(double* _data, const std::vector<size_t>& _ind, const std::vector<double>& _val)
+{
+	if (_ind.empty()) return;
+	if (std::adjacent_find(_ind.begin(), _ind.end(), [](size_t i1, size_t i2) { return i2 != i1 + 1; }) == _ind.end())
+		std::copy(_val.begin(), _val.end(), _data + _ind.front());
+	else
+		for (size_t i = 0; i < _ind.size(); ++i)
+			_data[_ind[i]] = _val[i];
+}
+
+/**
+ * \brief Sets the values at the specified indices in the data array.
+ * \details Does not perform any out-of-boundary checks.
+ * \param _data Output array of data.
+ * \param _ind List of indices of data to be set to the slice.
+ * \param _val Values to be set to the data array.
+ * \return Vector of data with given indices.
+ */
+inline void SetSlice(double* _data, const std::vector<std::vector<size_t>>& _ind, const std::vector<std::vector<double>>& _val)
+{
+	if (_ind.empty()) return;
+	for (size_t i = 0; i < _ind.size(); ++i)
+		SetSlice(_data, _ind[i], _val[i]);
+}
+
+/**
+ * \brief Sets the values at the specified indices in the data array.
+ * \details Does not perform any out-of-boundary checks.
+ * \param _data Output array of data.
+ * \param _ind List of indices of data to be set to the slice.
+ * \param _val Values to be set to the data array.
+ * \return Vector of data with given indices.
+ */
+inline void SetSlice(double* _data, const std::vector<std::vector<std::vector<size_t>>>& _ind, const std::vector<std::vector<std::vector<double>>>& _val)
+{
+	if (_ind.empty()) return;
+	for (size_t i = 0; i < _ind.size(); ++i)
+		SetSlice(_data, _ind[i], _val[i]);
 }

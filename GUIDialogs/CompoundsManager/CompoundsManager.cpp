@@ -62,7 +62,13 @@ void CCompoundsManager::setVisible( bool _bVisible )
 {
 	if ( _bVisible )
 		UpdateWholeView();
-	QDialog::setVisible( _bVisible );
+	CQtDialog::setVisible( _bVisible );
+}
+
+void CCompoundsManager::UpdateFromFlowsheet()
+{
+	if (isVisible())
+		UpdateWholeView();
 }
 
 void CCompoundsManager::AddSelectedCompound()

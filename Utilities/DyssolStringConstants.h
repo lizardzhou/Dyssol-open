@@ -83,10 +83,10 @@ namespace StrConst
 		return "Starting simulation"; }
 	inline std::string DyssolC_ExportResults(const std::string& s)	{
 		return "Exporting results to: \n\t" + s; }
-	inline std::string DyssolC_ScriptFinished(const int64_t& time) {
-		return "Script job finished in " + std::to_string(time) + " [s]"; }
-	inline std::string DyssolC_SimFinished(const int64_t& time) {
-		return "Simulation finished in " + std::to_string(time) + " [s]"; }
+	inline std::string DyssolC_ScriptFinished(const int64_t& time_s, const int64_t& time_ms) {
+		return "Script job finished in " + std::to_string(time_s) + "." + std::to_string(time_ms) + " [s]"; }
+	inline std::string DyssolC_SimFinished(const int64_t& time_s, const int64_t& time_ms) {
+		return "Simulation finished in " + std::to_string(time_s) + "." + std::to_string(time_ms) + " [s]"; }
 	inline std::string DyssolC_WarningUnknown(const std::string& s) {
 		return "Warning while parsing script file: Unknown keyword " + StringFunctions::Quote(s); }
 	inline std::string DyssolC_ErrorNoScript() {
@@ -314,7 +314,7 @@ namespace StrConst
 	inline std::string BUnit_ErrGetParam(const std::string& s1, const std::string& s2, const std::string& s3) {
 		return std::string("Error in unit '" + s1 + "', function call " + s3 + "('" + s2 + "'): unit parameter with such combination of name and type does not exist in this unit.");	}
 	inline std::string BUnit_ErrAddParam(const std::string& s1, const std::string& s2, const std::string& s3) {
-		return BUnit_Err1(s1, s3, s2) + "Unit parameter '" + s2 + "' has duplicates. Unit parameters names must be unique within the unit."; }
+		return BUnit_Err1(s1, s3, s2) + "Unit parameter '" + s2 + "' has a duplicate with the same name, but of a different type. Unit parameters must have unique names within the unit."; }
 	inline std::string BUnit_ErrAddComboParam(const std::string& s1, const std::string& s2, const std::string& s3) {
 		return BUnit_Err1(s1, s3, s2) + "Unit parameter '" + s2 + "' cannot be added. The number of items must be equal to the number of names."; }
 	inline std::string BUnit_ErrGroupParamBlock(const std::string& s1, const std::string& s2, const std::string& s3, const std::string& s4) {
@@ -406,7 +406,6 @@ namespace StrConst
 /// CSaveLoadManager
 //////////////////////////////////////////////////////////////////////////
 	const char* const SLM_H5GroupFlowsheet   = "Flowsheet";
-
 
 //////////////////////////////////////////////////////////////////////////
 /// CFlowsheet

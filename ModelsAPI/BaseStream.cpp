@@ -50,7 +50,7 @@ CBaseStream::CBaseStream(const CBaseStream& _other) :
 		m_phases.insert({ state, std::make_unique<CPhase>(*phase) });
 }
 
-CBaseStream::CBaseStream(CBaseStream&& _other) :
+CBaseStream::CBaseStream(CBaseStream&& _other) noexcept :
 	m_name{ std::move(_other.m_name) },
 	m_key{ std::move(_other.m_key) },
 	m_materialsDB{ _other.m_materialsDB },
@@ -206,17 +206,20 @@ void CBaseStream::RemoveAllTimePoints()
 
 void CBaseStream::ReduceTimePoints(double _timeBeg, double _timeEnd, double _step)
 {
+	if (_step <= 0) return;
+
 	std::vector<double> timePoints = GetTimePoints(_timeBeg, _timeEnd);
 	if (timePoints.size() <= 3) return;
-	timePoints.pop_back();
 
 	auto itBeg = timePoints.begin();
 	const auto itEnd = timePoints.end();
 	while (itBeg != itEnd)
 	{
 		auto it = std::find_if(itBeg, itEnd, [&](double t) { return std::fabs(*itBeg - t) >= _step; });
-		if (std::distance(itBeg, it) > 2)
+		if (it != itEnd)
 			RemoveTimePoints(*itBeg, *it, false);
+		else
+			RemoveTimePoints(*itBeg, *(it - 1), false);
 		itBeg = it;
 	}
 }
@@ -257,6 +260,31 @@ double CBaseStream::GetPreviousTimePoint(double _time) const
 	auto pos = std::lower_bound(m_timePoints.begin(), m_timePoints.end(), _time);
 	if (pos == m_timePoints.begin()) return {};
 	return *--pos;
+}
+
+std::vector<EOverall> CBaseStream::GetAllOverallProperties() const
+{
+	auto res = ReservedVector<EOverall>(m_overall.size());
+	for (const auto& o : m_overall)
+		res.push_back(o.first);
+	return res;
+}
+
+std::string CBaseStream::GetOverallPropertyName(EOverall _property) const
+{
+	if (!HasOverallProperty(_property)) return {};
+	return m_overall.at(_property)->GetName();
+}
+
+std::string CBaseStream::GetOverallPropertyUnits(EOverall _property) const
+{
+	if (!HasOverallProperty(_property)) return {};
+	return m_overall.at(_property)->GetUnits();
+}
+
+bool CBaseStream::HasOverallProperty(EOverall _property) const
+{
+	return MapContainsKey(m_overall, _property);
 }
 
 CTimeDependentValue* CBaseStream::AddOverallProperty(EOverall _property, const std::string& _name, const std::string& _units)
@@ -719,22 +747,38 @@ double CBaseStream::GetPhaseProperty(double _time, EPhase _phase, ECompoundTPPro
 			}
 			return res;
 		}
-		else
+		else if (_phase == EPhase::VAPOR)
+		{
+			// ideal gas: VolumeFlow = MolarFlow * R * T / p --> comparison of MolarFlow or MolarFractions
+			for (const auto& c : GetAllCompounds())
+			{
+				res += GetCompoundMolFraction(_time, c, _phase) * GetCompoundProperty(c,DENSITY,T,P);
+			}
+			return res;
+		}
+		else // for liquids and solids
 		{
 			for (const auto& c : GetAllCompounds())
 			{
 				const double componentDensity = m_materialsDB->GetTPPropertyValue(c, _property, T, P);
 				if (componentDensity != 0.0)
-					res += GetCompoundFraction(_time, c, _phase) / componentDensity;
+					res += GetCompoundFraction(_time, c, _phase) * componentDensity;
 			}
-			if (res != 0.0)
-				return 1.0 / res;
+			return  res;
 		}
 		break;
-	case HEAT_CAPACITY_CP:
+	case HEAT_CAPACITY_CP: // same for solids, liquids and gases
+		for (const auto& c : GetAllCompounds())
+		{
+			const double cp = m_materialsDB->GetTPPropertyValue(c, _property, T, P);
+			if (cp != 0.0)
+				res += GetCompoundFraction(_time, c, _phase) * cp;
+		}
+		return res;
 	case ENTHALPY:
 	case PERMITTIVITY:
 	case EQUILIBRIUM_MOISTURE_CONTENT:
+	case MASS_DIFFUSION_COEFFICIENT:
 	case TP_PROP_USER_DEFINED_01:
 	case TP_PROP_USER_DEFINED_02:
 	case TP_PROP_USER_DEFINED_03:
@@ -1916,11 +1960,6 @@ bool CBaseStream::HasTime(double _time) const
 	const auto pos = std::lower_bound(m_timePoints.begin(), m_timePoints.end(), _time);
 	if (pos == m_timePoints.end()) return false;
 	return std::fabs(*pos - _time) <= m_epsilon;
-}
-
-bool CBaseStream::HasOverallProperty(EOverall _property) const
-{
-	return MapContainsKey(m_overall, _property);
 }
 
 bool CBaseStream::HasCompound(const std::string& _compoundKey) const

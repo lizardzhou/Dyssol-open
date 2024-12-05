@@ -13,13 +13,13 @@ class CQtTree : public QTreeWidget
 public:
 	enum class EFlags
 	{
-		Default   = 1 << 0,
-		Edit      = 1 << 1,
-		NoEdit    = 1 << 2,
-		Select    = 1 << 3,
-		NoSelect  = 1 << 4,
-		Enabled   = 1 << 5,
-		Diasabled = 1 << 6,
+		Default  = 1 << 0,
+		Edit     = 1 << 1,
+		NoEdit   = 1 << 2,
+		Select   = 1 << 3,
+		NoSelect = 1 << 4,
+		Enabled  = 1 << 5,
+		Disabled = 1 << 6,
 	};
 
 	CQtTree(QWidget* _parent = nullptr);
@@ -27,14 +27,18 @@ public:
 	// Creates a new item as a child of the tree.
 	QTreeWidgetItem* CreateItem(EFlags _flags = EFlags::Default);
 	// Creates a new item as a child of the widget.
-	QTreeWidgetItem* CreateItem(QTreeWidgetItem* _parent, EFlags _flags = EFlags::Default);
+	static QTreeWidgetItem* CreateItem(QTreeWidgetItem* _parent, EFlags _flags = EFlags::Default);
 	// Creates a new item as a child of the tree and sets the given text and data to the specified column.
 	QTreeWidgetItem* CreateItem(int _col, const std::string& _text, EFlags _flags = EFlags::Default, const QVariant& _data = -1);
+	// Creates a new item as a child of the tree and sets the given text and data to the specified column.
+	static QTreeWidgetItem * CreateItem(QTreeWidget * _parent, int _col, const std::string & _text, EFlags _flags = EFlags::Default, const QVariant & _data = -1);
 	// Creates a new item as a child of the widget and sets the given text and data to the specified column.
-	QTreeWidgetItem* CreateItem(QTreeWidgetItem* _parent, int _col, const std::string& _text, EFlags _flags = EFlags::Default, const QVariant& _data = -1);
+	static QTreeWidgetItem* CreateItem(QTreeWidgetItem* _parent, int _col, const std::string& _text, EFlags _flags = EFlags::Default, const QVariant& _data = -1);
+	// Creates a new item as a child of the widget and sets the given text and data to the specified column.
+	static QTreeWidgetItem* CreateItem(QTreeWidgetItem* _parent, int _col, const std::string& _text, EFlags _flags = EFlags::Default, const std::string& _data = {});
 
 	// Sets new text and data to the selected column of the given existing item.
-	void SetText(QTreeWidgetItem* _item, int _col, const std::string& _text, const QVariant& _data = -1);
+	static void SetText(QTreeWidgetItem* _item, int _col, const std::string& _text, const QVariant& _data = -1);
 
 	// Adds a combo box to the selected column of the given existing item.
 	QComboBox* SetComboBox(QTreeWidgetItem* _item, int _col, const std::vector<QString>& _names, const std::vector<QVariant>& _data, const QVariant& _selected);
@@ -55,7 +59,7 @@ public:
 	bool GetCheckBoxValue(QTreeWidgetItem* _item, int _col) const;
 
 	// Sets flags to the given item.
-	void SetItemFlags(QTreeWidgetItem* _item, EFlags _flags);
+	static void SetItemFlags(QTreeWidgetItem* _item, EFlags _flags);
 
 	// Sets an item with the specified index as current.
 	void SetCurrentItem(const std::vector<size_t>& _indices);
@@ -65,9 +69,21 @@ public:
 	QTreeWidgetItem* GetItem(const QVariant& _data) const;
 
 	// Returns user data of the given column in the specified item.
-	QString GetData(const QTreeWidgetItem* _item, int _col = 0) const;
+	static QVariant GetData(const QTreeWidgetItem* _item, int _col = 0);
+	// Returns user data of the given column in the specified item.
+	static QString GetDataQStr(const QTreeWidgetItem* _item, int _col = 0);
+	// Returns user data of the given column in the specified item.
+	static std::string GetDataStr(const QTreeWidgetItem* _item, int _col = 0);
 	// Returns user data of the given column in current item.
-	QString GetCurrentData(int _col = 0) const;
+	QString GetCurrentDataQStr(int _col = 0) const;
+
+	/**
+	 * \brief Check if one item is a successor of another.
+	 * \param _parent Parent item.
+	 * \param _child Testing child item.
+	 * \return Whether child is a successor of the parent.
+	 */
+	static bool IsSuccessor(const QTreeWidgetItem* _parent, const QTreeWidgetItem* _child);
 
 	bool blockSignals(bool _flag);
 	bool eventFilter(QObject* _object, QEvent* _event) override;
@@ -75,7 +91,7 @@ public:
 private:
 	// Creates a new item as a child of the widget.
 	template<typename T>
-	QTreeWidgetItem* CreateItem(T* _parent, int _col, const std::string& _text, EFlags _flags = EFlags::Default, const QVariant& _data = -1);
+	static QTreeWidgetItem* CreateItem(T* _parent, int _col, const std::string& _text, EFlags _flags = EFlags::Default, const QVariant& _data = -1);
 
 	// Checks whether the composition of flags contains a flag.
 	static bool Contains(EFlags _composition, EFlags _flag);

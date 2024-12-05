@@ -43,9 +43,9 @@ private:
 
 public:
 	CUnitsViewer(CFlowsheet* _pFlowsheet, CMaterialsDatabase* _materialsDatabase, QWidget* _parent = nullptr, Qt::WindowFlags flags = Qt::WindowFlags());
-	~CUnitsViewer();
+	~CUnitsViewer() override;
 
-	void SetPointers(CModelsManager* _modelsManager, QSettings* _settings) override;
+	void SetPointers(CFlowsheet* _flowsheet, CModelsManager* _modelsManager, QSettings* _settings) override;
 	void InitializeConnections();
 
 private:
@@ -70,6 +70,6 @@ private slots:
 	void FocusChanged(int index);
 
 public slots:
-	void UpdateWholeView();
-	void setVisible( bool _bVisible );
+	void UpdateWholeView() override;
+	void setVisible( bool _bVisible ) override;
 };

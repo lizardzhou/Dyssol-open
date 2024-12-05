@@ -23,9 +23,19 @@ QTreeWidgetItem* CQtTree::CreateItem(int _col, const std::string& _text, EFlags 
 	return CreateItem<QTreeWidget>(this, _col, _text, _flags, _data);
 }
 
+QTreeWidgetItem* CQtTree::CreateItem(QTreeWidget* _parent, int _col, const std::string& _text, EFlags _flags, const QVariant& _data)
+{
+	return CreateItem<QTreeWidget>(_parent, _col, _text, _flags, _data);
+}
+
 QTreeWidgetItem* CQtTree::CreateItem(QTreeWidgetItem* _parent, int _col, const std::string& _text, EFlags _flags, const QVariant& _data)
 {
 	return CreateItem<QTreeWidgetItem>(_parent, _col, _text, _flags, _data);
+}
+
+QTreeWidgetItem* CQtTree::CreateItem(QTreeWidgetItem* _parent, int _col, const std::string& _text, EFlags _flags, const std::string& _data)
+{
+	return CreateItem<QTreeWidgetItem>(_parent, _col, _text, _flags, QString::fromStdString(_data));
 }
 
 void CQtTree::SetText(QTreeWidgetItem* _item, int _col, const std::string& _text, const QVariant& _data)
@@ -132,12 +142,12 @@ bool CQtTree::GetCheckBoxValue(QTreeWidgetItem* _item, int _col) const
 
 void CQtTree::SetItemFlags(QTreeWidgetItem* _item, EFlags _flags)
 {
-	if (Contains(_flags, EFlags::Edit))			_item->setFlags(_item->flags() | Qt::ItemIsEditable);
-	if (Contains(_flags, EFlags::NoEdit))		_item->setFlags(_item->flags() & ~Qt::ItemIsEditable);
-	if (Contains(_flags, EFlags::Select))		_item->setFlags(_item->flags() | Qt::ItemIsSelectable);
-	if (Contains(_flags, EFlags::NoSelect))		_item->setFlags(_item->flags() & ~Qt::ItemIsSelectable);
-	if (Contains(_flags, EFlags::Enabled))		_item->setFlags(_item->flags() | Qt::ItemIsEnabled);
-	if (Contains(_flags, EFlags::Diasabled))	_item->setFlags(_item->flags() & ~Qt::ItemIsEnabled);
+	if (Contains(_flags, EFlags::Edit))		_item->setFlags(_item->flags() | Qt::ItemIsEditable);
+	if (Contains(_flags, EFlags::NoEdit))	_item->setFlags(_item->flags() & ~Qt::ItemIsEditable);
+	if (Contains(_flags, EFlags::Select))	_item->setFlags(_item->flags() | Qt::ItemIsSelectable);
+	if (Contains(_flags, EFlags::NoSelect))	_item->setFlags(_item->flags() & ~Qt::ItemIsSelectable);
+	if (Contains(_flags, EFlags::Enabled))	_item->setFlags(_item->flags() | Qt::ItemIsEnabled);
+	if (Contains(_flags, EFlags::Disabled))	_item->setFlags(_item->flags() & ~Qt::ItemIsEnabled);
 }
 
 void CQtTree::SetCurrentItem(const std::vector<size_t>& _indices)
@@ -163,15 +173,37 @@ QTreeWidgetItem* CQtTree::GetItem(const QVariant& _data) const
 	return nullptr;
 }
 
-QString CQtTree::GetData(const QTreeWidgetItem* _item, int _col) const
+QVariant CQtTree::GetData(const QTreeWidgetItem* _item, int _col)
 {
 	if (!_item || _col >= _item->columnCount()) return {};
-	return _item->data(_col, Qt::UserRole).toString();
+	return _item->data(_col, Qt::UserRole);
 }
 
-QString CQtTree::GetCurrentData(int _col) const
+QString CQtTree::GetDataQStr(const QTreeWidgetItem* _item, int _col)
 {
-	return GetData(currentItem(), _col);
+	return GetData(_item, _col).toString();
+}
+
+std::string CQtTree::GetDataStr(const QTreeWidgetItem* _item, int _col)
+{
+	return GetDataQStr(_item, _col).toStdString();
+}
+
+QString CQtTree::GetCurrentDataQStr(int _col) const
+{
+	return GetDataQStr(currentItem(), _col);
+}
+
+bool CQtTree::IsSuccessor(const QTreeWidgetItem* _parent, const QTreeWidgetItem* _child)
+{
+	for (int i = 0; i < _parent->childCount(); ++i)
+	{
+		if (_parent->child(i) == _child)
+			return true;
+		if (IsSuccessor(_parent->child(i), _child))
+			return true;
+	}
+	return false;
 }
 
 bool CQtTree::blockSignals(bool _flag)
@@ -203,12 +235,12 @@ QTreeWidgetItem* CQtTree::CreateItem(T* _parent, int _col, const std::string& _t
 
 bool CQtTree::Contains(EFlags _composition, EFlags _flag)
 {
-	using type = std::underlying_type<EFlags>::type;
+	using type = std::underlying_type_t<EFlags>;
 	return static_cast<type>(_composition) & static_cast<type>(_flag);
 }
 
 CQtTree::EFlags operator|(CQtTree::EFlags _f1, CQtTree::EFlags _f2)
 {
-	using type = std::underlying_type<CQtTree::EFlags>::type;
+	using type = std::underlying_type_t<CQtTree::EFlags>;
 	return static_cast<CQtTree::EFlags>(static_cast<type>(_f1) | static_cast<type>(_f2));
 }

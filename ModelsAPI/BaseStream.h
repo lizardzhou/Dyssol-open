@@ -139,7 +139,7 @@ public:
 	 * \details Moves all structural parameters and settings from the source stream, including unique key and data.
 	 * \param _other Source stream.
 	 */
-	CBaseStream(CBaseStream&& _other);
+	CBaseStream(CBaseStream&& _other) noexcept;
 	/**
 	 * \private
 	 * \brief Destructor
@@ -222,7 +222,7 @@ public:
 	 * \brief Returns the name of the stream.
 	 * \return Name of the stream.
 	 */
-	std::string GetName() const;
+	[[nodiscard]] std::string GetName() const;
 	/**
 	 * \brief Sets new name of the stream.
 	 * \param _name Name of the stream.
@@ -232,7 +232,7 @@ public:
 	 * \brief Returns unique key of the stream.
 	 * \return Unique key of the stream.
 	 */
-	std::string GetKey() const;
+	[[nodiscard]] std::string GetKey() const;
 	/**
 	 * \brief Sets new unique key of the stream.
 	 * \param _key Unique key of the stream.
@@ -326,6 +326,34 @@ public:
 	////////////////////////////////////////////////////////////////////////////////
 	// Overall parameters
 	//
+
+	/**
+	 * \private
+	 * \brief Returns all defined overall properties.
+	 * \return List of all defined overall properties.
+	 */
+	std::vector<EOverall> GetAllOverallProperties() const;
+	/**
+	 * \private
+	 * \brief Returns the name of the overall property.
+	 * \param _property Type of the overall property.
+	 * \return Name of the overall property.
+	 */
+	std::string GetOverallPropertyName(EOverall _property) const;
+	/**
+	 * \private
+	 * \brief Returns the measurement units of the overall property.
+	 * \param _property Type of the overall property.
+	 * \return Measurement units of the overall property.
+	 */
+	std::string GetOverallPropertyUnits(EOverall _property) const;
+	/**
+	 * \private
+	 * \brief Checks whether the specified overall property is defined in the stream.
+	 * \param _property Identifier of time-dependent overall parameter.
+	 * \return Whether the specified overall property is defined in the stream.
+	 */
+	bool HasOverallProperty(EOverall _property) const;
 
 	/**
 	 * \private
@@ -567,7 +595,7 @@ public:
 	void SetCompoundsFractions(double _time, EPhase _phase, const std::vector<double>& _value);
 	/**
 	 * \brief Sets the mass of the specified compound in the specified phase at the given time point.
-	 * \details Total mass of the stream is correspondingly adjusted, masses of other compounds and phases remain the same.
+	 * \details Total mass of the stream and of the phase are correspondingly adjusted, masses of other compounds and phases remain the same.
 	 * \param _time Target time point.
 	 * \param _compoundKey Unique key of the compound.
 	 * \param _phase Phase type identifier.
@@ -710,13 +738,16 @@ public:
 	 * \brief Returns the value of the temperature/pressure-dependent physical property of the specified phase at the given time point.
 	 * \details Available properties are:
 	 * - ::DENSITY:
-	 *	- For solid phase:
+	 *	- For solid phase with porosity distribution:
 	 *	\f$\rho = \sum_{i,j} \rho_i (1 - \varepsilon_j) f_{i,j}\f$ with
 	 *	\f$\varepsilon_j\f$ porosity in interval \f$j\f$,
 	 *	\f$f_{i,j}\f$ mass fraction of compound \f$i\f$ with porosity \f$j\f$.
-	 *	- For liquid and vapor phase:
-	 *	\f$\frac{1}{\rho} = \sum_i \frac{w_i}{\rho_i}\f$ with
+	 *	- For solid and liquid phase:
+	 *	\f$\rho = \sum_i w_i \cdot \rho_i \f$ with
 	 *	\f$w_i\f$ mass fraction of compound \f$i\f$ in \p _phase.
+	 *  - For vapor phase:
+	 *  \f$\rho = \sum x_i \cdot \rho_i \f$ with
+	 *  \f$x_i\f$ as the mole fraction of component \f$i\f$ in \p _phase.
 	 * - ::HEAT_CAPACITY_CP:
 	 * \f$C_p = \sum_i w_i \cdot C_{p,i}\f$ with
 	 * \f$C_{p,i}\f$ heat capacity of compound \f$i\f$,
@@ -760,6 +791,10 @@ public:
 	 * - ::EQUILIBRIUM_MOISTURE_CONTENT:
 	 * \f$M = \sum_i w_i M_i\f$ with
 	 * \f$M_i\f$ equilibrium moisture content of compound \f$i\f$,
+	 * \f$w_i\f$ mass fraction of compound \f$i\f$ in \p _phase.
+	 * - ::MASS_DIFFUSION_COEFFICIENT:
+	 * \f$D = \sum_i w_i D_i\f$ with
+	 * \f$D_i\f$ mass diffusion coefficient of compound \f$i\f$,
 	 * \f$w_i\f$ mass fraction of compound \f$i\f$ in \p _phase.
 	 * - ::TP_PROP_USER_DEFINED_01 - ::TP_PROP_USER_DEFINED_20:
 	 * \f$Y = \sum_i w_i Y_i\f$ with
@@ -1472,14 +1507,6 @@ private:
 	 * \return Whether the given time point exists.
 	 */
 	bool HasTime(double _time) const;
-
-	/**
-	 * \private
-	 * \brief Checks whether the specified overall property is defined in the stream.
-	 * \param _property Identifier of time-dependent overall parameter.
-	 * \return Whether the specified overall property is defined in the stream.
-	 */
-	bool HasOverallProperty(EOverall _property) const;
 
 	/**
 	 * \private

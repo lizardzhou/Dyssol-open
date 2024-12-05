@@ -29,6 +29,15 @@ size_t CNLModel::AddNLVariable(double _dVariableInit, double _dConstraint /*= 0.
 	return m_vVariables.size()-1;
 }
 
+std::vector<size_t> CNLModel::AddNLVariables(const std::vector<double>& _variablesInit, double _constraint, double _uScale, double _fScale)
+{
+	std::vector<size_t> res;
+	if (_variablesInit.empty()) return res;
+	for (const auto& v : _variablesInit)
+		res.push_back(AddNLVariable(v, _constraint, _uScale, _fScale));
+	return res;
+}
+
 size_t CNLModel::GetVariablesNumber() const
 {
 	return m_vVariables.size();
@@ -91,11 +100,11 @@ bool CNLModel::GetFunctions(double* _pVars, double* _pFunc)
 		if( ( _pVars[0] <= DBL_MAX ) && ( _pVars[0] >= -DBL_MAX ) )
 				bRet = true;
 
-		if (m_eStrategy == ENLSolverStrategy::Newton || m_eStrategy == ENLSolverStrategy::Linesearch)
-		{
-			for (size_t i = 0; i < m_vVariables.size(); ++i)
-				_pFunc[i] = _pFunc[i] - _pVars[i];
-		}
+		//if (m_eStrategy == ENLSolverStrategy::Newton || m_eStrategy == ENLSolverStrategy::Linesearch)
+		//{
+		//	for (size_t i = 0; i < m_vVariables.size(); ++i)
+		//		_pFunc[i] = _pFunc[i] - _pVars[i];
+		//}
 	}
 	return bRet;
 }

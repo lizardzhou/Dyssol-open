@@ -28,7 +28,11 @@ bool CScriptRunner::RunJob(const CScriptJob& _job)
 
 	const auto tEnd = ch::steady_clock::now();
 
-	PrintMessage(DyssolC_ScriptFinished(ch::duration_cast<ch::seconds>(tEnd - tStart).count()));
+	const auto elapsed_time = tEnd - tStart;
+	const auto elapsed_s = ch::duration_cast<ch::seconds>(elapsed_time);
+	const auto elapsed_ms = ch::duration_cast<ch::milliseconds>(elapsed_time - elapsed_s);
+
+	PrintMessage(DyssolC_ScriptFinished(elapsed_s.count(), elapsed_ms.count()));
 	if (!success)
 		PrintMessage(DyssolC_ErrorFinish());
 
@@ -94,8 +98,8 @@ bool CScriptRunner::SetupFlowsheet(const CScriptJob& _job)
 	if (success) success &= SetupCompounds(_job);
 	if (success) success &= SetupPhases(_job);
 	if (success) success &= SetupUnits(_job);
-	if (success) success &= SetupStreams(_job);
 	if (success) success &= SetupUnitParameters(_job);
+	if (success) success &= SetupStreams(_job);
 	if (success) success &= SetupHoldups(_job);
 
 	return success;
@@ -298,6 +302,8 @@ bool CScriptRunner::SetupUnitParameters(const CScriptJob& _job)
 		if (!param) return false;
 		std::stringstream ss{ entry.values };	// create a stream with parameter values
 		param->ValueFromStream(ss);				// read unit parameter values
+		const auto [model, unit] = TryGetUnitAndModelPtr(EScriptKeys::UNIT_PARAMETER, entry.unit);
+		model->DoCreateStructure();
 	}
 
 	return true;
@@ -353,12 +359,12 @@ bool CScriptRunner::SetupHoldupsOverall(const CScriptJob& _job)
 		// set values: only values for time point 0 without time are given
 		if (entry.values.size() == m_flowsheet.GetOverallPropertiesNumber())
 			for (size_t iOvr = 0; iOvr < m_flowsheet.GetOverallPropertiesNumber(); ++iOvr)
-				holdup->SetOverallProperty(0.0, m_flowsheet.GetOveralProperties()[iOvr].type, entry.values[iOvr]);
+				holdup->SetOverallProperty(0.0, m_flowsheet.GetOverallProperties()[iOvr].type, entry.values[iOvr]);
 		// set values: values with time points are given
 		else
 			for (size_t iTime = 0; iTime < entry.values.size(); iTime += m_flowsheet.GetOverallPropertiesNumber() + 1)
 				for (size_t iOvr = 0; iOvr < m_flowsheet.GetOverallPropertiesNumber(); ++iOvr)
-					holdup->SetOverallProperty(entry.values[iTime], m_flowsheet.GetOveralProperties()[iOvr].type, entry.values[iTime + iOvr + 1]);
+					holdup->SetOverallProperty(entry.values[iTime], m_flowsheet.GetOverallProperties()[iOvr].type, entry.values[iTime + iOvr + 1]);
 	}
 
 	return true;
@@ -498,7 +504,10 @@ bool CScriptRunner::RunSimulation(const CScriptJob& _job)
 	const auto tStart = ch::steady_clock::now();
 	m_simulator.Simulate();
 	const auto tEnd = ch::steady_clock::now();
-	PrintMessage(DyssolC_SimFinished(ch::duration_cast<ch::seconds>(tEnd - tStart).count()));
+	const auto elapsed_time = tEnd - tStart;
+	const auto elapsed_s = ch::duration_cast<ch::seconds>(elapsed_time);
+	const auto elapsed_ms = ch::duration_cast<ch::milliseconds>(elapsed_time - elapsed_s);
+	PrintMessage(DyssolC_SimFinished(elapsed_s.count(), elapsed_ms.count()));
 
 	// save simulation results
 	return SaveFlowsheet(_job);
@@ -585,7 +594,7 @@ bool CScriptRunner::ExportResults(const CScriptJob& _job)
 	};
 	const auto ExportOveralls = [&](const CBaseStream* s, double t)
 	{
-		for (const auto& o : m_flowsheet.GetOveralProperties())
+		for (const auto& o : m_flowsheet.GetOverallProperties())
 			file << " " << Filter(s->GetOverallProperty(t, o.type));
 	};
 	const auto ExportPhases = [&](const CBaseStream* s, double t)

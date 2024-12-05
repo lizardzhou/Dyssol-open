@@ -665,6 +665,22 @@ const CCompound* CMaterialsDatabase::GetCompoundByName(const std::string& _sComp
 	return nullptr;
 }
 
+std::vector<CCompound*> CMaterialsDatabase::GetCompounds()
+{
+	auto res = ReservedVector<CCompound*>(m_vCompounds.size());
+	for (auto& c : m_vCompounds)
+		res.push_back(&c);
+	return res;
+}
+
+std::vector<const CCompound*> CMaterialsDatabase::GetCompounds() const
+{
+	auto res = ReservedVector<const CCompound*>(m_vCompounds.size());
+	for (const auto& c : m_vCompounds)
+		res.push_back(&c);
+	return res;
+}
+
 std::vector<std::string> CMaterialsDatabase::GetCompoundsNames(const std::vector<std::string>& _keys) const
 {
 	std::vector<std::string> res;
@@ -687,6 +703,14 @@ std::vector<std::string> CMaterialsDatabase::GetCompoundsKeys() const
 	for (const auto& c : m_vCompounds)
 		vKeys.push_back(c.GetKey());
 	return vKeys;
+}
+
+bool CMaterialsDatabase::HasCompound(const std::string& _key)
+{
+	return std::any_of(m_vCompounds.begin(), m_vCompounds.end(), [&](const CCompound& _c)
+	{
+		return _c.GetKey() == _key;
+	});
 }
 
 double CMaterialsDatabase::GetConstPropertyValue(const std::string& _sCompoundUniqueKey, ECompoundConstProperties _nConstPropType) const

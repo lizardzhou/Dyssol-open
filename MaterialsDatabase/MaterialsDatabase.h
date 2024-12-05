@@ -130,6 +130,10 @@ public:
 	CCompound* GetCompoundByName(const std::string& _sCompoundName);
 	// Returns const pointer to a compound with specified name. Returns nullptr if such compound has not been defined.
 	const CCompound* GetCompoundByName(const std::string& _sCompoundName) const;
+	// Returns pointers to all defined compounds.
+	[[nodiscard]] std::vector<CCompound*> GetCompounds();
+	// Returns const pointers to all defined compounds.
+	[[nodiscard]] std::vector<const CCompound*> GetCompounds() const;
 
 	// Returns names of compounds with the specified unique keys.
 	std::vector<std::string> GetCompoundsNames(const std::vector<std::string>& _keys) const;
@@ -137,6 +141,13 @@ public:
 	[[nodiscard]] std::vector<std::string> GetCompoundsNames() const;
 	// Returns the list of compounds keys that have been defined in the database.
 	[[nodiscard]] std::vector<std::string> GetCompoundsKeys() const;
+
+	/**
+	 * \brief Checks if the the compound exists in the database.
+	 * \param _key Unique key of the compound.
+	 * \return Existence flag.
+	 */
+	bool HasCompound(const std::string& _key);
 
 	//////////////////////////////////////////////////////////////////////////
 	/// Functions to work with properties values
@@ -177,7 +188,6 @@ public:
 
 	// Returns value of an interaction property between specified compounds for selected T[K] and P[Pa]. Returns 0 if such property doesn't exist.
 	double GetInteractionValue(const std::string& _sCompoundKey1, const std::string& _sCompoundKey2, EInteractionProperties _nInterPropType, double _dT, double _dP) const;
-
 
 private:
 	//////////////////////////////////////////////////////////////////////////

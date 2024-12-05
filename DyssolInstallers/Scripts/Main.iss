@@ -1,4 +1,6 @@
-; Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. 
+; Copyright (c) 2020, Dyssol Development Team. 
+; Copyright (c) 2024, DyssolTEC GmbH. 
+; All rights reserved. This file is part of Dyssol. See LICENSE file for license information. 
 
 #define MyAppName "Dyssol"
 #define MyAppExeName "Dyssol.exe"
@@ -6,23 +8,16 @@
 #define MyAppURL "https://github.com/DyssolTEC/Dyssol-open"
 #define MyAppPublisherURL "https://www.dyssoltec.com/"
 #define MyAppContact "info@dyssoltec.com"
-#ifdef IsIncludeX64
 #define MyAppVersion GetStringFileInfo(SolutionDir+'\x64\Release\Dyssol.exe', 'ProductVersion')
-#else
-#define MyAppVersion GetStringFileInfo(SolutionDir+'\Win32\Release\Dyssol.exe', 'ProductVersion')
-#endif
 
 ; all come as parameters from the running script
 ; #define MyAppBranch
 ; #define SolutionDir
 ; #define QtPath
 ; #define IsDocs
-; #define IsIncludeX32
-; #define IsIncludeX64
 ; #define IsWithSrc
 ; #define IsWithSDK
 
-#include "ExtLibs.iss"
 #include "QtLibs.iss"
 #include "FlowsheetsExamples.iss"
 #include "SolversExamples.iss"
@@ -31,6 +26,7 @@
 #include "Solvers.iss"
 #include "Units.iss"
 #ifdef IsWithSDK
+#include "ExtLibs.iss"
 #include "ModelsCreator.iss"
 #endif
 
@@ -43,7 +39,7 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppPublisherURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
-DefaultDirName={commonpf}\{#MyAppName}
+DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppExeName}
 AppContact={#MyAppContact}
@@ -54,7 +50,7 @@ OutputBaseFilename={#MyAppName} {#MyAppVersion} setup
 #endif
 OutputDir={#SolutionDir}\DyssolInstallers\Installers
 LicenseFile={#SolutionDir}\LICENSE
-SetupIconFile={#SolutionDir}\DyssolMainWindow\Resources\Icon.ico
+SetupIconFile={#SolutionDir}\DyssolGUI\Resources\Icon.ico
 WizardImageFile={#SolutionDir}\DyssolInstallers\Data\WizardImageFile.bmp
 WizardSmallImageFile={#SolutionDir}\DyssolInstallers\Data\WizardSmallImageFile.bmp
 DisableStartupPrompt=False
@@ -66,18 +62,10 @@ AllowNoIcons=yes
 ChangesAssociations=True
 ShowLanguageDialog=auto
 PrivilegesRequired=poweruser
-UsedUserAreasWarning=no
-#ifdef IsIncludeX64
-  #ifdef IsIncludeX32
+PrivilegesRequiredOverridesAllowed=dialog
+UsedUserAreasWarning=yes
 ArchitecturesAllowed=x86 x64
 ArchitecturesInstallIn64BitMode=x64
-  #else
-ArchitecturesAllowed=x64
-ArchitecturesInstallIn64BitMode=x64
-  #endif
-#else
-ArchitecturesAllowed=x86 x64
-#endif
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -86,70 +74,67 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-#ifdef IsIncludeX32
-Source: "..\..\Win32\Release\{#MyAppExeName}"      ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: not Is64BitInstallMode
-  #ifdef IsWithSDK                                                                                               
-Source: "..\..\Win32\Debug\{#MyAppExeName}"        ; DestDir: "{app}\{code:DirModelsCreator}\{code:DirDebugExe}" ; Flags: ignoreversion; Check: not Is64BitInstallMode
-  #endif                                                                                                         
-Source: "..\..\Win32\Release\DyssolC.exe"          ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: not Is64BitInstallMode
-Source: "..\..\ExternalLibraries\graphviz\bin32\*" ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: not Is64BitInstallMode
-#endif                                                                                                           
-#ifdef IsIncludeX64                                                                                              
-Source: "..\..\x64\Release\{#MyAppExeName}"        ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: Is64BitInstallMode
-  #ifdef IsWithSDK                                                                                              
-Source: "..\..\x64\Debug\{#MyAppExeName}"          ; DestDir: "{app}\{code:DirModelsCreator}\{code:DirDebugExe}" ; Flags: ignoreversion; Check: Is64BitInstallMode
-  #endif                                                                                                        
-Source: "..\..\x64\Release\DyssolC.exe"            ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: Is64BitInstallMode
-Source: "..\..\ExternalLibraries\graphviz\bin64\*" ; DestDir: "{app}"                                            ; Flags: ignoreversion; Check: Is64BitInstallMode
-#endif
-Source: "..\..\LICENSE";          DestDir: "{app}";          Flags: ignoreversion
-Source: "..\..\Materials.dmdb";   DestDir: "{app}";          Flags: ignoreversion
-Source: "..\Data\Licenses\*.txt"; DestDir: "{app}\Licenses"; Flags: ignoreversion
+Source: "..\..\x64\Release\{#MyAppExeName}"      ; DestDir: "{app}"                                            ; Flags: ignoreversion
+#ifdef IsWithSDK                                                                                              
+Source: "..\..\x64\Debug\{#MyAppExeName}"        ; DestDir: "{app}\{code:DirModelsCreator}\{code:DirDebugExe}" ; Flags: ignoreversion
+#endif                                                                                                        
+Source: "..\..\x64\Release\DyssolC.exe"          ; DestDir: "{app}"                                            ; Flags: ignoreversion
+Source: "..\..\ExternalLibraries\graphviz\bin\*" ; DestDir: "{app}"                                            ; Flags: ignoreversion
+Source: "..\..\LICENSE"                          ; DestDir: "{app}"                                            ; Flags: ignoreversion
+Source: "..\..\Materials.dmdb"                   ; DestDir: "{app}"                                            ; Flags: ignoreversion
+Source: "..\Data\Licenses\*.txt"                 ; DestDir: "{app}\Licenses"                                   ; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\Licenses";                                  Flags: uninsalwaysuninstall
-Name: "{userappdata}\{#MyAppName}";                      Flags: uninsalwaysuninstall
-Name: "{userappdata}\{#MyAppName}\{code:DirCache}";      Flags: uninsalwaysuninstall
-Name: "{userappdata}\{#MyAppName}\{code:DirCacheDebug}"; Flags: uninsalwaysuninstall
+Name: "{autoappdata}\{#MyAppName}";                      Flags: uninsalwaysuninstall; Permissions: users-modify
+Name: "{autoappdata}\{#MyAppName}\{code:DirCache}";      Flags: uninsalwaysuninstall; Permissions: users-modify
+Name: "{autoappdata}\{#MyAppName}\{code:DirCacheDebug}"; Flags: uninsalwaysuninstall; Permissions: users-modify
 
 [Icons]
 Name: "{group}\{#MyAppName}";                        Filename: "{app}\{#MyAppExeName}"
 Name: "{group}\{cm:ProgramOnTheWeb,{#MyAppName}}";   Filename: "{#MyAppURL}"
 Name: "{group}\{cm:UninstallProgram, {#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{group}\{#MyAppName} Uninstall";              Filename: "{uninstallexe}"
-Name: "{commondesktop}\{#MyAppName}";                Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
+Name: "{autodesktop}\{#MyAppName}";                  Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Registry]
-Root: "HKLM"; Subkey: "Software\Classes\.dflw";                              ValueType: string;                   ValueData: "DyssolFlowsheet";                 Flags: uninsdeletevalue
-Root: "HKLM"; Subkey: "Software\Classes\DyssolFlowsheet";                    ValueType: string;                   ValueData: "Dyssol Flowsheet";                Flags: uninsdeletekey
-Root: "HKLM"; Subkey: "Software\Classes\DyssolFlowsheet\DefaultIcon";        ValueType: string;                   ValueData: "{app}\{#MyAppExeName},0"
-Root: "HKLM"; Subkey: "Software\Classes\DyssolFlowsheet\shell\open\command"; ValueType: string;                   ValueData: """{app}\{#MyAppExeName}"" ""%1"""
-Root: "HKLM"; Subkey: "Software\{#MyAppName}";                               ValueType: string; ValueName: "key"; ValueData: "{code:VarRegKey}";                Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\.dflw";                              ValueType: string;                   ValueData: "DyssolFlowsheet";                 Flags: uninsdeletevalue
+Root: "HKA"; Subkey: "Software\Classes\DyssolFlowsheet";                    ValueType: string;                   ValueData: "Dyssol Flowsheet";                Flags: uninsdeletekey
+Root: "HKA"; Subkey: "Software\Classes\DyssolFlowsheet\DefaultIcon";        ValueType: string;                   ValueData: "{app}\{#MyAppExeName},0"
+Root: "HKA"; Subkey: "Software\Classes\DyssolFlowsheet\shell\open\command"; ValueType: string;                   ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+Root: "HKA"; Subkey: "Software\{#MyAppName}";                               ValueType: string; ValueName: "key"; ValueData: "{code:VarRegKey}";                Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: dirifempty;     Name: "{app}"
-Type: filesandordirs; Name: "{userappdata}\{#MyAppName}\{code:DirCache}"
-Type: filesandordirs; Name: "{userappdata}\{#MyAppName}\{code:DirCacheDebug}"
+Type: filesandordirs; Name: "{autoappdata}\{#MyAppName}\{code:DirCache}"
+Type: filesandordirs; Name: "{autoappdata}\{#MyAppName}\{code:DirCacheDebug}"
 
 [INI]
-Filename: "{userappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "modelsFolders";         String: "{code:VarIniModelsFolders}";                   Flags: createkeyifdoesntexist
-Filename: "{userappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "modelsFoldersActivity"; String: "{code:VarIniFoldersActivity}";                 Flags: createkeyifdoesntexist
-Filename: "{userappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "materialsDBPath";       String: "{code:MakeRightSlashes|{app}\Materials.dmdb}"; Flags: createkeyifdoesntexist
-Filename: "{userappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "cachePath";             String: "{userappdata}\{#MyAppName}";                   Flags: createkeyifdoesntexist
-Filename: "{userappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "loadLast";              String: "false";                                        Flags: createkeyifdoesntexist
+Filename: "{autoappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "modelsFolders";         String: "{code:VarIniModelsFolders}";                         Flags: createkeyifdoesntexist
+Filename: "{autoappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "modelsFoldersActivity"; String: "{code:VarIniFoldersActivity}";                       Flags: createkeyifdoesntexist
+Filename: "{autoappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "materialsDBPath";       String: "{code:MakeRightSlashes|{app}\Materials.dmdb}";       Flags: createkeyifdoesntexist
+Filename: "{autoappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "cachePath";             String: "{code:MakeRightSlashes|{autoappdata}\{#MyAppName}}"; Flags: createkeyifdoesntexist
+Filename: "{autoappdata}\{#MyAppName}\{code:FileConfigIni}"; Section: "General"; Key: "loadLast";              String: "false";                                              Flags: createkeyifdoesntexist
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
-    if MsgBox('Delete all configuration files?'+#13#10+'This includes a list of recently opened files, paths to models and materials database, etc.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then 
-    begin
-      DeleteFile(ExpandConstant('{userappdata}\{#MyAppName}\{code:FileConfigIni}'));
-    end;
+    if ExpandConstant('{param:skipaskconfig|no}') = 'no' then
+	begin
+      if MsgBox('Delete all configuration files?'+#13#10+'This includes a list of recently opened files, paths to models and materials database, etc.', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then 
+      begin
+        DeleteFile(ExpandConstant('{autoappdata}\{#MyAppName}\{code:FileConfigIni}'));
+      end;
+	end
+	else
+	begin
+	  DeleteFile(ExpandConstant('{autoappdata}\{#MyAppName}\{code:FileConfigIni}'));
+	end;
   end;
 end;
 
@@ -159,7 +144,7 @@ var
   newPaths: string;
   iniPath: string;
 begin
-  iniPath := ExpandConstant('{userappdata}') + '\' + '{#MyAppName}' + '\' + FileConfigIni('');
+  iniPath := ExpandConstant('{autoappdata}') + '\' + '{#MyAppName}' + '\' + FileConfigIni('');
   oldPaths := GetIniString('General', 'modelsFolders', '', iniPath);
   if oldPaths <> VarIniModelsFolders('') then
   begin

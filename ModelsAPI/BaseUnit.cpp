@@ -1,4 +1,6 @@
-/* Copyright (c) 2020, Dyssol Development Team. All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
+/* Copyright (c) 2020, Dyssol Development Team.
+ * Copyright (c) 2024, DyssolTEC GmbH.
+ * All rights reserved. This file is part of Dyssol. See LICENSE file for license information. */
 
 #include "BaseUnit.h"
 #include "TransformMatrix.h"
@@ -10,7 +12,7 @@
 #include <stdexcept>
 #include <numeric>
 
-void CBaseUnit::SetSettings(const CMaterialsDatabase* _materialsDB, const CMultidimensionalGrid& _grid, const std::vector<SOverallDescriptor>* _overall,
+void CBaseUnit::ConfigureUnitStructures(const CMaterialsDatabase* _materialsDB, const CMultidimensionalGrid& _grid, const std::vector<SOverallDescriptor>* _overall,
 	const std::vector<SPhaseDescriptor>* _phases, const SCacheSettings* _cache, const SToleranceSettings* _tolerance, const SThermodynamicsSettings* _thermodynamics)
 {
 	m_materialsDB    = _materialsDB;
@@ -20,6 +22,18 @@ void CBaseUnit::SetSettings(const CMaterialsDatabase* _materialsDB, const CMulti
 	m_cache          = _cache;
 	m_tolerances     = _tolerance;
 	m_thermodynamics = _thermodynamics;
+	m_streams.SetPointers(m_materialsDB, &m_grid, m_overall, m_phases, m_cache, m_tolerances, m_thermodynamics);
+}
+
+void CBaseUnit::ConfigureUnitStructures(const CBaseUnit* _other)
+{
+	m_materialsDB    = _other->m_materialsDB;
+	m_grid           = _other->m_grid;
+	m_overall        = _other->m_overall;
+	m_phases         = _other->m_phases;
+	m_cache          = _other->m_cache;
+	m_tolerances     = _other->m_tolerances;
+	m_thermodynamics = _other->m_thermodynamics;
 	m_streams.SetPointers(m_materialsDB, &m_grid, m_overall, m_phases, m_cache, m_tolerances, m_thermodynamics);
 }
 
@@ -251,47 +265,76 @@ CUnitParametersManager& CBaseUnit::GetUnitParametersManager()
 CConstRealUnitParameter* CBaseUnit::AddConstRealParameter(const std::string& _name, double _initValue, const std::string& _units, const std::string& _description, double _minValue, double _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddConstRealParameter(_name, _units, _description, _minValue, _maxValue, _initValue);
+	{
+		if (auto* param = m_unitParameters.GetConstRealParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddConstRealParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, _initValue);
 	return m_unitParameters.GetConstRealParameter(_name);
 }
 
 CConstIntUnitParameter* CBaseUnit::AddConstIntParameter(const std::string& _name, int64_t _initValue, const std::string& _units, const std::string& _description, int64_t _minValue, int64_t _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddConstIntParameter(_name, _units, _description, _minValue, _maxValue, _initValue);
+	{
+		if (auto* param = m_unitParameters.GetConstIntParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddConstIntParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, _initValue);
 	return m_unitParameters.GetConstIntParameter(_name);
 }
 
 CConstUIntUnitParameter* CBaseUnit::AddConstUIntParameter(const std::string& _name, uint64_t _initValue, const std::string& _units, const std::string& _description, uint64_t _minValue, uint64_t _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddConstUIntParameter(_name, _units, _description, _minValue, _maxValue, _initValue);
+	{
+		if (auto* param = m_unitParameters.GetConstUIntParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddConstUIntParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, _initValue);
 	return m_unitParameters.GetConstUIntParameter(_name);
 }
 
 CDependentUnitParameter* CBaseUnit::AddDependentParameter(const std::string& _valueName, double _valueInit, const std::string& _valueUnits, const std::string& _paramName, double _paramInit, const std::string& _paramUnits, const std::string& _description, double _valueMin, double _valueMax, double _paramMin, double _paramMax)
 {
 	if (m_unitParameters.IsNameExist(_valueName))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _valueName, __func__));
-	m_unitParameters.AddDependentParameter(_valueName, _valueUnits, _description, _valueMin, _valueMax, _valueInit, _paramName, _paramUnits, _paramMin, _paramMax, _paramInit);
+	{
+		if (auto* param = m_unitParameters.GetDependentParameter(_valueName)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _valueName, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddDependentParameter(_valueName, StringFunctions::String2WString(_valueUnits), _description, _valueMin, _valueMax, _valueInit, _paramName, StringFunctions::String2WString(_paramUnits), _paramMin, _paramMax, _paramInit);
 	return m_unitParameters.GetDependentParameter(_valueName);
 }
 
 CTDUnitParameter* CBaseUnit::AddTDParameter(const std::string& _name, double _initValue, const std::string& _units, const std::string& _description, double _minValue, double _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddTDParameter(_name, _units, _description, _minValue, _maxValue, _initValue);
+	{
+		if (auto* param = m_unitParameters.GetTDParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddTDParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, _initValue);
 	return m_unitParameters.GetTDParameter(_name);
 }
 
 CStringUnitParameter* CBaseUnit::AddStringParameter(const std::string& _name, const std::string& _initValue, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetStringParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddStringParameter(_name, _description, _initValue);
 	return m_unitParameters.GetStringParameter(_name);
 }
@@ -299,7 +342,11 @@ CStringUnitParameter* CBaseUnit::AddStringParameter(const std::string& _name, co
 CCheckBoxUnitParameter* CBaseUnit::AddCheckBoxParameter(const std::string& _name, bool _initValue, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetCheckboxParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddCheckBoxParameter(_name, _description, _initValue);
 	return m_unitParameters.GetCheckboxParameter(_name);
 }
@@ -307,7 +354,11 @@ CCheckBoxUnitParameter* CBaseUnit::AddCheckBoxParameter(const std::string& _name
 CComboUnitParameter* CBaseUnit::AddComboParameter(const std::string& _name, size_t _initValue, const std::vector<size_t>& _items, const std::vector<std::string>& _itemsNames, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetComboParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	std::vector<size_t> values = _items;
 	if (values.empty())
 	{
@@ -324,7 +375,11 @@ CComboUnitParameter* CBaseUnit::AddComboParameter(const std::string& _name, size
 CCompoundUnitParameter* CBaseUnit::AddCompoundParameter(const std::string& _name, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetCompoundParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddCompoundParameter(_name, _description);
 	return m_unitParameters.GetCompoundParameter(_name);
 }
@@ -332,7 +387,11 @@ CCompoundUnitParameter* CBaseUnit::AddCompoundParameter(const std::string& _name
 CMDBCompoundUnitParameter* CBaseUnit::AddMDBCompoundParameter(const std::string& _name, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetMDBCompoundParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddMDBCompoundParameter(_name, _description);
 	return m_unitParameters.GetMDBCompoundParameter(_name);
 }
@@ -340,7 +399,11 @@ CMDBCompoundUnitParameter* CBaseUnit::AddMDBCompoundParameter(const std::string&
 CReactionUnitParameter* CBaseUnit::AddReactionParameter(const std::string& _name, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		if (auto* param = m_unitParameters.GetReactionParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddReactionParameter(_name, _description);
 	return m_unitParameters.GetReactionParameter(_name);
 }
@@ -348,31 +411,51 @@ CReactionUnitParameter* CBaseUnit::AddReactionParameter(const std::string& _name
 CListRealUnitParameter* CBaseUnit::AddListRealParameter(const std::string& _name, double _initValue, const std::string& _units, const std::string& _description, double _minValue, double _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddListRealParameter(_name, _units, _description, _minValue, _maxValue, { _initValue });
+	{
+		if (auto* param = m_unitParameters.GetListRealParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddListRealParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, { _initValue });
 	return m_unitParameters.GetListRealParameter(_name);
 }
 
 CListIntUnitParameter* CBaseUnit::AddListIntParameter(const std::string& _name, int64_t _initValue, const std::string& _units, const std::string& _description, int64_t _minValue, int64_t _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddListIntParameter(_name, _units, _description, _minValue, _maxValue, { _initValue });
+	{
+		if (auto* param = m_unitParameters.GetListIntParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddListIntParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, { _initValue });
 	return m_unitParameters.GetListIntParameter(_name);
 }
 
 CListUIntUnitParameter* CBaseUnit::AddListUIntParameter(const std::string& _name, uint64_t _initValue, const std::string& _units, const std::string& _description, uint64_t _minValue, uint64_t _maxValue)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
-	m_unitParameters.AddListUIntParameter(_name, _units, _description, _minValue, _maxValue, { _initValue });
+	{
+		if (auto* param = m_unitParameters.GetListUIntParameter(_name)) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
+	// TODO: Get rid of String2WString. Probably after switching to the units converter here.
+	m_unitParameters.AddListUIntParameter(_name, StringFunctions::String2WString(_units), _description, _minValue, _maxValue, { _initValue });
 	return m_unitParameters.GetListUIntParameter(_name);
 }
 
 CSolverUnitParameter* CBaseUnit::AddSolverAgglomeration(const std::string& _name, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		auto* param = m_unitParameters.GetSolverParameter(_name);
+		if (param->GetSolverType() == ESolverTypes::SOLVER_AGGLOMERATION_1) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddSolverParameter(_name, _description, ESolverTypes::SOLVER_AGGLOMERATION_1);
 	return m_unitParameters.GetSolverParameter(_name);
 }
@@ -380,7 +463,12 @@ CSolverUnitParameter* CBaseUnit::AddSolverAgglomeration(const std::string& _name
 CSolverUnitParameter* CBaseUnit::AddSolverPBM(const std::string& _name, const std::string& _description)
 {
 	if (m_unitParameters.IsNameExist(_name))
-		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__));
+	{
+		auto* param = m_unitParameters.GetSolverParameter(_name);
+		if (param->GetSolverType() == ESolverTypes::SOLVER_PBM_1) // exists with the same name and type
+			return param;
+		throw std::logic_error(StrConst::BUnit_ErrAddParam(m_unitName, _name, __func__)); // same name but wrong type
+	}
 	m_unitParameters.AddSolverParameter(_name, _description, ESolverTypes::SOLVER_PBM_1);
 	return m_unitParameters.GetSolverParameter(_name);
 }
@@ -398,6 +486,22 @@ void CBaseUnit::AddParametersToGroup(const std::string& _unitParamNameSelector, 
 	m_unitParameters.AddParametersToGroup(_unitParamNameSelector, _unitParamSelectedValueName, _groupedParamNames);
 }
 
+void CBaseUnit::AddParametersToGroup(const std::string& _unitParamNameSelector, const char* _unitParamSelectedValueName, const std::vector<std::string>& _groupedParamNames)
+{
+	AddParametersToGroup(_unitParamNameSelector, std::string(_unitParamSelectedValueName), _groupedParamNames);
+}
+
+void CBaseUnit::AddParametersToGroup(const std::string& _unitParamNameSelector, bool _unitParamSelectedValue, const std::vector<std::string>& _groupedParamNames)
+{
+	const auto* groupParameter = m_unitParameters.GetCheckboxParameter(_unitParamNameSelector);
+	if (!groupParameter)										// check that checkbox parameter exists
+		throw std::logic_error(StrConst::BUnit_ErrGroupParamBlock(m_unitName, _unitParamNameSelector, _unitParamSelectedValue ? "true" : "false", __func__));
+	for (const auto& name : _groupedParamNames)					// check that all grouped parameters exist
+		if (!m_unitParameters.GetParameter(name))
+			throw std::logic_error(StrConst::BUnit_ErrGroupParamParam(m_unitName, _unitParamNameSelector, _unitParamSelectedValue ? "true" : "false", name, __func__));
+	m_unitParameters.AddParametersToGroup(_unitParamNameSelector, _unitParamSelectedValue, _groupedParamNames);
+}
+
 void CBaseUnit::AddParametersToGroup(const CComboUnitParameter* _selector, size_t _selectedValue, const std::vector<CBaseUnitParameter*>& _groupedParams)
 {
 	if (!_selector)								// check that combo parameter exists
@@ -411,6 +515,19 @@ void CBaseUnit::AddParametersToGroup(const CComboUnitParameter* _selector, size_
 	for (const auto& p : _groupedParams)
 		paramNames.push_back(p->GetName());
 	m_unitParameters.AddParametersToGroup(_selector->GetName(), _selector->GetNameByItem(_selectedValue), paramNames);
+}
+
+void CBaseUnit::AddParametersToGroup(const CCheckBoxUnitParameter* _selector, bool _selectedValue, const std::vector<CBaseUnitParameter*>& _groupedParams)
+{
+	if (!_selector)								// check that checkbox parameter exists
+		throw std::logic_error(StrConst::BUnit_ErrGroupParamBlock(m_unitName, "Unknown", "Unknown", __func__));
+	for (const auto* param : _groupedParams)	// check that all parameters exist
+		if (!param)
+			throw std::logic_error(StrConst::BUnit_ErrGroupParamParam(m_unitName, _selector->GetName(), std::to_string(_selectedValue), "Unknown", __func__));
+	auto paramNames = ReservedVector<std::string>(_groupedParams.size());
+	for (const auto& p : _groupedParams)
+		paramNames.push_back(p->GetName());
+	m_unitParameters.AddParametersToGroup(_selector->GetName(), _selectedValue, paramNames);
 }
 
 double CBaseUnit::GetConstRealParameterValue(const std::string& _name) const
@@ -798,6 +915,16 @@ std::vector<double> CBaseUnit::GetStreamsTimePointsClosed(double _timeBeg, doubl
 	return CloseInterval(GetStreamsTimePoints(_timeBeg, _timeEnd, _streams), _timeBeg, _timeEnd);
 }
 
+std::vector<double> CBaseUnit::GetTimePoints(double _timeBeg, double _timeEnd, const std::vector<CHoldup*>& _holdups, const std::vector<CStream*>& _streams) const
+{
+	std::vector<double> res;
+	for (const auto& stream : _streams)
+		res = VectorsUnionSorted(res, stream->GetTimePoints(_timeBeg, _timeEnd));
+	for (const auto& holdup : _holdups)
+		res = VectorsUnionSorted(res, holdup->GetTimePoints(_timeBeg, _timeEnd));
+	return res;
+}
+
 void CBaseUnit::ReduceTimePoints(double _timeBeg, double _timeEnd, double _step)
 {
 	m_streams.ReduceTimePoints(_timeBeg, _timeEnd, _step);
@@ -885,6 +1012,14 @@ bool CBaseUnit::IsCompoundDefined(const std::string& _compoundKey) const
 bool CBaseUnit::IsCompoundNameDefined(const std::string& _compoundName) const
 {
 	return VectorContains(GetAllCompoundsNames(), _compoundName);
+}
+
+std::vector<EOverall> CBaseUnit::GetAllOverallProperties() const
+{
+	auto res = ReservedVector<EOverall>(*m_overall);
+	for (const auto& overall : *m_overall)
+		res.push_back(overall.type);
+	return res;
 }
 
 void CBaseUnit::AddOverallProperty(EOverall _property, const std::string& _name, const std::string& _units)
@@ -987,13 +1122,15 @@ std::vector<std::string> CBaseUnit::GetSymbolicGrid(EDistrTypes _distribution) c
 
 std::vector<double> CBaseUnit::GetClassesSizes(EDistrTypes _distribution) const
 {
-	if (m_grid.GetGridDimension(_distribution)->GridType() != EGridEntry::GRID_NUMERIC) return {};
+	const auto* dim = m_grid.GetGridDimension(_distribution);
+	if (!dim || dim->GridType() != EGridEntry::GRID_NUMERIC) return {};
 	return m_grid.GetGridDimensionNumeric(_distribution)->GetClassesSizes();
 }
 
 std::vector<double> CBaseUnit::GetClassesMeans(EDistrTypes _distribution) const
 {
-	if (m_grid.GetGridDimension(_distribution)->GridType() != EGridEntry::GRID_NUMERIC) return {};
+	const auto* dim = m_grid.GetGridDimension(_distribution);
+	if (!dim || dim->GridType() != EGridEntry::GRID_NUMERIC) return {};
 	return m_grid.GetGridDimensionNumeric(_distribution)->GetClassesMeans();
 }
 
@@ -1357,6 +1494,10 @@ std::string CBaseUnit::PopInfoMessage()
 
 void CBaseUnit::DoCreateStructure()
 {
+	m_ports.Clear();
+	m_streams.Clear();
+	m_stateVariables.Clear();
+	m_unitParameters.ClearGroups();
 	CreateStructure();
 	m_streams.CreateStructure();
 }
@@ -1388,8 +1529,9 @@ void CBaseUnit::DoFinalizeUnit()
 void CBaseUnit::DoSaveStateUnit(double _timeBeg, double _timeEnd)
 {
 	SaveState();
-	for (auto& param : m_unitParameters.GetAllSolverParameters())
-		param->GetSolver()->SaveState();
+	for (const auto& param : m_unitParameters.GetAllSolverParameters())
+		if (CBaseSolver* solver = param->GetSolver())
+			solver->SaveState();
 	m_stateVariables.SaveState();
 	m_streams.SaveState(_timeBeg, _timeEnd);
 	m_plots.SaveState();

@@ -50,6 +50,12 @@ void CGridEditor::accept()
 		QDialog::accept();
 }
 
+void CGridEditor::UpdateFromFlowsheet()
+{
+	if (isVisible())
+		UpdateWholeView();
+}
+
 void CGridEditor::UpdateWholeView()
 {
 	UpdateGridsList();
@@ -59,7 +65,7 @@ void CGridEditor::UpdateWholeView()
 void CGridEditor::UpdateGridsList() const
 {
 	[[maybe_unused]] CSignalBlocker blocker{ ui.treeGrids };
-	const auto oldData = ui.treeGrids->GetCurrentData(1); // key of currently selected entity
+	const auto oldData = ui.treeGrids->GetCurrentDataQStr(1); // key of currently selected entity
 	ui.treeGrids->clear();
 	ui.treeGrids->setColumnCount(2);
 	const auto& mainGrid = m_flowsheet->GetGrid();
@@ -78,7 +84,7 @@ void CGridEditor::UpdateGridsList() const
 		auto* item = ui.treeGrids->CreateItem(units);
 		ui.treeGrids->SetCheckBox(item, 0, "", activ)->setEnabled(exist);
 		ui.treeGrids->SetText(item, 1, u->GetName(), QString::fromStdString(u->GetKey()));
-		ui.treeGrids->SetItemFlags(item, exist ? CQtTree::EFlags::Enabled : CQtTree::EFlags::Diasabled);
+		ui.treeGrids->SetItemFlags(item, exist ? CQtTree::EFlags::Enabled : CQtTree::EFlags::Disabled);
 	}
 	// resize columns and expand/contract rows
 	for (int i = 0; i < ui.treeGrids->columnCount(); ++i)
@@ -106,7 +112,7 @@ void CGridEditor::UpdateDimensionsList()
 
 void CGridEditor::GridSelected()
 {
-	const auto key = ui.treeGrids->GetCurrentData(1).toStdString();
+	const auto key = ui.treeGrids->GetCurrentDataQStr(1).toStdString();
 	const auto* unit = m_flowsheet->GetUnit(key);
 	const auto* model = unit ? unit->GetModel() : nullptr;
 	if (key != "global" && model)
@@ -119,7 +125,7 @@ void CGridEditor::GridSelected()
 void CGridEditor::GridActivityChanged(const QCheckBox* _checkbox, const QTreeWidgetItem* _item)
 {
 	if (_checkbox->isChecked()) return;
-	const auto key = ui.treeGrids->GetData(_item, 1).toStdString();
+	const auto key = ui.treeGrids->GetDataQStr(_item, 1).toStdString();
 	auto* model = m_flowsheet->GetUnit(key)->GetModel();
 	if (!model) return UpdateGridsList();
 	const auto name = QString::fromStdString(m_flowsheet->GetUnit(key)->GetName());
@@ -142,7 +148,7 @@ void CGridEditor::RemDistributionClicked()
 	if (row <= 0 || row >= ui.listDims->count()) return;
 	const auto* widget = dynamic_cast<CDimensionParameters*>(ui.listDims->itemWidget(ui.listDims->currentItem()));
 	const int iName = GetDistributionTypeIndex(widget->GetDistributionType());
-	const auto name = iName != -1 ? std::vector<QString>(DISTR_NAMES)[iName] : "";
+	const auto name = iName != -1 ? DISTR_NAMES[iName] : "";
 	const auto reply = QMessageBox::question(this, "Confirm removal", tr("Remove distribution '%1'?").arg(name), QMessageBox::Yes | QMessageBox::No);
 	if (reply != QMessageBox::Yes) return;
 	delete ui.listDims->takeItem(row);
@@ -172,7 +178,7 @@ bool CGridEditor::ApplyChanges()
 		newGrid.AddDimension(dynamic_cast<CDimensionParameters*>(ui.listDims->itemWidget(ui.listDims->item(i)))->GetGrid());
 
 	// set the grid
-	const auto key = ui.treeGrids->GetCurrentData(1).toStdString();
+	const auto key = ui.treeGrids->GetCurrentDataQStr(1).toStdString();
 	if (key.empty()) return false;
 	if (key == "global")
 		m_flowsheet->SetMainGrid(newGrid);
