@@ -80,7 +80,8 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("alpha_GF", 0, "W/(m2*K)", "Heat transfer coefficient between gas and water film.", 0);
 	AddConstRealParameter("alpha_PF", 0, "W/(m2*K)", "Heat transfer coefficient between particle and water film.", 0);
 	AddParametersToGroup("Heat & mass transfer methods", "Self-defined", { "alpha_GP", "alpha_GF", "alpha_PF" });
-	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods in the model.");
+	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods reported in Martin(VDI-Waermeatlas, chapter M5).");
+	AddConstRealParameter("Tolerance temperature", 0.1, "K", "Tolerance for temperature difference for calculating the heat transfer between phases. Temperature difference smaller than the tolerance will be set to zero.", 1e-4, 2);
 
 	// Drying kinetics calculation
 	AddStringParameter("Drying kinetics", "", "");
@@ -99,18 +100,19 @@ void CDryerBatch::CreateStructure()
 	AddComboParameter("Use Y_eq or Y_sat?", 0, items, itemNames, "Choose between Y_eq (equilibrium gas moisture calculated from desorption isotherm) and Y_sat (saturation gas moisture) to calculate the water evaporation rate.");
 	AddCheckBoxParameter("Use relative drying rate?", false, "Tick this box to use relative drying rate to calculate the water evaporation rate.");
 
+	/// Read desorption isothermal information
 	//AddStringParameter("Path to X_eq data", "C:\\", "Location of equilibrium moisture content with temperature, must be a csv file.");
 	//AddCompoundParameter("X_eq compound", "Compound for with the Xeq values are contained in Path Xeq.");
 	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
 	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);	
 
-	// Tolerance for solver
+	/// Tolerance for solver
 	//AddStringParameter("Tolerance for solver", "", "");
 	//AddConstRealParameter("Relative tolerance", 0.0, "-", "Solver relative tolerance. Set to 0 to use flowsheet-set value", 0);
 	//AddConstRealParameter("Absolute tolerance Y", 0.0, "-", "Solver absolute tolerance for gas moisture content Y.\nSet to 0 to use flowsheet-set value", 0);
 	//AddConstRealParameter("Absolute tolerance T", 0.0, "-", "Solver absolute tolerance for eqData.temperatures T.\nSet to 0 to use flowsheet-set value", 0);
 
-	// Debug information 
+	/// Debug information ///
 	AddCheckBoxParameter("Print intermediate results", true, "Tick this box to print intermediate results on simulation window.");
 
 	/// Set this unit as user data of model ///
@@ -321,13 +323,14 @@ void CDryerBatch::Initialize(double _time)
 	/// Add state variables ///
 	///////////////////////////	
 /// gas in holdup ///
-	const double mGasHoldup = m_holdupGas->GetMass(_time);
-	const double mGasHoldupDry = m_holdupGas->GetCompoundMass(_time, keyGas);
+	const mass mGasHoldup = m_holdupGas->GetMass(_time);
+	const mass mGasHoldupDry = m_holdupGas->GetCompoundMass(_time, keyGas);
 	const temperature T_holdupGas = m_holdupGas->GetTemperature(_time);
 	const temperature theta_holdupGas = T_holdupGas - T_ref;
-	const double y_holdupGas = m_holdupGas->GetCompoundFraction(_time, keyVapor);
-	const double Y_holdupGas = ConvertMassFracToMoistContent(y_holdupGas);
+	const moistureContent y_holdupGas = m_holdupGas->GetCompoundFraction(_time, keyVapor);
+	const moistureContent Y_holdupGas = ConvertMassFracToMoistContent(y_holdupGas);
 	const double RH_holdupGas = CalculateGasRelativeHumidity(Y_holdupGas, theta_holdupGas, m_holdupGas->GetPressure(_time));
+	const pressure pressureGasHoldup = m_holdupGas->GetPressure(_time);
 	AddStateVariable("Holdup air mass [kg]", mGasHoldupDry);
 	AddStateVariable("Holdup water vapor mass [kg]", mGasHoldup * y_holdupGas);
 /// gas in outlet ///
@@ -336,37 +339,51 @@ void CDryerBatch::Initialize(double _time)
 	AddStateVariable("Outlet gas Y [g/kg]", Y_holdupGas * 1e3);
 	AddStateVariable("Outlet gas RH [%]", RH_holdupGas * 100);
 
-/// particle if non-empty run ///
+/// particle ///
 	temperature T_ParticleInit = 0;
 	temperature theta_holdupSolid = 0;
 	temperature T_LiquidInit = 0;
 	temperature theta_holdupLiquid = 0;
-	if (particlesGlobal)
+	T_ParticleInit = m_holdupSolid->GetTemperature(_time); // in [K]
+	theta_holdupSolid = T_ParticleInit - T_ref;
+	T_LiquidInit = m_holdupLiquid->GetTemperature(_time); 
+	theta_holdupLiquid = T_LiquidInit - T_ref;
+	double initPhi = mLiquidHoldup / rhoWater / Delta_f / A_P;
+	m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 0.0, 0.0); // Particle temperature in [K]
+	m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0.0, 0.0); 
+	// m_model.miA_P: A_P is constant in case of water spray, A_P as DAE variable will be used for granulation
+	AddStateVariable("Particle moisture content [%]", initX * 100);
+	AddStateVariable("Particle water mass fraction [%]", x_wInit * 100);
+	AddStateVariable("Particle wetness degree [%]", initPhi * 100);
+	const bool use_f = GetCheckboxParameterValue("Use relative drying rate?");
+	const double fInit = use_f ? CalculateRelativeDryingRate(initX) : 1;
+	const size_t Y_maxMethod = GetComboParameterValue("Use Y_eq or Y_sat?");
+	const moistureContent Y_satInit = CalculateGasSaturationMoistureContent(theta_holdupGas, pressureGasHoldup);
+	const double RH_eqInit = CalculateGasEquilibriumRelativeHumidity(initX);
+	const pressure P_satInit = CalculateGasSaturationPressure(theta_holdupGas, pressureGasHoldup);
+	const moistureContent Y_eqInit = CalculateGasEquilibriumMoistureContent(pressureGasHoldup, P_satInit, RH_eqInit);
+	double Y_maxInit = 0;
+	if (Y_maxMethod == 0) // use Y_eq
 	{
-		// particle properties
-		T_ParticleInit = m_holdupSolid->GetTemperature(_time); // in [K]
-		theta_holdupSolid = T_ParticleInit - T_ref;
-		T_LiquidInit = m_holdupLiquid->GetTemperature(_time); 
-		theta_holdupLiquid = T_LiquidInit - T_ref;
-		double initPhi = mLiquidHoldup / rhoWater / Delta_f / A_P;
-		m_model.m_iTempParticle = m_model.AddDAEVariable(true, T_ParticleInit, 0.0, 0.0); // Particle temperature in [K]
-		m_model.m_iPhi = m_model.AddDAEVariable(true, initPhi, 0.0, 0.0); 
-		// m_model.miA_P: A_P is constant in case of water spray, A_P as DAE variable will be used for granulation
-		AddStateVariable("Particle moisture content [%]", initX * 100);
-		AddStateVariable("Particle water mass fraction [%]", x_wInit * 100);
-		AddStateVariable("Particle wetness degree [%]", initPhi * 100);
-		AddStateVariable("Water evaporation rate [g/s]", 0);
-		AddStateVariable("Relative drying rate [-]", 0);
-		AddStateVariable("Heat loss gas to wall [J/s]", 0);
+		Y_maxInit = Y_eqInit;
+	}
+	else // use Y_sat
+	{
+		Y_maxInit = Y_satInit;
+	}
+	double betaInit = CalculateBeta(_time, d32, theta_holdupGas, CalculateDiffusionCoefficient(theta_holdupGas));
+	double MFlowInit = betaInit * A_P * initPhi * rhoGas * (Y_maxInit - Y_holdupGas) * fInit;
+	AddStateVariable("Water evaporation rate [g/s]", MFlowInit);
+	AddStateVariable("Relative drying rate [-]", fInit);
+	AddStateVariable("Heat loss gas to wall [J/s]", 0);
 		
-		os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
-		os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
-		ShowInfo(os.str());
-		os.str("");
+	os << "\nInitial particle moisture content: " << initX * 1e3 << " g/kg dry solid \nWater mass fraction: " << x_wInit * 100 << " %\n";
+	os << "Initial particle wetness degree: " << initPhi * 100 << " %\n";
+	ShowInfo(os.str());
+	os.str("");
 		
 /// liquid (film) properties ///
-		m_model.m_iTempFilm = m_model.AddDAEVariable(true, m_holdupLiquid->GetTemperature(_time), 0.0, 0.0); 
-	}	
+	m_model.m_iTempFilm = m_model.AddDAEVariable(true, T_LiquidInit, 0.0, 0.0); 
 
 ///  Add plots ///
 	// temperatures
@@ -666,9 +683,14 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYHoldupGas) * f; 
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
-	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle); // TODO: indirect heat transfer when phi > 1
-	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
-	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm); 
+	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
+	double varQFlow_GP_Formula = 0;
+	if (varPhi < 1)
+	{
+		varQFlow_GP_Formula = std::abs(varTheta_gasHoldup - varThetaParticle) < tolTemp ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
+	}
+	const double varQFlow_GF_Formula = std::abs(varTheta_gasHoldup - varThetaFilm) < tolTemp ? 0 : varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
+	const double varQFlow_PF_Formula = std::abs(varThetaParticle - varThetaFilm) < tolTemp ? 0 : varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
@@ -905,9 +927,14 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
-	const double varQFlow_GP_Formula = varPhi > 1 ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
-	const double varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
-	const double varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
+	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
+	double varQFlow_GP_Formula = 0;
+	if (varPhi < 1)
+	{
+		varQFlow_GP_Formula = std::abs(varTheta_gasHoldup - varThetaParticle) < tolTemp ? 0 : varAlpha_GP_Formula * A_P * (1. - varPhi) * (varTheta_gasHoldup - varThetaParticle);
+	}
+	const double varQFlow_GF_Formula = std::abs(varTheta_gasHoldup - varThetaFilm) < tolTemp ? 0 : varAlpha_GF_Formula * A_P * varPhi * (varTheta_gasHoldup - varThetaFilm);
+	const double varQFlow_PF_Formula = std::abs(varThetaParticle - varThetaFilm) < tolTemp ? 0 : varAlpha_PF_Formula * A_P * varPhi * (varThetaParticle - varThetaFilm);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
 
 /// Set holdup properties ///
