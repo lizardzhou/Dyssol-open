@@ -82,7 +82,9 @@ void CDryerBatch::CreateStructure()
 	AddParametersToGroup("Heat & mass transfer methods", "Self-defined", { "alpha_GP", "alpha_GF", "alpha_PF" });
 	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods reported in Martin(VDI-Waermeatlas, chapter M5).");
 	AddConstRealParameter("Tolerance temperature", 0.1, "K", "Tolerance for temperature difference for calculating the heat transfer between phases. Temperature difference smaller than the tolerance will be set to zero.", 1e-4, 2);
-	AddConstRealParameter("Shrink factor", 0.1, "-", "Shrink factor for heat transfer coefficients at small temperature difference.");
+	AddConstRealParameter("Shrink factor alpha GP", 0.1, "-", "Shrink factor for heat transfer coefficient GP at small temperature difference.");
+	AddConstRealParameter("Shrink factor alpha GF", 0.1, "-", "Shrink factor for heat transfer coefficient GF at small temperature difference.");
+	AddConstRealParameter("Shrink factor beta", 0.1, "-", "Shrink factor for mass transfer coefficient GF.");
 
 	// Drying kinetics calculation
 	AddStringParameter("Drying kinetics", "", "");
@@ -636,7 +638,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const specificLatentHeat h_susp = thetaSprayLiquid * (C_PParticle /*coating material*/ * (1 - x_wSusp) + C_PWaterLiquid * x_wSusp);
 	
 /// DAE system: 5 equations (all ture) ///
-	/// _vars: determined by the solver & should not be changed, set as const!
+	// _vars: determined by the solver & should not be changed, set as const!
 	// gas in holdup
 	const mass mHoldupGas = holdupGas->GetMass(_time);
 	const mass mHoldupGasDry = holdupGas->GetCompoundMass(0, unit->keyGas); // set intial dry air mass as dry air mass during whole process
@@ -667,7 +669,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(/*varTempFlim, pressureGasHoldup, d32*/ varAlpha_GP_Formula);
 	// Mass transfer
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
-	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
+	const double shrinkFactorBeta = unit->GetConstRealParameterValue("Shrink factor beta");
+	const double varBeta_FG_Formula = _time < 10? shrinkFactorBeta * unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula) : unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
 	// water vapor
 	const bool use_f = unit->GetCheckboxParameterValue("Use relative drying rate?");
 	const double f = use_f ? unit->CalculateRelativeDryingRate(varX) : 1;
@@ -685,19 +688,20 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
-	const double shrinkFactor = unit->GetConstRealParameterValue("Shrink factor");
+	const double shrinkFactorGP = unit->GetConstRealParameterValue("Shrink factor alpha GP");
+	const double shrinkFactorGF = unit->GetConstRealParameterValue("Shrink factor alpha GF");
 	double varAlpha_GP = varAlpha_GP_Formula;
 	double varAlpha_GF = varAlpha_GF_Formula;
 	double varAlpha_PF = varAlpha_PF_Formula;
-	double varAlpha_GP_modify = 1e-3 * varAlpha_GP_Formula;
-	double varAlpha_GF_modify = shrinkFactor * varAlpha_GF_Formula;
-	double varAlpha_PF_modify = shrinkFactor * varAlpha_PF_Formula;
-	double varQFlow_GP_Formula = 0;
-	double varQFlow_GF_Formula = 0;
-	double varQFlow_PF_Formula = 0;
+	double varAlpha_GP_modify = shrinkFactorGP * varAlpha_GP_Formula;
+	double varAlpha_GF_modify = shrinkFactorGF * varAlpha_GF_Formula;
+	double varAlpha_PF_modify = shrinkFactorGF * varAlpha_PF_Formula;
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
+	double varQFlow_GP_Formula = 0;
+	double varQFlow_GF_Formula = 0;
+	double varQFlow_PF_Formula = 0;
 	if (varPhi < 1)
 	{
 		if (abs(diffTempGP) < tolTemp)
@@ -935,7 +939,8 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(/*varTempFlim, pressureGasHoldup, d32*/ varAlpha_GP_Formula);
 	/// Mass transfer
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
-	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varTheta_gasHoldup, varD_a_Formula);
+	const double shrinkFactorBeta = unit->GetConstRealParameterValue("Shrink factor beta");
+	const double varBeta_FG_Formula = _time < 10 ? shrinkFactorBeta * unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula) : unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
 	/// water vapor
 	const bool usef = unit->GetCheckboxParameterValue("Use relative drying rate?");
 	const double f = usef ? unit->CalculateRelativeDryingRate(varX) : 1;
@@ -953,19 +958,20 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
-	const double shrinkFactor = unit->GetConstRealParameterValue("Shrink factor");
+	const double shrinkFactorGP = unit->GetConstRealParameterValue("Shrink factor alpha GP");
+	const double shrinkFactorGF = unit->GetConstRealParameterValue("Shrink factor alpha GF");
 	double varAlpha_GP = varAlpha_GP_Formula;
 	double varAlpha_GF = varAlpha_GF_Formula;
 	double varAlpha_PF = varAlpha_PF_Formula;
-	double varAlpha_GP_modify = 1e-3 * varAlpha_GP_Formula;
-	double varAlpha_GF_modify = shrinkFactor * varAlpha_GF_Formula;
-	double varAlpha_PF_modify = shrinkFactor * varAlpha_PF_Formula;
-	double varQFlow_GP_Formula = 0;
-	double varQFlow_GF_Formula = 0;
-	double varQFlow_PF_Formula = 0;
+	double varAlpha_GP_modify = shrinkFactorGP * varAlpha_GP_Formula;
+	double varAlpha_GF_modify = shrinkFactorGF * varAlpha_GF_Formula;
+	double varAlpha_PF_modify = varAlpha_PF_Formula;
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
+	double varQFlow_GP_Formula = 0;
+	double varQFlow_GF_Formula = 0;
+	double varQFlow_PF_Formula = 0;
 	if (varPhi < 1)
 	{
 		if (abs(diffTempGP) < tolTemp)
@@ -1680,6 +1686,7 @@ dimensionlessNumber CDryerBatch::CalculateReynolds(double _time, length d32) con
 dimensionlessNumber CDryerBatch::CalculatePrandtl(temperature avgGasTheta) const
 {
 	return 0.702 - 2.63e-4 * avgGasTheta - 1.05e-6 * pow(avgGasTheta, 2) - 1.52e-9 * pow(avgGasTheta, 3);
+	//return C_PGas * etaGas / lambdaGas;
 }
 
 dimensionlessNumber CDryerBatch::CalculateSchmidt(double D_a) const
