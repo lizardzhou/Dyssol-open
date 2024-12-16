@@ -94,7 +94,7 @@ private:
 
 public:
 	const temperature T_ref = 273.15; // Ref. temperature for enthalpy [K] - default 273.15 K
-	temperature T_env; // Environment temperature [K] - default: Standard condition
+	temperature T_env = 298.15; // Environment temperature [K] - default: Standard condition
 	// Air
 		std::string keyGas = "4e3a9D257E6A9E4F03D1"; // compound key for air
 		density rhoGas = 1.2; // Density gas [kg/m^3] - default: air
@@ -124,7 +124,7 @@ public:
 		//double eps_0; // = 0.4;
 		//double u_mf; // = 0;
 	// process chamber
-		thermalConductivity kWall = 16; // thermal conductivity stainless steel (estimated), in [W/(m*K)]
+		thermalConductivity lambdaWall = 16; // thermal conductivity stainless steel (estimated), in [W/(m*K)]
 		length wallThickness = 5e-3;
 		length radiusChamber = 0.2;
 		length lengthChamber = 0.35;
@@ -207,7 +207,7 @@ public:
 	// Reynolds number with height discretization for each layer
 	//dimensionlessNumber CalculateReynolds(double _time, size_t section) const;
 	dimensionlessNumber CalculatePrandtl(temperature avgGasTemperature) const;
-	dimensionlessNumber CalculateSchmidt(length D_a) const;
+	dimensionlessNumber CalculateSchmidt(double D_a) const;
 	dimensionlessNumber CalculateArchimedes(length d32) const;
 	dimensionlessNumber CalculateNusseltSherwood(dimensionlessNumber Nu_Sh_lam, dimensionlessNumber Nu_Sh_turb) const
 	{
@@ -234,6 +234,11 @@ public:
 	{
 		return (Re * Sc_Pr) * log(1. + (Sh_Nu_app * AtoF) / (Re * Sc_Pr)) / AtoF;
 	};
+	dimensionlessNumber CalculateNusseltFree(double _time, temperature T_surface) const;
+	dimensionlessNumber CalculateGrashof(temperature T_env, temperature T_surface) const
+	{
+		return STANDARD_ACCELERATION_OF_GRAVITY * pow(lengthChamber, 3) * (T_surface - T_env) / (pow(etaGas / rhoGas, 2) * T_env);
+	};
 
 	//	Calculate Biot number
 	//dimensionlessNumber CalcBiotNumber(double _time, temperature avgGasTemperature, length d32) const
@@ -248,13 +253,15 @@ public:
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Heat loss through the walls ///
-	double CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaOut, double k) const;
+	temperature GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) ;
+	temperature IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) ;
+	double CalculateHeatLossWall(double _time, length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaSurface, double lambdaWall, length d32) const;
 
 /// Mass transfer coefficient ///
 	massTransferCoefficient CalculateBeta(double _time, length d32, double avgGasTheta, double D_a) const;
 
 /// Drying kinetics ///
-	moistureContent CalcuateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH); // X_eq
+	//moistureContent CalculateSolidEquilibriumMoistureContent(double _time, temperature temperature, double RH); // X_eq
 	double CalculateRelativeDryingRate(moistureContent X) const;
 	pressure CalculateGasSaturationPressure(temperature theta_Gas, pressure pressureGas) const; // Y_eq
 	moistureContent CalculateGasEquilibriumMoistureContent(pressure pressureGas, pressure P_sat, double RH) const; // Y_eq
