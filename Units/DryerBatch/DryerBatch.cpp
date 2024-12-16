@@ -720,7 +720,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 		varAlpha_PF = varAlpha_PF_modify;	
 	}
 	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->lambdaWall, d32);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
@@ -990,7 +990,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		varAlpha_PF = varAlpha_PF_modify;
 	}
 	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->kWall);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->lambdaWall, d32);
 
 /// Set holdup properties ///
 	// time points
@@ -1683,7 +1683,7 @@ dimensionlessNumber CDryerBatch::CalculateReynolds(double _time, length d32) con
 	return (d32 * u_Gas * rhoGas) / etaGas;
 }
 
-dimensionlessNumber CDryerBatch::CalculatePrandtl(temperature avgGasTheta) const
+dimensionlessNumber CDryerBatch::CalculatePrandtl(temperature avgGasTheta) const // source fo Maksym???
 {
 	return 0.702 - 2.63e-4 * avgGasTheta - 1.05e-6 * pow(avgGasTheta, 2) - 1.52e-9 * pow(avgGasTheta, 3);
 	//return C_PGas * etaGas / lambdaGas;
@@ -1697,6 +1697,17 @@ dimensionlessNumber CDryerBatch::CalculateSchmidt(double D_a) const
 dimensionlessNumber CDryerBatch::CalculateArchimedes(length d32) const
 {
 	return STANDARD_ACCELERATION_OF_GRAVITY * pow(d32, 3) * (rhoParticle - rhoGas) * rhoGas / pow(etaGas, 2);
+}
+
+dimensionlessNumber CDryerBatch::CalculateNusseltFree(double _time, temperature T_surface) const
+{
+	const temperature theta_env = GetConstRealParameterValue("theta_env");
+	const temperature T_env = theta_env + T_ref;
+	const dimensionlessNumber Pr_env = CalculatePrandtl(theta_env);
+	dimensionlessNumber Gr = CalculateGrashof(T_env, T_surface);
+	const dimensionlessNumber f_Pr = pow(1 + pow(0.492 / Pr_env, 9 / 16), -16 / 9); // source: VDI-Warmeatlas, Kap. F2
+	const dimensionlessNumber Nu_free = pow(0.825 + 0.387 * pow(Pr_env * Gr * f_Pr, 1 / 6), 2); // source: VDI-Warmeatlas, Kap. F2
+	return Nu_free;
 }
 
 /// CalculateReynolds for discretized height, CURRENTLY NOT IN USE
@@ -1862,11 +1873,11 @@ double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressure
 	const size_t methodIdx = GetComboParameterValue("Heat & mass transfer methods");
 	switch (methodIdx)
 	{
-	case 0: 
+	case 0: // Martin
 		return alpha_GP * f_a;
-	case 1:
+	case 1: // Groenewold & Tsostas
 		return alpha_GP * f_a;
-	case 2:
+	case 2: // self-defined
 		return GetConstRealParameterValue("alpha_PF");
 	}
 		
@@ -1877,10 +1888,53 @@ double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressure
 	//return alpha_PF;
 }
 
-/// TODO: CALCULATE OVERALL HEAT TRANSFER COEFFICIENT INCL. CONVECTION INSIDE AND OUTSIDE  
-double CDryerBatch::CalculateHeatLossWall(length wallThickness, length height, length radiusInner, temperature thetaInside, temperature thetaOutside, double k) const
+temperature CDryerBatch::IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) 
 {
-	return 2 * MATH_PI * height * (thetaInside - thetaOutside) / (log((radiusInner + wallThickness) / radiusInner) * k);
+	const double tol = 0.01;
+	const temperature theta_env = GetConstRealParameterValue("theta_env");
+	const temperature T_env = theta_env + T_ref;
+	temperature T_surfaceInit = (T_gasHoldup + T_env) / 2; // initial guess of surface temperature
+	temperature T_surfaceOld = T_surfaceInit;
+	temperature T_surfaceNew = GetNewTempSurface(_time, T_surfaceOld, (T_gasHoldup - T_ref), d32);
+	int current_try = 0;
+	int max_try = 100;
+	while (abs(T_surfaceNew - T_surfaceOld) > tol && current_try < max_try) // repeat 1 - 3
+	{
+		T_surfaceOld = T_surfaceNew;
+		T_surfaceNew = GetNewTempSurface(_time,T_surfaceOld, T_gasHoldup - T_ref, d32);
+		current_try++;
+		if (current_try == max_try)
+		{
+			RaiseWarning("max try reached 100");
+		}
+	}
+	return T_surfaceNew;
+}
+
+temperature CDryerBatch::GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) 
+{
+	temperature thetaSurfaceOld = TempSurfaceOld - T_ref;
+	double alpha_out = CalculateNusseltFree(_time, TempSurfaceOld) * lambdaGas / lengthChamber;
+	double QFlow_Wall = CalculateHeatLossWall(_time, wallThickness, lengthChamber, radiusChamber, thetaInside, thetaSurfaceOld, lambdaWall, d32);
+	area A_out = 2 * MATH_PI * lengthChamber * (radiusChamber + wallThickness);
+	return (T_env + QFlow_Wall / (alpha_out * A_out));
+}
+
+double CDryerBatch::CalculateHeatLossWall(double _time, length wallThickness, length height, length radiusInner, temperature thetaInside, temperature thetaSurface, double lambdaWall, length d32) const
+{
+	// heat loss through wall = (thetaGasHoldup - thetaEnv) / (1/(kA)) | 1/(kA): total heat resistance
+	// 1/(kA) = 1/(alpha_Holdup * A_in) + wallThickness/(lambdaWall * A_m) + 1/(alphaEnv * A_out) = resistIn + resistWall + resistOut	
+	area A_in = 2 * MATH_PI * height * radiusInner;
+	double alpha_in = CalculateAlpha_GF(_time, thetaInside, d32); // alpha_Holdup == alphaGP == alphaGF
+	double resistIn = 1 / (alpha_in * A_in);
+	area A_m = 2 * MATH_PI * height * wallThickness / log((radiusInner + wallThickness) / radiusInner);
+	double resistWall = wallThickness / (lambdaWall * A_m);
+	area A_out = 2 * MATH_PI * height * (radiusInner + wallThickness);
+	dimensionlessNumber alpha_out = CalculateNusseltFree(_time, thetaSurface + T_ref) * lambdaGas / lengthChamber;
+	double resistOut = 1 / (alpha_out * A_out);
+	double resistTotal = resistIn + resistWall + resistOut;
+	const temperature theta_env = GetConstRealParameterValue("theta_env");
+	return (thetaInside - theta_env) / resistTotal;
 }
 
 ////////////////////
