@@ -253,8 +253,8 @@ public:
 	double CalculateAlpha_PF(/*temperature tempWater, pressure pressureHoldup, length d32*/ double alpha_GP) const;
 
 /// Heat loss through the walls ///
-	temperature GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) ;
-	temperature IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) ;
+	temperature GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) const;
+	temperature IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) const;
 	double CalculateHeatLossWall(double _time, length wallThickness, length height, length radiusInner, temperature thetaIn, temperature thetaSurface, double lambdaWall, length d32) const;
 
 /// Mass transfer coefficient ///

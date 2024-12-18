@@ -109,11 +109,15 @@ void CDryerBatch::CreateStructure()
 	//AddConstRealParameter("x_l,eq,min", 0, "mass %", "Minimum measured equilibirum moisture fraction of particles.\nIf 0, materials database will be used to calculate euqilibirum moisture content. (Further see Path X_eq)", 0, 100);
 	//AddConstRealParameter("theta_eq,min", 0, "degree celsius", "Temperature correponding to w_l,eq,min", 0, 100);	
 
-	/// Tolerance for solver
 	//AddStringParameter("Tolerance for solver", "", "");
 	//AddConstRealParameter("Relative tolerance", 0.0, "-", "Solver relative tolerance. Set to 0 to use flowsheet-set value", 0);
 	//AddConstRealParameter("Absolute tolerance Y", 0.0, "-", "Solver absolute tolerance for gas moisture content Y.\nSet to 0 to use flowsheet-set value", 0);
 	//AddConstRealParameter("Absolute tolerance T", 0.0, "-", "Solver absolute tolerance for eqData.temperatures T.\nSet to 0 to use flowsheet-set value", 0);
+
+	/// Tolerance ///
+	AddConstRealParameter("Relative tolerance", 1e-3, "-", "Relative tolerance for the solver");
+	AddConstRealParameter("Absolute tolerance", 1e-5, "-", "Absolute tolerance for the solver");
+	AddConstRealParameter("Maximal time step", 1e-3, "s", "Maximal time step for iteration");
 
 	/// Debug information ///
 	AddCheckBoxParameter("Print intermediate results", true, "Tick this box to print intermediate results on simulation window.");
@@ -132,6 +136,14 @@ void CDryerBatch::Initialize(double _time)
 	if (!IsDistributionDefined(DISTR_SIZE))	RaiseError("Size distribution has not been defined.");
 
 	const bool printResult = GetCheckboxParameterValue("Print intermediate results");
+
+	/// Tolerance for solver
+	const auto rtol = GetConstRealParameterValue("Relative tolerance");
+	const auto atol = GetConstRealParameterValue("Absolute tolerance");
+	m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), atol != 0.0 ? atol : GetAbsTolerance());
+	/// Set maximal time step for solver
+	const double t = GetConstRealParameterValue("Maximal time step");
+	//m_solver.SetMaxStep(t);
 
 	/// Settings
 	//bool calcNdc = GetCheckboxParameterValue("calcNdc");
@@ -702,6 +714,13 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
+	/// TODO: make the tolerance range differenciable ///
+	/*
+	modify diffTemp: so that its change is not sharp (jumping between tol and 0)
+	using the tanh function
+	idea: diffTemp = tol * fun + zero * (1 - fun) -> see Vasyl's functions	
+	*/
+
 	if (varPhi < 1)
 	{
 		if (abs(diffTempGP) < tolTemp)
@@ -720,7 +739,8 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 		varAlpha_PF = varAlpha_PF_modify;	
 	}
 	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->lambdaWall, d32);
+	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
 	/// _ders: determined by the solver & should not be changed, set as const!
 	// gas phase (outlet gas)
@@ -972,6 +992,14 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
+	/// TODO: make the tolerance range differenciable ///
+	/*
+	modify diffTemp: so that its change is not sharp (jumping between tol and 0)
+	using the tanh function
+	idea: diffTemp = tol * fun + zero * (1 - fun) -> see Vasyl's functions
+	*/
+
+
 	if (varPhi < 1)
 	{
 		if (abs(diffTempGP) < tolTemp)
@@ -990,7 +1018,8 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		varAlpha_PF = varAlpha_PF_modify;
 	}
 	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
-	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, unit->T_env - unit->T_ref, unit->lambdaWall, d32);
+	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
+	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
 /// Set holdup properties ///
 	// time points
@@ -1888,7 +1917,7 @@ double CDryerBatch::CalculateAlpha_PF(/*temperature tempWater, pressure pressure
 	//return alpha_PF;
 }
 
-temperature CDryerBatch::IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) 
+temperature CDryerBatch::IterateSurfaceTemp(double _time, temperature T_gasHoldup, length d32) const
 {
 	const double tol = 0.01;
 	const temperature theta_env = GetConstRealParameterValue("theta_env");
@@ -1898,20 +1927,20 @@ temperature CDryerBatch::IterateSurfaceTemp(double _time, temperature T_gasHoldu
 	temperature T_surfaceNew = GetNewTempSurface(_time, T_surfaceOld, (T_gasHoldup - T_ref), d32);
 	int current_try = 0;
 	int max_try = 100;
-	while (abs(T_surfaceNew - T_surfaceOld) > tol && current_try < max_try) // repeat 1 - 3
+	while (abs(T_surfaceNew - T_surfaceOld) > tol && current_try < max_try) 
 	{
 		T_surfaceOld = T_surfaceNew;
 		T_surfaceNew = GetNewTempSurface(_time,T_surfaceOld, T_gasHoldup - T_ref, d32);
 		current_try++;
 		if (current_try == max_try)
 		{
-			RaiseWarning("max try reached 100");
+			std::cout << "test4\n";
 		}
 	}
 	return T_surfaceNew;
 }
 
-temperature CDryerBatch::GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) 
+temperature CDryerBatch::GetNewTempSurface(double _time, temperature TempSurfaceOld, temperature thetaInside, length d32) const
 {
 	temperature thetaSurfaceOld = TempSurfaceOld - T_ref;
 	double alpha_out = CalculateNusseltFree(_time, TempSurfaceOld) * lambdaGas / lengthChamber;
