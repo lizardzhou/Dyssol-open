@@ -73,6 +73,7 @@ public:
 	//	Calculates heat loss of top section
 	//double CalculateTopPlateHeatLoss(double _time, void* _unit, double* _vars);
 
+	double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition for calculating temperature difference
 	bool debugToggle = false;
 };
 

@@ -521,6 +521,7 @@ void CDryerBatch::Initialize(double _time)
 	//size_t variables = m_model.GetVariablesNumber();
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), rtol != 0.0 ? rtol : GetRelTolerance());
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), absolutTolerances); // 0.01
+	
 	m_model.SetTolerance(GetRelTolerance(), GetAbsTolerance());
 	//m_solver.SetMaxStep(1);
 
@@ -714,31 +715,16 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	/// TODO: make the tolerance range differenciable ///
-	/*
-	modify diffTemp: so that its change is not sharp (jumping between tol and 0)
-	using the tanh function
-	idea: diffTemp = tol * fun + zero * (1 - fun) -> see Vasyl's functions	
-	*/
-
+	//double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition
+	temperature diffTempGP_smooth = diffTempGP * std::tanh(abs(diffTempGP) / smoothFactor);
+	temperature diffTempGF_smooth = diffTempGF * std::tanh(abs(diffTempGF) / smoothFactor);
+	temperature diffTempPF_smooth = diffTempPF * std::tanh(abs(diffTempPF) / smoothFactor);
 	if (varPhi < 1)
-	{
-		if (abs(diffTempGP) < tolTemp)
-		{
-			varAlpha_GP = varAlpha_GP_modify;			
-		}		
-		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP;
+	{	
+		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP_smooth;
 	}
-	if (abs(diffTempGF) < tolTemp)
-	{
-		varAlpha_GF = varAlpha_GF_modify;		
-	}
-	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF;
-	if (abs(diffTempPF) < tolTemp)
-	{
-		varAlpha_PF = varAlpha_PF_modify;	
-	}
-	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
+	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF_smooth;
+	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF_smooth;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
@@ -992,32 +978,16 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	/// TODO: make the tolerance range differenciable ///
-	/*
-	modify diffTemp: so that its change is not sharp (jumping between tol and 0)
-	using the tanh function
-	idea: diffTemp = tol * fun + zero * (1 - fun) -> see Vasyl's functions
-	*/
-
-
+	//double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition
+	temperature diffTempGP_smooth = diffTempGP * std::tanh(abs(diffTempGP) / smoothFactor);
+	temperature diffTempGF_smooth = diffTempGF * std::tanh(abs(diffTempGF) / smoothFactor);
+	temperature diffTempPF_smooth = diffTempPF * std::tanh(abs(diffTempPF) / smoothFactor);
 	if (varPhi < 1)
-	{
-		if (abs(diffTempGP) < tolTemp)
-		{
-			varAlpha_GP = varAlpha_GP_modify;
-		}
-		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP;
+	{	
+		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP_smooth;
 	}
-	if (abs(diffTempGF) < tolTemp)
-	{
-		varAlpha_GF = varAlpha_GF_modify;
-	}
-	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF;
-	if (abs(diffTempPF) < tolTemp)
-	{
-		varAlpha_PF = varAlpha_PF_modify;
-	}
-	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF;
+	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF_smooth;
+	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF_smooth;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
