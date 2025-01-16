@@ -82,9 +82,6 @@ void CDryerBatch::CreateStructure()
 	AddParametersToGroup("Heat & mass transfer methods", "Self-defined", { "alpha_GP", "alpha_GF", "alpha_PF" });
 	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods reported in Martin(VDI-Waermeatlas, chapter M5).");
 	AddConstRealParameter("Tolerance temperature", 0.1, "K", "Tolerance for temperature difference for calculating the heat transfer between phases. Temperature difference smaller than the tolerance will be set to zero.", 1e-4, 2);
-	AddConstRealParameter("Shrink factor alpha GP", 0.1, "-", "Shrink factor for heat transfer coefficient GP at small temperature difference.");
-	AddConstRealParameter("Shrink factor alpha GF", 0.1, "-", "Shrink factor for heat transfer coefficient GF at small temperature difference.");
-	AddConstRealParameter("Shrink factor beta", 0.1, "-", "Shrink factor for mass transfer coefficient GF.");
 
 	// Drying kinetics calculation
 	AddStringParameter("Drying kinetics", "", "");
@@ -115,12 +112,11 @@ void CDryerBatch::CreateStructure()
 	//AddConstRealParameter("Absolute tolerance T", 0.0, "-", "Solver absolute tolerance for eqData.temperatures T.\nSet to 0 to use flowsheet-set value", 0);
 
 	/// Tolerance ///
-	AddConstRealParameter("Relative tolerance", 1e-3, "-", "Relative tolerance for the solver");
-	AddConstRealParameter("Absolute tolerance", 1e-5, "-", "Absolute tolerance for the solver");
-	AddConstRealParameter("Maximal time step", 1e-3, "s", "Maximal time step for iteration");
+	AddConstRealParameter("Relative tolerance", 0.0, "-", "Solver relative tolerance. Set to 0 to use flowsheet-wide value", 0);
+	AddConstRealParameter("Absolute tolerance", 0.0, "-", "Solver absolute tolerance. Set to 0 to use flowsheet-wide value", 0);
 
 	/// Debug information ///
-	AddCheckBoxParameter("Print intermediate results", true, "Tick this box to print intermediate results on simulation window.");
+	AddCheckBoxParameter("Print intermediate results", true, "Tick this box to print intermediate results on simulation window. \n!!!DO NOT USE IN RELEASE MODE!!!");
 
 	/// Set this unit as user data of model ///
 	m_model.SetUserData(this);
@@ -137,13 +133,10 @@ void CDryerBatch::Initialize(double _time)
 
 	const bool printResult = GetCheckboxParameterValue("Print intermediate results");
 
-	/// Tolerance for solver
+	/// Tolerance for solver ///
 	const auto rtol = GetConstRealParameterValue("Relative tolerance");
 	const auto atol = GetConstRealParameterValue("Absolute tolerance");
 	m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), atol != 0.0 ? atol : GetAbsTolerance());
-	/// Set maximal time step for solver
-	const double t = GetConstRealParameterValue("Maximal time step");
-	//m_solver.SetMaxStep(t);
 
 	/// Settings
 	//bool calcNdc = GetCheckboxParameterValue("calcNdc");
@@ -522,9 +515,6 @@ void CDryerBatch::Initialize(double _time)
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), rtol != 0.0 ? rtol : GetRelTolerance());
 	//m_model.SetTolerance(rtol != 0.0 ? rtol : GetRelTolerance(), absolutTolerances); // 0.01
 	
-	m_model.SetTolerance(GetRelTolerance(), GetAbsTolerance());
-	//m_solver.SetMaxStep(1);
-
 	/// Set model to a solver ///
 	if (!m_solver.SetModel(&m_model))
 		RaiseError(m_solver.GetError());
@@ -682,8 +672,7 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(/*varTempFlim, pressureGasHoldup, d32*/ varAlpha_GP_Formula);
 	// Mass transfer
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
-	const double shrinkFactorBeta = unit->GetConstRealParameterValue("Shrink factor beta");
-	const double varBeta_FG_Formula = _time < 10? shrinkFactorBeta * unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula) : unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
+	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
 	// water vapor
 	const bool use_f = unit->GetCheckboxParameterValue("Use relative drying rate?");
 	const double f = use_f ? unit->CalculateRelativeDryingRate(varX) : 1;
@@ -701,30 +690,19 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
-	const double shrinkFactorGP = unit->GetConstRealParameterValue("Shrink factor alpha GP");
-	const double shrinkFactorGF = unit->GetConstRealParameterValue("Shrink factor alpha GF");
-	double varAlpha_GP = varAlpha_GP_Formula;
-	double varAlpha_GF = varAlpha_GF_Formula;
-	double varAlpha_PF = varAlpha_PF_Formula;
-	double varAlpha_GP_modify = shrinkFactorGP * varAlpha_GP_Formula;
-	double varAlpha_GF_modify = shrinkFactorGF * varAlpha_GF_Formula;
-	double varAlpha_PF_modify = shrinkFactorGF * varAlpha_PF_Formula;
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	//double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition
-	temperature diffTempGP_smooth = diffTempGP * std::tanh(abs(diffTempGP) / smoothFactor);
-	temperature diffTempGF_smooth = diffTempGF * std::tanh(abs(diffTempGF) / smoothFactor);
-	temperature diffTempPF_smooth = diffTempPF * std::tanh(abs(diffTempPF) / smoothFactor);
+	const double smooth = 1;//0.5 * (1 + std::tanh(5 * (diffTempGP - tolTemp)));
 	if (varPhi < 1)
 	{	
-		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP_smooth;
+		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP * smooth;
 	}
-	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF_smooth;
-	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF_smooth;
+	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF * smooth;
+	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF * smooth;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
@@ -852,6 +830,10 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	//std::vector vars2(_vars, _vars + GetVariablesNumber());
 	//std::vector ders2(_ders, _ders + GetVariablesNumber());
 	//std::vector  res2(_res, _res + GetVariablesNumber());
+
+	//varQFlow_GP_Formula_plot = varQFlow_GP_Formula;
+	//varQFlow_GF_Formula_plot = varQFlow_GF_Formula;
+	//varQFlow_PF_Formula_plot = varQFlow_PF_Formula;
 }
 
 void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, void* _unit)
@@ -945,8 +927,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varAlpha_PF_Formula = unit->CalculateAlpha_PF(/*varTempFlim, pressureGasHoldup, d32*/ varAlpha_GP_Formula);
 	/// Mass transfer
 	const double varD_a_Formula = unit->CalculateDiffusionCoefficient(varTheta_gasHoldup);
-	const double shrinkFactorBeta = unit->GetConstRealParameterValue("Shrink factor beta");
-	const double varBeta_FG_Formula = _time < 10 ? shrinkFactorBeta * unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula) : unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
+	const double varBeta_FG_Formula = unit->CalculateBeta(_time, d32, varThetaOutGas, varD_a_Formula);
 	/// water vapor
 	const bool usef = unit->GetCheckboxParameterValue("Use relative drying rate?");
 	const double f = usef ? unit->CalculateRelativeDryingRate(varX) : 1;
@@ -964,30 +945,19 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
 	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
-	const double shrinkFactorGP = unit->GetConstRealParameterValue("Shrink factor alpha GP");
-	const double shrinkFactorGF = unit->GetConstRealParameterValue("Shrink factor alpha GF");
-	double varAlpha_GP = varAlpha_GP_Formula;
-	double varAlpha_GF = varAlpha_GF_Formula;
-	double varAlpha_PF = varAlpha_PF_Formula;
-	double varAlpha_GP_modify = shrinkFactorGP * varAlpha_GP_Formula;
-	double varAlpha_GF_modify = shrinkFactorGF * varAlpha_GF_Formula;
-	double varAlpha_PF_modify = varAlpha_PF_Formula;
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	//double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition
-	temperature diffTempGP_smooth = diffTempGP * std::tanh(abs(diffTempGP) / smoothFactor);
-	temperature diffTempGF_smooth = diffTempGF * std::tanh(abs(diffTempGF) / smoothFactor);
-	temperature diffTempPF_smooth = diffTempPF * std::tanh(abs(diffTempPF) / smoothFactor);
+	const double smooth = 1;//0.5 * (1 + std::tanh(5 * (diffTempGP - tolTemp)));
 	if (varPhi < 1)
-	{	
-		varQFlow_GP_Formula = varAlpha_GP * A_P * (1 - varPhi) * diffTempGP_smooth;
+	{
+		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP * smooth;
 	}
-	varQFlow_GF_Formula = varAlpha_GF * A_P * varPhi * diffTempGF_smooth;
-	varQFlow_PF_Formula = varAlpha_PF * A_P * varPhi * diffTempPF_smooth;
+	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF * smooth;
+	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF * smooth;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
@@ -1042,12 +1012,12 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->AddPointOnCurve("MASS water liquid", "Outlet liquid mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyLiquid));
 	unit->AddPointOnCurve("MASS water liquid", "Liquid mass in holdup [kg]", _time, holdupLiquid->GetCompoundMass(_time, unit->keyLiquid));
 	// energy streams
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GP [J/s]", _time, varQFlow_GP_Formula);
-	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GP [W/(m2*K)]", _time, varAlpha_GP);
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GF [J/s]", _time, varQFlow_GF_Formula);
-	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GF [W/(m2*K)]", _time, varAlpha_GF);
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer PF [J/s]", _time, varQFlow_PF_Formula);
-	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_PF [W/(m2*K)]", _time, varAlpha_PF);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GP [J/s]", _time, varQFlow_GP_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GP [W/(m2*K)]", _time, varAlpha_GP_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GF [J/s]", _time, varQFlow_GF_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GF [W/(m2*K)]", _time, varAlpha_GF_Formula);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer PF [J/s]", _time, varQFlow_PF_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_PF [W/(m2*K)]", _time, varAlpha_PF_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "Water vapor flow enthalpy [J/s]", _time, varHFlowVaporFormula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "beta [m/s]", _time, varBeta_FG_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "Heat loss gas to wall [J/s]", _time, QFlow_GW_Chamber);
@@ -1084,26 +1054,26 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 		unit->ShowInfo("\tParticle temperature = " + std::to_string(varThetaParticle) + " degreeC");
 		unit->ShowInfo("\tWater film temperature = " + std::to_string(varThetaFilm) + " degreeC");
 		unit->ShowInfo("\tFilm:");
-		unit->ShowInfo("\t\tQFlow_GF in = " + std::to_string(varQFlow_GF_Formula) + " J/s");
-		unit->ShowInfo("\t\tQFlow_PF in = " + std::to_string(varQFlow_PF_Formula) + " J/s");
+		unit->ShowInfo("\t\tQFlow_GF in = " + std::to_string(varQFlow_GF_Formula/*_plot*/) + " J/s");
+		unit->ShowInfo("\t\tQFlow_PF in = " + std::to_string(varQFlow_PF_Formula/*_plot*/) + " J/s");
 		unit->ShowInfo("\t\tHFlowSusp in = " + std::to_string(mFlowSprayLiquid * h_susp) + " J/s");
 		unit->ShowInfo("\t\tHFlowVapor out = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) + " J/s");
 		unit->ShowInfo("\tParticle:");
-		unit->ShowInfo("\t\tQFlow_GP in = " + std::to_string(varQFlow_GP_Formula) + " J/s");
-		unit->ShowInfo("\t\tQFlow_PF out = " + std::to_string(varQFlow_PF_Formula) + " J/s");
+		unit->ShowInfo("\t\tQFlow_GP in = " + std::to_string(varQFlow_GP_Formula/*_plot*/) + " J/s");
+		unit->ShowInfo("\t\tQFlow_PF out = " + std::to_string(varQFlow_PF_Formula/*_plot*/) + " J/s");
 		unit->ShowInfo("\tGas:");
 		unit->ShowInfo("\t\tHFlowVapor in = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) + " J/s");
 		unit->ShowInfo("\t\tHFlowIn in = " + std::to_string(mFlowInGasDry * h_inGas) + " J/s");
 		unit->ShowInfo("\t\tHFlowNozzle in = " + std::to_string(mFlowInNozzleGasDry * h_nozzleGas) + " J/s");
 		unit->ShowInfo("\t\tHFlowOut out = " + std::to_string((mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + varYOutGas * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0))) + " J/s");
-		unit->ShowInfo("\t\tQFlow_GP out = " + std::to_string(varQFlow_GP_Formula) + " J/s");
-		unit->ShowInfo("\t\tQFlow_GF out = " + std::to_string(varQFlow_GF_Formula) + " J/s");
+		unit->ShowInfo("\t\tQFlow_GP out = " + std::to_string(varQFlow_GP_Formula/*_plot*/) + " J/s");
+		unit->ShowInfo("\t\tQFlow_GF out = " + std::to_string(varQFlow_GF_Formula/*_plot*/) + " J/s");
 		unit->ShowInfo("\t\tQFlow_GW out = " + std::to_string(QFlow_GW_Chamber) + " J/s");
 		//unit->ShowInfo("\tsum in&out = " + std::to_string(varMFlowVaporFormula * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0) + mFlowInGasDry * h_inGas + mFlowInNozzleGasDry * h_nozzleGas - (mFlowInGasDry + mFlowInNozzleGasDry) * (unit->C_PGas * varThetaOutGas + _vars[m_iYOutGas] * (unit->C_PWaterVapor * varThetaOutGas + unit->Delta_h0)) - varQFlow_GP_Formula - varQFlow_GF_Formula) + " J/s");
 		unit->ShowInfo("\tHeat & mass transfer:");
-		unit->ShowInfo("\t\talpha_GF = " + std::to_string(varAlpha_GF) + " W/(m2*K)");
-		unit->ShowInfo("\t\talpha_GP = " + std::to_string(varAlpha_GP) + " W/(m2*K)");
-		unit->ShowInfo("\t\talpha_PF = " + std::to_string(varAlpha_PF) + " W/(m2*K)");
+		unit->ShowInfo("\t\talpha_GF = " + std::to_string(varAlpha_GF_Formula) + " W/(m2*K)");
+		unit->ShowInfo("\t\talpha_GP = " + std::to_string(varAlpha_GP_Formula) + " W/(m2*K)");
+		unit->ShowInfo("\t\talpha_PF = " + std::to_string(varAlpha_PF_Formula) + " W/(m2*K)");
 		unit->ShowInfo("\t\tbeta = " + std::to_string(varBeta_FG_Formula) + " m/s");
 	}
 

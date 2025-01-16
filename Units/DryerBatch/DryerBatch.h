@@ -75,6 +75,11 @@ public:
 
 	double smoothFactor = 0.2; // scaling factor that controls the sharpness of the transition for calculating temperature difference
 	bool debugToggle = false;
+
+	// TODO: define global variables calculated in CalculateResiduals, which need to be used in ResultsHandler
+	double varQFlow_GP_Formula_plot{};
+	double varQFlow_GF_Formula_plot{};
+	double varQFlow_PF_Formula_plot{};
 };
 
 class CDryerBatch : public CDynamicUnit
