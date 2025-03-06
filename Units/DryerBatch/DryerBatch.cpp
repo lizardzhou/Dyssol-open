@@ -81,7 +81,6 @@ void CDryerBatch::CreateStructure()
 	AddConstRealParameter("alpha_PF", 0, "W/(m2*K)", "Heat transfer coefficient between particle and water film.", 0);
 	AddParametersToGroup("Heat & mass transfer methods", "Self-defined", { "alpha_GP", "alpha_GF", "alpha_PF" });
 	AddConstRealParameter("beta_GP", 0, "m/s", "Mass transfer coefficient for liquid from gas to particle\nIf negative, calculating using methods reported in Martin(VDI-Waermeatlas, chapter M5).");
-	AddConstRealParameter("Tolerance temperature", 0.1, "K", "Tolerance for temperature difference for calculating the heat transfer between phases. Temperature difference smaller than the tolerance will be set to zero.", 1e-4, 2);
 
 	// Drying kinetics calculation
 	AddStringParameter("Drying kinetics", "", "");
@@ -400,6 +399,7 @@ void CDryerBatch::Initialize(double _time)
 	AddCurveOnPlot("TEMPERATURES", "Holdup liquid film [degC]");
 	AddCurveOnPlot("TEMPERATURES", "Holdup gas [degC]");
 	AddCurveOnPlot("TEMPERATURES", "Outlet gas [degC]");
+	AddCurveOnPlot("TEMPERATURES", "Outside wall [degC]");
 	// water vapor mass or mass flow 
 	AddPlot("MASS water vapor", "Time [s]", "Mass flow [kg/s] or mass [kg]");
 	AddCurveOnPlot("MASS water vapor", "Inlet vapor mass flow [kg/s]");
@@ -689,20 +689,18 @@ void CUnitDAEModel::CalculateResiduals(double _time, double* _vars, double* _der
 	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYHoldupGas) * f; 
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
-	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	const double smooth = 1;//0.5 * (1 + std::tanh(5 * (diffTempGP - tolTemp)));
 	if (varPhi < 1)
 	{	
-		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP * smooth;
+		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP;
 	}
-	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF * smooth;
-	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF * smooth;
+	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF;
+	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
@@ -944,20 +942,18 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	double varMFlowVaporFormula = varBeta_FG_Formula * A_P * varPhi * rhoGas * (Y_max - varYOutGas) * f;
 	const double varHFlowVaporFormula = varMFlowVaporFormula * (C_PWaterVapor * varTheta_gasHoldup + Delta_h0);
 	// heat flow
-	const double tolTemp = unit->GetConstRealParameterValue("Tolerance temperature");
 	double diffTempGP = varTheta_gasHoldup - varThetaParticle;
 	double diffTempGF = varTheta_gasHoldup - varThetaFilm;
 	double diffTempPF = varThetaParticle - varThetaFilm;
 	double varQFlow_GP_Formula = 0;
 	double varQFlow_GF_Formula = 0;
 	double varQFlow_PF_Formula = 0;
-	const double smooth = 1;//0.5 * (1 + std::tanh(5 * (diffTempGP - tolTemp)));
 	if (varPhi < 1)
 	{
-		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP * smooth;
+		varQFlow_GP_Formula = varAlpha_GP_Formula * A_P * (1 - varPhi) * diffTempGP;
 	}
-	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF * smooth;
-	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF * smooth;
+	varQFlow_GF_Formula = varAlpha_GF_Formula * A_P * varPhi * diffTempGF;
+	varQFlow_PF_Formula = varAlpha_PF_Formula * A_P * varPhi * diffTempPF;
 	temperature T_surface = unit->IterateSurfaceTemp(_time, varT_gasHoldup, d32);
 	const double QFlow_GW_Chamber = unit->CalculateHeatLossWall(_time, unit->wallThickness, unit->GetConstRealParameterValue("H_plant"), unit->GetConstRealParameterValue("d_bed"), varTheta_gasHoldup, T_surface, unit->lambdaWall, d32);
 
@@ -1003,6 +999,7 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->AddPointOnCurve("TEMPERATURES", "Holdup liquid film [degC]", _time, varThetaFilm);
 	unit->AddPointOnCurve("TEMPERATURES", "Holdup gas [degC]", _time, varTheta_gasHoldup);
 	unit->AddPointOnCurve("TEMPERATURES", "Outlet gas [degC]", _time, varThetaOutGas);
+	unit->AddPointOnCurve("TEMPERATURES", "Outside wall [degC]", _time, T_surface - unit->T_ref);
 	// water vapor mass or mass flow
 	unit->AddPointOnCurve("MASS water vapor", "Inlet vapor mass flow [kg/s]", _time, inGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
 	unit->AddPointOnCurve("MASS water vapor", "Outlet vapor mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyVapor));
@@ -1012,11 +1009,11 @@ void CUnitDAEModel::ResultsHandler(double _time, double* _vars, double* _ders, v
 	unit->AddPointOnCurve("MASS water liquid", "Outlet liquid mass flow [kg/s]", _time, outGasStream->GetCompoundMassFlow(_time, unit->keyLiquid));
 	unit->AddPointOnCurve("MASS water liquid", "Liquid mass in holdup [kg]", _time, holdupLiquid->GetCompoundMass(_time, unit->keyLiquid));
 	// energy streams
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GP [J/s]", _time, varQFlow_GP_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GP [J/s]", _time, varQFlow_GP_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GP [W/(m2*K)]", _time, varAlpha_GP_Formula);
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GF [J/s]", _time, varQFlow_GF_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer GF [J/s]", _time, varQFlow_GF_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_GF [W/(m2*K)]", _time, varAlpha_GF_Formula);
-	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer PF [J/s]", _time, varQFlow_PF_Formula/*_plot*/);
+	unit->AddPointOnCurve("HEAT TRANSFER", "Heat transfer PF [J/s]", _time, varQFlow_PF_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "alpha_PF [W/(m2*K)]", _time, varAlpha_PF_Formula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "Water vapor flow enthalpy [J/s]", _time, varHFlowVaporFormula);
 	unit->AddPointOnCurve("HEAT TRANSFER", "beta [m/s]", _time, varBeta_FG_Formula);
@@ -1721,7 +1718,7 @@ massTransferCoefficient CDryerBatch::CalculateBeta(double _time, length d32, dou
 				const dimensionlessNumber Nu_turb = CalculateNusseltSherwoodTurb(Re_s, Pr);
 				const dimensionlessNumber Nu = CalculateNusseltSherwood(Nu_lam, Nu_turb);
 				const dimensionlessNumber Sh = Nu * pow(Sc / Pr, 1. / 3.); // Lewis number = Sc / Pr
-				return Sh * D_a / d32;
+				return 0.1 * Sh * D_a / d32;
 			}			
 			case 1: // Groenewold & Tsostas (see Rieck dissertation (2020), page 150-151)
 			{
@@ -1872,10 +1869,8 @@ temperature CDryerBatch::IterateSurfaceTemp(double _time, temperature T_gasHoldu
 		T_surfaceOld = T_surfaceNew;
 		T_surfaceNew = GetNewTempSurface(_time,T_surfaceOld, T_gasHoldup - T_ref, d32);
 		current_try++;
-		if (current_try == max_try)
-		{
-			std::cout << "test4\n";
-		}
+		//ShowInfo("");
+		// std::cout << current_try << "iteration\n";
 	}
 	return T_surfaceNew;
 }
@@ -1903,7 +1898,7 @@ double CDryerBatch::CalculateHeatLossWall(double _time, length wallThickness, le
 	double resistOut = 1 / (alpha_out * A_out);
 	double resistTotal = resistIn + resistWall + resistOut;
 	const temperature theta_env = GetConstRealParameterValue("theta_env");
-	return (thetaInside - theta_env) / resistTotal;
+	return 100 * (thetaInside - theta_env) / resistTotal;
 }
 
 ////////////////////

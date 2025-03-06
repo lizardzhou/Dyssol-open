@@ -13,7 +13,7 @@ private:
 	//double doubleTransfer = 0;
 	//double MFlowVaporLiquid = 0;
 	//double curveTransfer = 0;
-	int64_t progressCounter = 1;
+	//int64_t progressCounter = 1;
 	//int progressCounterTens = 1;
 	//int progressCounterTotal = 0;
 	//bool liquidSideLimitedGlobal = false;
