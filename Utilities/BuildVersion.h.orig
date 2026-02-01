@@ -1,0 +1,8 @@
+// This file was generated automatically.
+// All manual changes might be reverted after the next build.
+#pragma once 
+<<<<<<< HEAD
+constexpr char CURRENT_BUILD_VERSION[] = " ";
+=======
+const char CURRENT_BUILD_VERSION[] = " ";
+>>>>>>> 97ff767 (Set value of BuildVersion.h as blankspace.)

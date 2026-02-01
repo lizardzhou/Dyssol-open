@@ -239,10 +239,13 @@ Dyssol.VC.VC.opendb
 /Documentation/_build
 /Documentation/conf.py
 /install/
+<<<<<<< HEAD
 /DyssolInstallers/Scripts/UnitsList.iss
 
 # Visual Studio user-specific files
 *.vcxproj.user
-
-# Merge / rebase leftovers
-*.orig
+=======
+/ExternalLibraries/_backup/
+/CMakePresets.json
+/CMakeUserPresets.json
+>>>>>>> 958d16f (Ignore CMake stuffs.)
