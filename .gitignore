@@ -238,3 +238,7 @@ Dyssol.VC.VC.opendb
 /ExternalLibraries/_backup/
 /CMakePresets.json
 /CMakeUserPresets.json
+
+# Merge / rebase leftovers
+*.orig
+*.vcxproj.user
