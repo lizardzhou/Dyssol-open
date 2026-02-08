@@ -170,7 +170,7 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MainWindow", "GUIDialogs\Ma
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Development", "Development", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerBatch", "..\DryerBatch\DryerBatch.vcxproj", "{105F146A-CADE-478D-B55A-4F21402A316E}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Unit_DryerBatch", "Units\DryerBatch\DryerBatch.vcxproj", "{105F146A-CADE-478D-B55A-4F21402A316E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
