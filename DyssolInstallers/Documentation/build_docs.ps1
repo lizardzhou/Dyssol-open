@@ -31,6 +31,6 @@ if (!(Test-Path $install_path)) {
 
 # compile docs
 Set-Location $build_path
-cmake $solution_dir -D CMAKE_INSTALL_PREFIX="$($install_path)" -D BUILD_BINARIES=NO -D BUILD_TESTS=NO --fresh
+cmake $solution_dir -D CMAKE_INSTALL_PREFIX="$($install_path)" -D BUILD_BINARIES=NO -D BUILD_TESTS=NO
 cmake --build . --parallel --target doc
 cmake --build . --parallel --target INSTALL
